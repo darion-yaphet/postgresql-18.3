@@ -3493,7 +3493,7 @@ PostmasterStateMachine(void)
 			 * This state ends when we have no normal client backends running.
 			 * Then we're ready to stop other children.
 			 *
-			 * 当没有正常的客户端后端运行模式。然后我们准备停止其他子进程。
+			 * 当没有正常的客户端后端运行时，此状态结束。然后我们准备停止其他子进程。
 			 */
 			if (CountChildren(btmask(B_BACKEND)) == 0)
 				UpdatePMState(PM_STOP_BACKENDS);
@@ -4240,6 +4240,9 @@ SignalChildren(int signal, BackendTypeMask targetMask)
 		 * If we need to distinguish between B_BACKEND and B_WAL_SENDER, check
 		 * if any B_BACKEND backends have recently announced that they are
 		 * actually WAL senders.
+		 *
+		 * 如果我们需要区分 B_BACKEND 和 B_WAL_SENDER，请检查是否有任何 B_BACKEND 
+		 * 后端最近宣布它们实际上是 WAL 发送进程（walsender）。
 		 */
 		if (btmask_contains(targetMask, B_WAL_SENDER) != btmask_contains(targetMask, B_BACKEND) &&
 			bp->bkend_type == B_BACKEND)
@@ -4306,11 +4309,15 @@ BackendStartup(ClientSocket *client_sock)
 	 * Allocate and assign the child slot.  Note we must do this before
 	 * forking, so that we can handle failures (out of memory or child-process
 	 * slots) cleanly.
+	 *
+	 * 分配并指派子进程槽位。请注意，我们必须在 fork 之前执行此操作，
+	 * 以便我们可以干净地处理失败（内存不足或子进程槽位已满）。
 	 */
 	cac = canAcceptConnections(B_BACKEND);
 	if (cac == CAC_OK)
 	{
 		/* Can change later to B_WAL_SENDER */
+		/* 稍后可能更改为 B_WAL_SENDER */
 		bn = AssignPostmasterChildSlot(B_BACKEND);
 		if (!bn)
 		{
@@ -4349,6 +4356,7 @@ BackendStartup(ClientSocket *client_sock)
 	if (pid < 0)
 	{
 		/* in parent, fork failed */
+		/* 在父进程中，fork 失败 */
 		int			save_errno = errno;
 
 		(void) ReleasePostmasterChildSlot(bn);
@@ -4360,6 +4368,7 @@ BackendStartup(ClientSocket *client_sock)
 	}
 
 	/* in parent, successful fork */
+	/* 在父进程中，fork 成功 */
 	ereport(DEBUG2,
 			(errmsg_internal("forked new %s, pid=%d socket=%d",
 							 GetBackendTypeDesc(bn->bkend_type),
@@ -4368,6 +4377,8 @@ BackendStartup(ClientSocket *client_sock)
 	/*
 	 * Everything's been successful, it's safe to add this backend to our list
 	 * of backends.
+	 *
+	 * 一切顺利，可以将此后端安全地添加到我们的后端列表中。
 	 */
 	bn->pid = pid;
 	return STATUS_OK;
@@ -4380,6 +4391,10 @@ BackendStartup(ClientSocket *client_sock)
  *
  * This is grungy special-purpose code; we cannot use backend libpq since
  * it's not up and running.
+ *
+ * 在关闭连接之前，尝试向客户端报告后端 fork() 失败。由于我们不想承担在 
+ * 此连接上阻塞 Postmaster 的风险，我们将连接设置为非阻塞并仅尝试一次。
+ * 这是些蹩脚的特殊用途代码；我们不能使用后端 libpq，因为它尚未启动运行。
  */
 static void
 report_fork_failure_to_client(ClientSocket *client_sock, int errnum)
@@ -4439,6 +4454,7 @@ ExitPostmaster(int status)
 #endif
 
 	/* should cleanup shared memory and kill all backends */
+	/* 应该清理共享内存并杀死所有后端 */
 	/* 应该清理共享内存并杀死所有后端 */
 
 	/*
@@ -4644,6 +4660,11 @@ process_pm_pmsignal(void)
 			 * It's possible however that we get PMSIGNAL_XLOG_IS_SHUTDOWN
 			 * outside of PM_WAIT_XLOG_SHUTDOWN if an orderly shutdown was
 			 * "interrupted" by a crash or an immediate shutdown.
+			 *
+			 * 检查点进程仅应在关闭期间执行关闭检查点。如果检查点进程在 
+			 * 其他情况下执行了该操作，我们别无选择，只能崩溃重启。
+			 * 但是，如果正常关闭被崩溃或立即关闭“中断”，我们也有可能在 
+			 * PM_WAIT_XLOG_SHUTDOWN 之外收到 PMSIGNAL_XLOG_IS_SHUTDOWN。
 			 */
 			ereport(LOG,
 					(errmsg("WAL was shut down unexpectedly")));
@@ -4651,6 +4672,8 @@ process_pm_pmsignal(void)
 			/*
 			 * Doesn't seem likely to help to take send_abort_for_crash into
 			 * account here.
+			 *
+			 * 在这里考虑 send_abort_for_crash 似乎不太可能有帮助。
 			 */
 			HandleFatalError(PMQUIT_FOR_CRASH, false);
 		}
@@ -4745,6 +4768,9 @@ CountChildren(BackendTypeMask targetMask)
 		 * If we need to distinguish between B_BACKEND and B_WAL_SENDER, check
 		 * if any B_BACKEND backends have recently announced that they are
 		 * actually WAL senders.
+		 *
+		 * 如果我们需要区分 B_BACKEND 和 B_WAL_SENDER，请检查是否有任何 B_BACKEND 
+		 * 后端最近宣布它们实际上是 WAL 发送进程（walsender）。
 		 */
 		if (btmask_contains(targetMask, B_WAL_SENDER) != btmask_contains(targetMask, B_BACKEND) &&
 			bp->bkend_type == B_BACKEND)
@@ -4806,13 +4832,15 @@ StartChildProcess(BackendType type)
 	if (pid < 0)
 	{
 		/* in parent, fork failed */
+		/* 在父进程中，fork 失败 */
 		ReleasePostmasterChildSlot(pmchild);
 		ereport(LOG,
 				(errmsg("could not fork \"%s\" process: %m", PostmasterChildName(type))));
 
 		/*
-		 * fork failure is fatal during startup, but there's no need to choke
-		 * immediately if starting other child types fails.
+		 * fork failure is fatal during startup, auxiliary processes, or COW.
+		 *
+		 * 在启动、辅助进程或写时复制（COW）期间，fork 失败是致命的。
 		 */
 		if (type == B_STARTUP)
 			ExitPostmaster(1);
@@ -4820,6 +4848,7 @@ StartChildProcess(BackendType type)
 	}
 
 	/* in parent, successful fork */
+	/* 在父进程中，fork 成功 */
 	pmchild->pid = pid;
 	return pmchild;
 }
@@ -4978,10 +5007,16 @@ StartBackgroundWorker(RegisteredBgWorker *rw)
 	 * forking, so that we can handle failures (out of memory or child-process
 	 * slots) cleanly.
 	 *
+	 * 分配并指派子进程槽位。请注意，我们必须在 fork 之前执行此操作，
+	 * 以便我们可以干净地处理失败（内存不足或子进程槽位已满）。
+	 *
 	 * Treat failure as though the worker had crashed.  That way, the
 	 * postmaster will wait a bit before attempting to start it again; if we
 	 * tried again right away, most likely we'd find ourselves hitting the
 	 * same resource-exhaustion condition.
+	 * 
+	 * 将失败视为工作进程已崩溃。这样，Postmaster 会在尝试再次启动它之前等待片刻； 
+	 * 如果我们立即再次尝试，很可能会发现自己遇到了同样的资源枯竭情况。
 	 */
 	bn = AssignPostmasterChildSlot(B_BG_WORKER);
 	if (bn == NULL)
@@ -5096,6 +5131,8 @@ maybe_start_bgworkers(void)
 	/*
 	 * During crash recovery, we have no need to be called until the state
 	 * transition out of recovery.
+	 *
+	 * 在崩溃恢复期间，在状态转换出恢复模式之前，我们不需要被调用。
 	 */
 	if (FatalError)
 	{

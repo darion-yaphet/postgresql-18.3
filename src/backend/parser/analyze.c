@@ -2407,6 +2407,10 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 		 * because the namespace will be empty, but it could happen if we are
 		 * inside a rule.
 		 */
+		/*
+		 * 检查当前查询级别上是否存在伪造的 Var 引用（但上层引用是可以的）。
+		 * 通常这不会发生，因为命名空间将为空，但如果我们处于规则内部，则可能会发生。
+		 */
 		if (pstate->p_namespace)
 		{
 			if (contain_vars_of_level((Node *) selectQuery, 1))
@@ -2468,6 +2472,7 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 		const char *context;
 		bool		recursive = (pstate->p_parent_cte &&
 								 pstate->p_parent_cte->cterecursive);
+		/* 是否为递归查询 */
 
 		context = (stmt->op == SETOP_UNION ? "UNION" :
 				   (stmt->op == SETOP_INTERSECT ? "INTERSECT" :
@@ -2710,6 +2715,7 @@ determineRecursiveColTypes(ParseState *pstate, Node *larg, List *nrtargetlist)
 	/*
 	 * Find leftmost leaf SELECT
 	 */
+	/* 查找最左侧的叶子 SELECT */
 	node = larg;
 	while (node && IsA(node, SetOperationStmt))
 		node = ((SetOperationStmt *) node)->larg;
@@ -2721,6 +2727,9 @@ determineRecursiveColTypes(ParseState *pstate, Node *larg, List *nrtargetlist)
 	/*
 	 * Generate dummy targetlist using column names of leftmost select and
 	 * dummy result expressions of the non-recursive term.
+	 */
+	/* 
+	 * 使用最左侧 select 的列名和非递归项的虚拟结果表达式生成虚拟目标列表。
 	 */
 	targetList = NIL;
 	next_resno = 1;
@@ -2760,6 +2769,7 @@ transformReturnStmt(ParseState *pstate, ReturnStmt *stmt)
 
 	qry->commandType = CMD_SELECT;
 	qry->isReturn = true;
+	/* 将 return 标记为 true */
 
 	qry->targetList = list_make1(makeTargetEntry((Expr *) transformExpr(pstate, stmt->returnval, EXPR_KIND_SELECT_TARGET),
 												 1, NULL, false));
@@ -2773,6 +2783,7 @@ transformReturnStmt(ParseState *pstate, ReturnStmt *stmt)
 	qry->hasWindowFuncs = pstate->p_hasWindowFuncs;
 	qry->hasTargetSRFs = pstate->p_hasTargetSRFs;
 	qry->hasAggs = pstate->p_hasAggs;
+	/* 记录查询特性标记 */
 
 	assign_query_collations(pstate, qry);
 
@@ -2795,6 +2806,7 @@ transformUpdateStmt(ParseState *pstate, UpdateStmt *stmt)
 
 	qry->commandType = CMD_UPDATE;
 	pstate->p_is_insert = false;
+	/* 标记为 UPDATE 操作而非 INSERT */
 
 	/* process the WITH clause independently of all else */
 	if (stmt->withClause)
@@ -2811,12 +2823,17 @@ transformUpdateStmt(ParseState *pstate, UpdateStmt *stmt)
 	nsitem = pstate->p_target_nsitem;
 
 	/* subqueries in FROM cannot access the result relation */
+	/* FROM 中的子查询不能访问结果关系 */
 	nsitem->p_lateral_only = true;
 	nsitem->p_lateral_ok = false;
 
 	/*
 	 * the FROM clause is non-standard SQL syntax. We used to be able to do
 	 * this with REPLACE in POSTQUEL so we keep the feature.
+	 */
+	/*
+	 * FROM 子句是非标准 SQL 语法。我们以前可以在 POSTQUEL 中使用 REPLACE 
+	 * 来实现此目的，因此我们保留了此功能。
 	 */
 	transformFromClause(pstate, stmt->fromClause);
 
@@ -2829,6 +2846,7 @@ transformUpdateStmt(ParseState *pstate, UpdateStmt *stmt)
 
 	transformReturningClause(pstate, qry, stmt->returningClause,
 							 EXPR_KIND_RETURNING);
+	/* 处理 RETURNING 子句 */
 
 	/*
 	 * Now we are done with SELECT-like processing, and can get on with
@@ -2842,6 +2860,7 @@ transformUpdateStmt(ParseState *pstate, UpdateStmt *stmt)
 
 	qry->hasTargetSRFs = pstate->p_hasTargetSRFs;
 	qry->hasSubLinks = pstate->p_hasSubLinks;
+	/* 记录查询特性标记 */
 
 	assign_query_collations(pstate, qry);
 
@@ -2929,6 +2948,10 @@ transformUpdateTargetList(ParseState *pstate, List *origTlist)
  * addNSItemForReturning -
  *	add a ParseNamespaceItem for the OLD or NEW alias in RETURNING.
  */
+/*
+ * addNSItemForReturning -
+ *	为 RETURNING 中的 OLD 或 NEW 别名添加 ParseNamespaceItem。
+ */
 static void
 addNSItemForReturning(ParseState *pstate, const char *aliasname,
 					  VarReturningType returning_type)
@@ -2939,6 +2962,7 @@ addNSItemForReturning(ParseState *pstate, const char *aliasname,
 	ParseNamespaceItem *nsitem;
 
 	/* copy per-column data from the target relation */
+	/* 从目标关系中复制每列数据 */
 	colnames = pstate->p_target_nsitem->p_rte->eref->colnames;
 	numattrs = list_length(colnames);
 
@@ -2949,10 +2973,12 @@ addNSItemForReturning(ParseState *pstate, const char *aliasname,
 		   numattrs * sizeof(ParseNamespaceColumn));
 
 	/* mark all columns as returning OLD/NEW */
+	/* 将所有列标记为返回 OLD/NEW */
 	for (int i = 0; i < numattrs; i++)
 		nscolumns[i].p_varreturningtype = returning_type;
 
 	/* build the nsitem, copying most fields from the target relation */
+	/* 构建 nsitem，从目标关系复制大多数字段 */
 	nsitem = (ParseNamespaceItem *) palloc(sizeof(ParseNamespaceItem));
 	nsitem->p_names = makeAlias(aliasname, colnames);
 	nsitem->p_rte = pstate->p_target_nsitem->p_rte;
@@ -2962,12 +2988,17 @@ addNSItemForReturning(ParseState *pstate, const char *aliasname,
 	nsitem->p_returning_type = returning_type;
 
 	/* add it to the query namespace as a table-only item */
+	/* 将其作为仅表项目添加到查询命名空间中 */
 	addNSItemToQuery(pstate, nsitem, false, true, false);
 }
 
 /*
  * transformReturningClause -
  *	handle a RETURNING clause in INSERT/UPDATE/DELETE/MERGE
+ */
+/*
+ * transformReturningClause -
+ *	处理 INSERT/UPDATE/DELETE/MERGE 中的 RETURNING 子句
  */
 void
 transformReturningClause(ParseState *pstate, Query *qry,
@@ -2983,6 +3014,10 @@ transformReturningClause(ParseState *pstate, Query *qry,
 	/*
 	 * Scan RETURNING WITH(...) options for OLD/NEW alias names.  Complain if
 	 * there is any conflict with existing relations.
+	 */
+	/*
+	 * 扫描 RETURNING WITH(...) 选项以获取 OLD/NEW 别名。
+	 * 如果与现有关系有任何冲突，则进行投诉。
 	 */
 	foreach_node(ReturningOption, option, returningClause->options)
 	{
@@ -3028,6 +3063,9 @@ transformReturningClause(ParseState *pstate, Query *qry,
 	 * If OLD/NEW alias names weren't explicitly specified, use "old"/"new"
 	 * unless masked by existing relations.
 	 */
+	/*
+	 * 如果未显式指定 OLD/NEW 别名，则使用 "old"/"new"，除非被现有关系掩盖。
+	 */
 	if (qry->returningOldAlias == NULL &&
 		refnameNamespaceItem(pstate, NULL, "old", -1, NULL) == NULL)
 	{
@@ -3046,10 +3084,15 @@ transformReturningClause(ParseState *pstate, Query *qry,
 	 * and restore the main tlist's value of p_next_resno, just in case
 	 * someone looks at it later (probably won't happen).
 	 */
+	/*
+	 * 我们需要从 1 开始在 RETURNING 列表中分配 resno。保存并恢复主目标列表
+	 * 的 p_next_resno 值，以防万一稍后有人查看它（可能不会发生）。
+	 */
 	save_next_resno = pstate->p_next_resno;
 	pstate->p_next_resno = 1;
 
 	/* transform RETURNING expressions identically to a SELECT targetlist */
+	/* 转换 RETURNING 表达式，方式与 SELECT 目标列表相同 */
 	qry->returningList = transformTargetList(pstate,
 											 returningClause->exprs,
 											 exprKind);
@@ -3060,6 +3103,11 @@ transformReturningClause(ParseState *pstate, Query *qry,
 	 * allow this, the parsed Query will look like it didn't have RETURNING,
 	 * with results that would probably surprise the user.
 	 */
+	/*
+	 * 如果非空目标列表扩展为空（如果它仅包含零列关系的星号扩展，这是可能的），
+	 * 则报错。如果我们允许这种情况，解析后的 Query 将看起来没有 RETURNING，
+	 * 其结果可能会让用户感到惊讶。
+	 */
 	if (qry->returningList == NIL)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
@@ -3068,6 +3116,7 @@ transformReturningClause(ParseState *pstate, Query *qry,
 									exprLocation(linitial(returningClause->exprs)))));
 
 	/* mark column origins */
+	/* 标记列来源 */
 	markTargetListOrigins(pstate, qry->returningList);
 
 	/* resolve any still-unresolved output columns as being type text */
@@ -3075,6 +3124,7 @@ transformReturningClause(ParseState *pstate, Query *qry,
 		resolveTargetListUnknowns(pstate, qry->returningList);
 
 	/* restore state */
+	/* 恢复状态 */
 	pstate->p_namespace = list_truncate(pstate->p_namespace, save_nslen);
 	pstate->p_next_resno = save_next_resno;
 }
@@ -3090,6 +3140,15 @@ transformReturningClause(ParseState *pstate, Query *qry,
  * incorporate FieldStore and/or assignment SubscriptingRef nodes to compute a
  * new value for a container-type variable represented by the target.  The
  * expression references the target as the container source.
+ */
+/*
+ * transformPLAssignStmt -
+ *	  转换 PL/pgSQL 赋值语句
+ *
+ * 如果没有 opt_indirection（可选间接引用），转换后的语句看起来像 "SELECT a_expr ..."，
+ * 除非表达式已被强制转换为目标的类型。对于间接引用，它仍然是一个 SELECT，
+ * 但表达式将包含 FieldStore 和/或赋值 SubscriptingRef 节点，以计算目标表示的
+ * 容器类型变量的新值。该表达式将目标作为容器源引用。
  */
 static Query *
 transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
@@ -3114,6 +3173,10 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 	 * has more than one dotted name, we have to pull the extra names out of
 	 * the indirection list.
 	 */
+	/*
+	 * 首先，为目标变量构造一个 ColumnRef。如果目标具有多个带点号的名称，
+	 * 我们必须从间接引用列表中提取额外的名称。
+	 */
 	cref->fields = list_make1(makeString(stmt->name));
 	cref->location = stmt->location;
 	if (nnames > 1)
@@ -3135,6 +3198,9 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 	 * Transform the target reference.  Typically we will get back a Param
 	 * node, but there's no reason to be too picky about its type.
 	 */
+	/*
+	 * 转换目标引用。通常我们会得到一个 Param 节点，但没有理由对其类型过于挑剔。
+	 */
 	target = transformExpr(pstate, (Node *) cref,
 						   EXPR_KIND_UPDATE_TARGET);
 	targettype = exprType(target);
@@ -3145,23 +3211,32 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 	 * The rest mostly matches transformSelectStmt, except that we needn't
 	 * consider WITH or INTO, and we build a targetlist our own way.
 	 */
+	/*
+	 * 其余部分大部分与 transformSelectStmt 匹配，不同之处在于我们不需要考虑 WITH 或 INTO，
+	 * 并且我们以自己的方式构建目标列表。
+	 */
 	qry->commandType = CMD_SELECT;
 	pstate->p_is_insert = false;
 
 	/* make FOR UPDATE/FOR SHARE info available to addRangeTableEntry */
+	/* 使 FOR UPDATE/FOR SHARE 信息可用于 addRangeTableEntry */
 	pstate->p_locking_clause = sstmt->lockingClause;
 
 	/* make WINDOW info available for window functions, too */
+	/* 也使 WINDOW 信息可用于窗口函数 */
 	pstate->p_windowdefs = sstmt->windowClause;
 
 	/* process the FROM clause */
+	/* 处理 FROM 子句 */
 	transformFromClause(pstate, sstmt->fromClause);
 
 	/* initially transform the targetlist as if in SELECT */
+	/* 最初按 SELECT 中的方式转换目标列表 */
 	tlist = transformTargetList(pstate, sstmt->targetList,
 								EXPR_KIND_SELECT_TARGET);
 
 	/* we should have exactly one targetlist item */
+	/* 我们应该正好有一个目标列表项目 */
 	if (list_length(tlist) != 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
@@ -3175,6 +3250,10 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 	/*
 	 * This next bit is similar to transformAssignedExpr; the key difference
 	 * is we use COERCION_PLPGSQL not COERCION_ASSIGNMENT.
+	 */
+	/*
+	 * 下一部分类似于 transformAssignedExpr；关键区别在于我们使用
+	 * COERCION_PLPGSQL 而不是 COERCION_ASSIGNMENT。
 	 */
 	type_id = exprType((Node *) tle->expr);
 
@@ -3206,12 +3285,20 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 		 * and let the PL/pgSQL executor do the conversion its way.  This is
 		 * rather bogus, but it's needed for backwards compatibility.
 		 */
+		/*
+		 * 技巧：不要让 coerce_to_target_type() 处理不一致的复合类型。
+		 * 只需完整地传递表达式结果，让 PL/pgSQL 执行器以其自己的方式进行转换。
+		 * 这相当虚假，但为了向后兼容是必要的。
+		 */
 	}
 	else
 	{
 		/*
 		 * For normal non-qualified target column, do type checking and
 		 * coercion.
+		 */
+		/*
+		 * 对于正常的非限定目标列，执行类型检查和强制转换。
 		 */
 		Node	   *orig_expr = (Node *) tle->expr;
 
@@ -3223,6 +3310,7 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
 								  COERCE_IMPLICIT_CAST,
 								  -1);
 		/* With COERCION_PLPGSQL, this error is probably unreachable */
+		/* 使用 COERCION_PLPGSQL，此错误可能是无法到达的 */
 		if (tle->expr == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -3341,6 +3429,14 @@ transformPLAssignStmt(ParseState *pstate, PLAssignStmt *stmt)
  * to do it during the normal parse analysis phase to ensure that side effects
  * of parser hooks happen at the expected time.
  */
+/*
+ * transformDeclareCursorStmt -
+ *	转换 DECLARE CURSOR 语句
+ *
+ * DECLARE CURSOR 与其他实用程序语句相似，我们将它作为一个 CMD_UTILITY Query 节点发出；
+ * 但是，我们必须首先转换包含的查询。我们过去常将其推迟到执行时，
+ * 但在正常的解析分析阶段执行它确实是必要的，以确保解析器钩子的副作用在预期时间发生。
+ */
 static Query *
 transformDeclareCursorStmt(ParseState *pstate, DeclareCursorStmt *stmt)
 {
@@ -3364,10 +3460,12 @@ transformDeclareCursorStmt(ParseState *pstate, DeclareCursorStmt *stmt)
 						"ASENSITIVE", "INSENSITIVE")));
 
 	/* Transform contained query, not allowing SELECT INTO */
+	/* 转换包含的查询，不允许 SELECT INTO */
 	query = transformStmt(pstate, stmt->query);
 	stmt->query = (Node *) query;
 
 	/* Grammar should not have allowed anything but SELECT */
+	/* 语法不应允许除 SELECT 以外的任何内容 */
 	if (!IsA(query, Query) ||
 		query->commandType != CMD_SELECT)
 		elog(ERROR, "unexpected non-SELECT command in DECLARE CURSOR");
@@ -3377,12 +3475,17 @@ transformDeclareCursorStmt(ParseState *pstate, DeclareCursorStmt *stmt)
 	 * allowed, but the semantics of when the updates occur might be
 	 * surprising.)
 	 */
+	/*
+	 * 我们还禁止在游标中使用修改数据的 WITH 子句。（这可以被允许，
+	 * 但更新发生的语义可能会令人惊讶。）
+	 */
 	if (query->hasModifyingCTE)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("DECLARE CURSOR must not contain data-modifying statements in WITH")));
 
 	/* FOR UPDATE and WITH HOLD are not compatible */
+	/* FOR UPDATE 和 WITH HOLD 不兼容 */
 	if (query->rowMarks != NIL && (stmt->options & CURSOR_OPT_HOLD))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -3394,6 +3497,7 @@ transformDeclareCursorStmt(ParseState *pstate, DeclareCursorStmt *stmt)
 				 errdetail("Holdable cursors must be READ ONLY.")));
 
 	/* FOR UPDATE and SCROLL are not compatible */
+	/* FOR UPDATE 和 SCROLL 不兼容 */
 	if (query->rowMarks != NIL && (stmt->options & CURSOR_OPT_SCROLL))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -3405,6 +3509,7 @@ transformDeclareCursorStmt(ParseState *pstate, DeclareCursorStmt *stmt)
 				 errdetail("Scrollable cursors must be READ ONLY.")));
 
 	/* FOR UPDATE and INSENSITIVE are not compatible */
+	/* FOR UPDATE 和 INSENSITIVE 不兼容 */
 	if (query->rowMarks != NIL && (stmt->options & CURSOR_OPT_INSENSITIVE))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_CURSOR_DEFINITION),
@@ -3434,6 +3539,14 @@ transformDeclareCursorStmt(ParseState *pstate, DeclareCursorStmt *stmt)
  * to do it during the normal parse analysis phase to ensure that side effects
  * of parser hooks happen at the expected time.
  */
+/*
+ * transformExplainStmt -
+ *	转换 EXPLAIN 语句
+ *
+ * EXPLAIN 与其他实用程序语句类似，我们将它作为一个 CMD_UTILITY Query 节点发出；
+ * 但是，我们必须首先转换包含的查询。我们过去常将其推迟到执行时，
+ * 但在正常的解析分析阶段执行它确实是必要的，以确保解析器钩子的副作用在预期时间发生。
+ */
 static Query *
 transformExplainStmt(ParseState *pstate, ExplainStmt *stmt)
 {
@@ -3446,6 +3559,10 @@ transformExplainStmt(ParseState *pstate, ExplainStmt *stmt)
 	 * If we have no external source of parameter definitions, and the
 	 * GENERIC_PLAN option is specified, then accept variable parameter
 	 * definitions (similarly to PREPARE, for example).
+	 */
+	/*
+	 * 如果我们没有参数定义的外部源，并且指定了 GENERIC_PLAN 选项，
+	 * 那么接受可变参数定义（例如，类似于 PREPARE）。
 	 */
 	if (pstate->p_paramref_hook == NULL)
 	{
@@ -3464,9 +3581,11 @@ transformExplainStmt(ParseState *pstate, ExplainStmt *stmt)
 	}
 
 	/* transform contained query, allowing SELECT INTO */
+	/* 转换包含的查询，允许 SELECT INTO */
 	stmt->query = (Node *) transformOptionalSelectInto(pstate, stmt->query);
 
 	/* make sure all is well with parameter types */
+	/* 确保参数类型一切正常 */
 	if (generic_plan)
 		check_variable_parameters(pstate, (Query *) stmt->query);
 
@@ -3486,6 +3605,18 @@ transformExplainStmt(ParseState *pstate, ExplainStmt *stmt)
  *
  * As with DECLARE CURSOR and EXPLAIN, transform the contained statement now.
  */
+/*
+ * transformCreateTableAsStmt -
+ *	转换 CREATE TABLE AS、SELECT ... INTO 或 CREATE MATERIALIZED VIEW 语句
+ *
+ * 与 DECLARE CURSOR 和 EXPLAIN 一样，现在转换包含的语句。
+ */
+/*
+ * transformCreateTableAsStmt -
+ *	转换 CREATE TABLE AS、SELECT ... INTO 或 CREATE MATERIALIZED VIEW 语句
+ *
+ * 与 DECLARE CURSOR 和 EXPLAIN 一样，现在转换包含的语句。
+ */
 static Query *
 transformCreateTableAsStmt(ParseState *pstate, CreateTableAsStmt *stmt)
 {
@@ -3493,10 +3624,12 @@ transformCreateTableAsStmt(ParseState *pstate, CreateTableAsStmt *stmt)
 	Query	   *query;
 
 	/* transform contained query, not allowing SELECT INTO */
+	/* 转换包含的查询，不允许 SELECT INTO */
 	query = transformStmt(pstate, stmt->query);
 	stmt->query = (Node *) query;
 
 	/* additional work needed for CREATE MATERIALIZED VIEW */
+	/* CREATE MATERIALIZED VIEW 需要的额外工作 */
 	if (stmt->objtype == OBJECT_MATVIEW)
 	{
 		/*
