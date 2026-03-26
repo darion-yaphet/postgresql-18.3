@@ -2,6 +2,19 @@
  *
  * print.c
  *	  various print routines (used mostly for debugging)
+ *	  各种打印例程（主要用于调试）
+ *
+ * 实现核心流程概述：
+ * 本文件提供了一组用于调试的打印工具，能够将 PostgreSQL 的内部节点结构（Node）
+ * 转换为人类可读的字符串格式。
+ *
+ * 核心流程如下：
+ * 1. 序列化：利用 nodeToString() 或 nodeToStringWithLocations() 将 Node 树转换为紧凑的字符串。
+ * 2. 格式化：
+ *    - format_node_dump()：简单的换行处理，确保不超出屏幕宽度。
+ *    - pretty_format_node_dump()：基于花括号、冒号和缩进的格式化逻辑，使复杂树结构（如查询树、计划树）清晰可见。
+ * 3. 输出：支持输出到标准输出（stdout）或系统日志（elog/ereport）。
+ * 4. 特化打印：针对 RangeTable、表达式（Expr）、目标列表（TargetList）、PathKeys 和 TupleSlot 提供了专门的缩略打印逻辑。
  *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -29,8 +42,16 @@
 
 
 /*
+ * =========================================================================
+ * 1. 通用节点打印接口
+ * 提供基础的打印功能，支持普通格式、美化格式以及向日志系统输出。
+ * =========================================================================
+ */
+
+/*
  * print
  *	  print contents of Node to stdout
+ *	  将 Node 的内容打印到标准输出
  */
 void
 print(const void *obj)
@@ -49,6 +70,7 @@ print(const void *obj)
 /*
  * pprint
  *	  pretty-print contents of Node to stdout
+ *	  将 Node 的内容“美化打印”到标准输出
  */
 void
 pprint(const void *obj)
@@ -67,6 +89,7 @@ pprint(const void *obj)
 /*
  * elog_node_display
  *	  send pretty-printed contents of Node to postmaster log
+ *	  将节点的美化打印内容发送到 postmaster 日志
  */
 void
 elog_node_display(int lev, const char *title, const void *obj, bool pretty)
@@ -87,11 +110,21 @@ elog_node_display(int lev, const char *title, const void *obj, bool pretty)
 }
 
 /*
+ * =========================================================================
+ * 2. 字符串格式化逻辑
+ * 负责将 nodeToString 生成的原始字符串处理为带有换行和缩进的易读格式。
+ * =========================================================================
+ */
+
+/*
  * Format a nodeToString output for display on a terminal.
+ * 格式化 nodeToString 的输出以在终端显示。
  *
  * The result is a palloc'd string.
+ * 结果是一个 palloc 分配的字符串。
  *
  * This version just tries to break at whitespace.
+ * 此版本仅尝试在空白处换行。
  */
 char *
 format_node_dump(const char *dump)
@@ -113,7 +146,8 @@ format_node_dump(const char *dump)
 			break;
 		if (dump[i] == ' ')
 		{
-			/* ok to break at adjacent space */
+			/* ok to break at adjacent space
+			 * 可以在相邻空格处换行 */
 			i++;
 		}
 		else
@@ -123,7 +157,8 @@ format_node_dump(const char *dump)
 					break;
 			if (k > 0)
 			{
-				/* back up; will reprint all after space */
+				/* back up; will reprint all after space
+				 * 回退；将在空格后重新打印所有内容 */
 				i -= (j - k - 1);
 				j = k;
 			}
@@ -142,10 +177,13 @@ format_node_dump(const char *dump)
 
 /*
  * Format a nodeToString output for display on a terminal.
+ * 格式化 nodeToString 的输出以在终端显示。
  *
  * The result is a palloc'd string.
+ * 结果是一个 palloc 分配的字符串。
  *
  * This version tries to indent intelligently.
+ * 此版本尝试智能地进行缩进。
  */
 char *
 pretty_format_node_dump(const char *dump)
@@ -161,8 +199,10 @@ pretty_format_node_dump(const char *dump)
 	int			j;
 
 	initStringInfo(&str);
-	indentLev = 0;				/* logical indent level */
-	indentDist = 0;				/* physical indent distance */
+	indentLev = 0;				/* logical indent level
+								 * 逻辑缩进级别 */
+	indentDist = 0;				/* physical indent distance
+								 * 物理缩进距离 */
 	i = 0;
 	for (;;)
 	{
@@ -176,28 +216,34 @@ pretty_format_node_dump(const char *dump)
 				case '}':
 					if (j != indentDist)
 					{
-						/* print data before the } */
+						/* print data before the }
+						 * 在 } 之前打印数据 */
 						line[j] = '\0';
 						appendStringInfo(&str, "%s\n", line);
 					}
-					/* print the } at indentDist */
+					/* print the } at indentDist
+					 * 在 indentDist 处打印 } */
 					line[indentDist] = '}';
 					line[indentDist + 1] = '\0';
 					appendStringInfo(&str, "%s\n", line);
-					/* outdent */
+					/* outdent
+					 * 减少缩进 */
 					if (indentLev > 0)
 					{
 						indentLev--;
 						indentDist = Min(indentLev * INDENTSTOP, MAXINDENT);
 					}
 					j = indentDist - 1;
-					/* j will equal indentDist on next loop iteration */
-					/* suppress whitespace just after } */
+					/* j will equal indentDist on next loop iteration
+					 * 在下次循环迭代中 j 将等于 indentDist */
+					/* suppress whitespace just after }
+					 * 抑制紧跟在 } 之后的空白 */
 					while (dump[i + 1] == ' ')
 						i++;
 					break;
 				case ')':
-					/* force line break after ), unless another ) follows */
+					/* force line break after ), unless another ) follows
+					 * 除非后面紧跟另一个 )，否则强制在 ) 之后换行 */
 					if (dump[i + 1] != ')')
 					{
 						line[j + 1] = '\0';
@@ -208,13 +254,15 @@ pretty_format_node_dump(const char *dump)
 					}
 					break;
 				case '{':
-					/* force line break before { */
+					/* force line break before {
+					 * 强制在 { 之前换行 */
 					if (j != indentDist)
 					{
 						line[j] = '\0';
 						appendStringInfo(&str, "%s\n", line);
 					}
-					/* indent */
+					/* indent
+					 * 增加缩进 */
 					indentLev++;
 					indentDist = Min(indentLev * INDENTSTOP, MAXINDENT);
 					for (j = 0; j < indentDist; j++)
@@ -222,7 +270,8 @@ pretty_format_node_dump(const char *dump)
 					line[j] = dump[i];
 					break;
 				case ':':
-					/* force line break before : */
+					/* force line break before :
+					 * 强制在 : 之前换行 */
 					if (j != indentDist)
 					{
 						line[j] = '\0';
@@ -247,8 +296,16 @@ pretty_format_node_dump(const char *dump)
 }
 
 /*
+ * =========================================================================
+ * 3. 特定数据结构特化打印
+ * 针对 RangeTable、表达式、路径键、目标列表等核心数据结构提供简洁的摘要打印。
+ * =========================================================================
+ */
+
+/*
  * print_rt
  *	  print contents of range table
+ *	  打印范围表（Range Table）的内容
  */
 void
 print_rt(const List *rtable)
@@ -320,6 +377,7 @@ print_rt(const List *rtable)
 /*
  * print_expr
  *	  print an expression
+ *	  打印表达式
  */
 void
 print_expr(const Node *expr, const List *rtable)
@@ -425,6 +483,7 @@ print_expr(const Node *expr, const List *rtable)
 /*
  * print_pathkeys -
  *	  pathkeys list of PathKeys
+ *	  打印 PathKeys 列表
  */
 void
 print_pathkeys(const List *pathkeys, const List *rtable)
@@ -440,7 +499,8 @@ print_pathkeys(const List *pathkeys, const List *rtable)
 		bool		first = true;
 
 		eclass = pathkey->pk_eclass;
-		/* chase up, in case pathkey is non-canonical */
+		/* chase up, in case pathkey is non-canonical
+		 * 追溯，以防 pathkey 是非规范的 */
 		while (eclass->ec_merged)
 			eclass = eclass->ec_merged;
 
@@ -465,6 +525,7 @@ print_pathkeys(const List *pathkeys, const List *rtable)
 /*
  * print_tl
  *	  print targetlist in a more legible way.
+ *	  以更易读的方式打印目标列表（targetlist）。
  */
 void
 print_tl(const List *tlist, const List *rtable)
@@ -491,6 +552,7 @@ print_tl(const List *tlist, const List *rtable)
 /*
  * print_slot
  *	  print out the tuple with the given TupleTableSlot
+ *	  打印给定 TupleTableSlot 中的元组
  */
 void
 print_slot(TupleTableSlot *slot)
