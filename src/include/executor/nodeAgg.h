@@ -2,12 +2,29 @@
  *
  * nodeAgg.h
  *	  prototypes for nodeAgg.c
- *
+ *    nodeAgg.c 的原型。
  *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/executor/nodeAgg.h
+ *
+ * Core Flow:
+ * 核心流程：
+ * 1. Initialization: ExecInitAgg sets up metadata for each aggregate (Aggref) and grouping set,
+ *    including transition functions, final functions, and hash tables if needed.
+ *    初始化：ExecInitAgg 为每个聚合（Aggref）和分组集设置元数据，包括转换函数、最终函数以及所需的哈希表。
+ * 2. Processing:
+ *    处理：
+ *    a. Hashed: Input tuples are distributed into hash table buckets based on grouping keys.
+ *       哈希方式：输入元组根据分组键分布到哈希表桶中。
+ *    b. Sorted/Plain: Tuples are processed in sequence, and aggregate states are updated per group.
+ *       排序/普通方式：元组按顺序处理，每个组的聚合状态都会更新。
+ * 3. Transitions: For each input tuple, transfn/combinefn is called to update the internal state.
+ *    转换：对于每个输入元组，调用 transfn/combinefn 来更新内部状态。
+ * 4. Finalization: Once a group is complete, finalfn is called to convert the internal state
+ *    into the final output value.
+ *    最终化：一旦一个组处理完成，调用 finalfn 将内部状态转换为最终输出值。
  *
  *-------------------------------------------------------------------------
  */
@@ -20,36 +37,46 @@
 
 /*
  * AggStatePerTransData - per aggregate state value information
+ * AggStatePerTransData - 每个聚合状态值的信息
  *
  * Working state for updating the aggregate's state value, by calling the
  * transition function with an input row. This struct does not store the
  * information needed to produce the final aggregate result from the transition
  * state, that's stored in AggStatePerAggData instead. This separation allows
  * multiple aggregate results to be produced from a single state value.
+ * 通过使用输入行调用转换函数来更新聚合状态值的运行状态。此结构不存储从转换状态
+ * 生成最终聚合结果所需的信息，该信息存储在 AggStatePerAggData 中。
+ * 这种分离允许从单个状态值产生多个聚合结果。
  */
 typedef struct AggStatePerTransData
 {
 	/*
 	 * These values are set up during ExecInitAgg() and do not change
 	 * thereafter:
+	 * 这些值在 ExecInitAgg() 期间设置，此后不再更改：
 	 */
 
 	/*
 	 * Link to an Aggref expr this state value is for.
+	 * 链接到此状态值所属的 Aggref 表达式。
 	 *
 	 * There can be multiple Aggref's sharing the same state value, so long as
 	 * the inputs and transition functions are identical and the final
 	 * functions are not read-write.  This points to the first one of them.
+	 * 只要输入和转换函数相同，并且最终函数不是读写的，就可以有多个 Aggref 共享同一个状态值。
+	 * 这指向其中的第一个。
 	 */
 	Aggref	   *aggref;
 
 	/*
 	 * Is this state value actually being shared by more than one Aggref?
+	 * 此状态值实际上是否由多个 Aggref 共享？
 	 */
 	bool		aggshared;
 
 	/*
 	 * True for ORDER BY and DISTINCT Aggrefs that are not aggpresorted.
+	 * 对于非预先排序的 ORDER BY 和 DISTINCT Aggref 为真。
 	 */
 	bool		aggsortrequired;
 
@@ -57,6 +84,8 @@ typedef struct AggStatePerTransData
 	 * Number of aggregated input columns.  This includes ORDER BY expressions
 	 * in both the plain-agg and ordered-set cases.  Ordered-set direct args
 	 * are not counted, though.
+	 * 聚合输入列的数量。这包括常规聚合和有序集情况下的 ORDER BY 表达式。
+	 * 但不计算有序集的直接参数。
 	 */
 	int			numInputs;
 
@@ -64,6 +93,9 @@ typedef struct AggStatePerTransData
 	 * Number of aggregated input columns to pass to the transfn.  This
 	 * includes the ORDER BY columns for ordered-set aggs, but not for plain
 	 * aggs.  (This doesn't count the transition state value!)
+	 * 要传递给转换函数 (transfn) 的聚合输入列数。
+	 * 这包括有序集聚合的 ORDER BY 列，但不包括常规聚合。
+	 * （这不包括转换状态值！）
 	 */
 	int			numTransInputs;
 
@@ -177,12 +209,16 @@ typedef struct AggStatePerTransData
 
 /*
  * AggStatePerAggData - per-aggregate information
+ * AggStatePerAggData - 每个聚合的信息
  *
  * This contains the information needed to call the final function, to produce
  * a final aggregate result from the state value. If there are multiple
  * identical Aggrefs in the query, they can all share the same per-agg data.
+ * 这包含调用最终函数所需的信息，以便从状态值产生最终聚合结果。
+ * 如果查询中有多个完全相同的 Aggref，它们可以共享相同的 per-agg 数据。
  *
  * These values are set up during ExecInitAgg() and do not change thereafter.
+ * 这些值在 ExecInitAgg() 期间设置，此后不再更改。
  */
 typedef struct AggStatePerAggData
 {
@@ -233,19 +269,26 @@ typedef struct AggStatePerAggData
 
 /*
  * AggStatePerGroupData - per-aggregate-per-group working state
+ * AggStatePerGroupData - 每个聚合每个分组的处理状态
  *
  * These values are working state that is initialized at the start of
  * an input tuple group and updated for each input tuple.
+ * 这些值是在输入元组组开始时初始化并为每个输入元组更新的处理状态。
  *
  * In AGG_PLAIN and AGG_SORTED modes, we have a single array of these
  * structs (pointed to by aggstate->pergroup); we re-use the array for
  * each input group, if it's AGG_SORTED mode.  In AGG_HASHED mode, the
  * hash table contains an array of these structs for each tuple group.
+ * 在 AGG_PLAIN 和 AGG_SORTED 模式下，我们有一个此类结构的单数组（由 aggstate->pergroup 指向）；
+ * 如果是 AGG_SORTED 模式，我们会为每个输入组重用该数组。
+ * 在 AGG_HASHED 模式下，哈希表为每个元组组包含一个此类结构的数组。
  *
  * Logically, the sortstate field belongs in this struct, but we do not
  * keep it here for space reasons: we don't support DISTINCT aggregates
  * in AGG_HASHED mode, so there's no reason to use up a pointer field
  * in every entry of the hashtable.
+ * 从逻辑上讲，sortstate 字段属于此结构，但出于空间原因，我们不将其保留在此处：
+ * 我们不支持 AGG_HASHED 模式下的 DISTINCT 聚合，因此没有理由在哈希表的每个条目中都占用一个指针字段。
  */
 typedef struct AggStatePerGroupData
 {
@@ -263,19 +306,26 @@ typedef struct AggStatePerGroupData
 	 * the same though: if transfn later returns a NULL, we want to keep that
 	 * NULL and not auto-replace it with a later input value. Only the first
 	 * non-NULL input will be auto-substituted.
+	 * 注意：noTransValue 最初与 transValueIsNull 具有相同的值，如果为真，则两者同时清除为假。
+	 * 但它们并不相同：如果转换函数后来回传一个 NULL，我们要保留该 NULL，而不是用后面的输入值自动替换。
+	 * 只有第一个非 NULL 输入会被自动替换。
 	 */
 }			AggStatePerGroupData;
 
 /*
  * AggStatePerPhaseData - per-grouping-set-phase state
+ * AggStatePerPhaseData - 每个分组集阶段的状态
  *
  * Grouping sets are divided into "phases", where a single phase can be
  * processed in one pass over the input. If there is more than one phase, then
  * at the end of input from the current phase, state is reset and another pass
  * taken over the data which has been re-sorted in the mean time.
+ * 分组集分为多个“阶段”，其中单个阶段可以对输入执行一次扫描来处理。如果存在多个阶段，
+ * 那么在当前阶段的输入结束时，状态会被重置，并对在此期间已重新排序的数据进行另一次扫描。
  *
  * Accordingly, each phase specifies a list of grouping sets and group clause
  * information, plus each phase after the first also has a sort order.
+ * 因此，每个阶段指定一个分组集列表和分组子句信息，而且第一个阶段之后的每个阶段还有一个排序顺序。
  */
 typedef struct AggStatePerPhaseData
 {
@@ -322,20 +372,29 @@ typedef struct AggStatePerHashData
 }			AggStatePerHashData;
 
 
+/* Initialize Agg node / 初始化 Agg 节点 */
 extern AggState *ExecInitAgg(Agg *node, EState *estate, int eflags);
+/* Cleanup Agg node / 清理 Agg 节点 */
 extern void ExecEndAgg(AggState *node);
+/* Restart Agg scan / 重新启动 Agg 扫描 */
 extern void ExecReScanAgg(AggState *node);
 
+/* Calculate hash aggregation entry size / 计算哈希聚合条目大小 */
 extern Size hash_agg_entry_size(int numTrans, Size tupleWidth,
 								Size transitionSpace);
+/* Set limits for hash aggregation / 设置哈希聚合的限制 */
 extern void hash_agg_set_limits(double hashentrysize, double input_groups,
 								int used_bits, Size *mem_limit,
 								uint64 *ngroups_limit, int *num_partitions);
 
-/* parallel instrumentation support */
+/* parallel instrumentation support / 并行检测支持 */
+/* Estimate aggregation DSM requirement / 估算聚合操作的共享内存需求 */
 extern void ExecAggEstimate(AggState *node, ParallelContext *pcxt);
+/* Initialize aggregation DSM state / 初始化聚合操作的共享内存状态 */
 extern void ExecAggInitializeDSM(AggState *node, ParallelContext *pcxt);
+/* Initialize parallel worker for aggregation / 为聚合操作初始化并行工作进程 */
 extern void ExecAggInitializeWorker(AggState *node, ParallelWorkerContext *pwcxt);
+/* Retrieve parallel aggregation instrumentation / 获取并行聚合的检测结果 */
 extern void ExecAggRetrieveInstrumentation(AggState *node);
 
 #endif							/* NODEAGG_H */
