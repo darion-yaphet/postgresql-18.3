@@ -14,7 +14,10 @@ typedef struct float4key
 	float4		upper;
 } float4KEY;
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_float4_compress);
 PG_FUNCTION_INFO_V1(gbt_float4_fetch);
 PG_FUNCTION_INFO_V1(gbt_float4_union);
@@ -108,6 +111,8 @@ float4_dist(PG_FUNCTION_ARGS)
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 Datum
@@ -133,12 +138,18 @@ gbt_float4_consistent(PG_FUNCTION_ARGS)
 	float4		query = PG_GETARG_FLOAT4(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	float4KEY  *kkk = (float4KEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	key.lower = (GBT_NUMKEY *) &kkk->lower;
@@ -155,7 +166,10 @@ gbt_float4_distance(PG_FUNCTION_ARGS)
 	GISTENTRY  *entry = (GISTENTRY *) PG_GETARG_POINTER(0);
 	float4		query = PG_GETARG_FLOAT4(1);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	float4KEY  *kkk = (float4KEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
@@ -213,7 +227,10 @@ gbt_float4_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	float4KEY  *arg1 = (float4KEY *) DatumGetPointer(x);
 	float4KEY  *arg2 = (float4KEY *) DatumGetPointer(y);
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	return float4_cmp_internal(arg1->lower, arg2->lower);
 }
 

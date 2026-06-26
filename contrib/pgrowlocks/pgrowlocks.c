@@ -52,6 +52,8 @@ PG_FUNCTION_INFO_V1(pgrowlocks);
 /* ----------
  * pgrowlocks:
  * returns tids of rows being locked
+ *
+ * pgrolocks：返回被锁定的行的tid
  * ----------
  */
 
@@ -80,7 +82,10 @@ pgrowlocks(PG_FUNCTION_ARGS)
 
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* Access the table */
+	/* Access the table
+	 *
+	 * 访问表
+	 */
 	relrv = makeRangeVarFromNameList(textToQualifiedNameList(relname));
 	rel = relation_openrv(relrv, AccessShareLock);
 
@@ -103,6 +108,8 @@ pgrowlocks(PG_FUNCTION_ARGS)
 	/*
 	 * check permissions: must have SELECT on table or be in
 	 * pg_stat_scan_tables
+	 *
+	 * 检查权限：必须对表有 SELECT 或位于 pg_stat_scan_tables 中
 	 */
 	aclresult = pg_class_aclcheck(RelationGetRelid(rel), GetUserId(),
 								  ACL_SELECT);
@@ -113,7 +120,10 @@ pgrowlocks(PG_FUNCTION_ARGS)
 		aclcheck_error(aclresult, get_relkind_objtype(rel->rd_rel->relkind),
 					   RelationGetRelationName(rel));
 
-	/* Scan the relation */
+	/* Scan the relation
+	 *
+	 * 扫描关系
+	 */
 	scan = table_beginscan(rel, GetActiveSnapshot(), 0, NULL);
 	hscan = (HeapScanDesc) scan;
 
@@ -127,7 +137,10 @@ pgrowlocks(PG_FUNCTION_ARGS)
 		TransactionId xmax;
 		uint16		infomask;
 
-		/* must hold a buffer lock to call HeapTupleSatisfiesUpdate */
+		/* must hold a buffer lock to call HeapTupleSatisfiesUpdate
+		 *
+		 * 必须持有缓冲区锁才能调用 HeapTupleSatisfiesUpdate
+		 */
 		LockBuffer(hscan->rs_cbuf, BUFFER_LOCK_SHARE);
 
 		htsu = HeapTupleSatisfiesUpdate(tuple,
@@ -138,6 +151,8 @@ pgrowlocks(PG_FUNCTION_ARGS)
 
 		/*
 		 * A tuple is locked if HTSU returns BeingModified.
+		 *
+		 * 如果 HTSU 返回 BeingModified，则元组被锁定。
 		 */
 		if (htsu == TM_BeingModified)
 		{
@@ -244,7 +259,10 @@ pgrowlocks(PG_FUNCTION_ARGS)
 							snprintf(values[Atnum_modes], NCHARS, "{For No Key Update}");
 					}
 					else
-						/* neither keyshare nor exclusive bit it set */
+						/* neither keyshare nor exclusive bit it set
+						 *
+						 * 它既没有设置密钥共享也没有设置独占位
+						 */
 						snprintf(values[Atnum_modes], NCHARS,
 								 "{transient upgrade status}");
 				}
@@ -263,7 +281,10 @@ pgrowlocks(PG_FUNCTION_ARGS)
 
 			LockBuffer(hscan->rs_cbuf, BUFFER_LOCK_UNLOCK);
 
-			/* build a tuple */
+			/* build a tuple
+			 *
+			 * 构建一个元组
+			 */
 			tuple = BuildTupleFromCStrings(attinmeta, values);
 			tuplestore_puttuple(rsinfo->setResult, tuple);
 		}

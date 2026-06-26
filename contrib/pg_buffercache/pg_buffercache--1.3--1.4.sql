@@ -1,6 +1,8 @@
 /* contrib/pg_buffercache/pg_buffercache--1.3--1.4.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION pg_buffercache UPDATE TO '1.4'" to load this file. \quit
 
 CREATE FUNCTION pg_buffercache_summary(
@@ -22,6 +24,8 @@ AS 'MODULE_PATHNAME', 'pg_buffercache_usage_counts'
 LANGUAGE C PARALLEL SAFE;
 
 -- Don't want these to be available to public.
+--
+-- 不希望这些内容向公众公开。
 REVOKE ALL ON FUNCTION pg_buffercache_summary() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION pg_buffercache_summary() TO pg_monitor;
 REVOKE ALL ON FUNCTION pg_buffercache_usage_counts() FROM PUBLIC;

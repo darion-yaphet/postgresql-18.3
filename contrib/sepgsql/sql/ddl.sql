@@ -1,20 +1,30 @@
 --
 -- Regression Test for DDL of Object Permission Checks
 --
+-- 对象权限检查的 DDL 回归测试
+--
 
 -- clean-up in case a prior regression run failed
+--
+-- 清理以防先前的回归运行失败
 SET client_min_messages TO 'warning';
 DROP DATABASE IF EXISTS sepgsql_test_regression;
 DROP USER IF EXISTS regress_sepgsql_test_user;
 RESET client_min_messages;
 
 -- confirm required permissions using audit messages
+--
+-- 使用审核消息确认所需的权限
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_superuser_t:s0
+--
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_superuser_t:s0
 SET sepgsql.debug_audit = true;
 SET client_min_messages = LOG;
 
 --
 -- CREATE Permission checks
+--
+-- 创建权限检查
 --
 CREATE DATABASE sepgsql_test_regression;
 
@@ -39,9 +49,13 @@ CREATE TABLE regtest_ptable_tens PARTITION OF regtest_ptable FOR VALUES FROM ('1
 ALTER TABLE regtest_ptable ADD COLUMN q int;
 
 -- corresponding toast table should not have label and permission checks
+--
+-- 相应的 toast 表不应有标签和权限检查
 ALTER TABLE regtest_table_2 ADD COLUMN b text;
 
 -- VACUUM FULL internally create a new table and swap them later.
+--
+-- VACUUM FULL 在内部创建一个新表并稍后交换它们。
 VACUUM FULL regtest_table;
 VACUUM FULL regtest_ptable;
 
@@ -60,6 +74,8 @@ CREATE AGGREGATE regtest_agg (
 );
 
 -- CREATE objects owned by others
+--
+-- 创建他人拥有的对象
 SET SESSION AUTHORIZATION regress_sepgsql_test_user;
 
 SET search_path = regtest_schema, public;
@@ -80,6 +96,8 @@ RESET SESSION AUTHORIZATION;
 --
 -- ALTER and CREATE/DROP extra attribute permissions
 --
+-- ALTER 和 CREATE/DROP 额外属性权限
+--
 CREATE TABLE regtest_table_4 (x int primary key, y int, z int);
 CREATE INDEX regtest_index_tbl4_y ON regtest_table_4(y);
 CREATE INDEX regtest_index_tbl4_z ON regtest_table_4(z);
@@ -90,6 +108,8 @@ ALTER TABLE regtest_table_4
 DROP TABLE regtest_table_4 CASCADE;
 
 -- For partitioned tables
+--
+-- 对于分区表
 CREATE TABLE regtest_ptable_4 (x int, y int, z int) PARTITION BY RANGE (x);
 CREATE TABLE regtest_ptable_4_ones PARTITION OF regtest_ptable_4 FOR VALUES FROM ('0') TO ('10');
 
@@ -103,6 +123,8 @@ DROP TABLE regtest_ptable_4 CASCADE;
 
 --
 -- DROP Permission checks (with clean-up)
+--
+-- DROP 权限检查（带清理）
 --
 
 DROP FUNCTION regtest_func(text,int[]);

@@ -8,6 +8,8 @@ DATA = isn--1.0--1.1.sql isn--1.1.sql \
 PGFILEDESC = "isn - data types for international product numbering standards"
 
 # the other .h files are data tables, we don't install those
+#
+# 其他.h文件是数据表，我们不安装它们
 HEADERS_isn = isn.h
 
 REGRESS = isn

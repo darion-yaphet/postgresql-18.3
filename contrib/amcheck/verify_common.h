@@ -16,7 +16,10 @@
 #include "utils/relcache.h"
 #include "miscadmin.h"
 
-/* Typedefs for callback functions for amcheck_lock_relation_and_check */
+/* Typedefs for callback functions for amcheck_lock_relation_and_check
+ *
+ * amcheck_lock_relation_and_check 回调函数的类型定义
+ */
 typedef void (*IndexCheckableCallback) (Relation index);
 typedef void (*IndexDoCheckCallback) (Relation rel,
 									  Relation heaprel,

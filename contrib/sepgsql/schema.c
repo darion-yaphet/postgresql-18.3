@@ -31,6 +31,8 @@
  *
  * This routine assigns a default security label on a newly defined
  * schema.
+ *
+ * 此例程在新定义的模式上分配默认安全标签。
  */
 void
 sepgsql_schema_post_create(Oid namespaceId)
@@ -50,9 +52,13 @@ sepgsql_schema_post_create(Oid namespaceId)
 	 * Compute a default security label when we create a new schema object
 	 * under the working database.
 	 *
+	 * 当我们在工作数据库下创建新的模式对象时，计算默认的安全标签。
+	 *
 	 * XXX - upcoming version of libselinux supports to take object name to
 	 * handle special treatment on default security label; such as special
 	 * label on "pg_temp" schema.
+	 *
+	 * XXX - 即将推出的 libselinux 版本支持使用对象名称来处理默认安全标签的特殊处理；例如“pg_temp”模式上的特殊标签。
 	 */
 	rel = table_open(NamespaceRelationId, AccessShareLock);
 
@@ -82,6 +88,8 @@ sepgsql_schema_post_create(Oid namespaceId)
 
 	/*
 	 * check db_schema:{create}
+	 *
+	 * 检查 db_schema:{创建}
 	 */
 	initStringInfo(&audit_name);
 	appendStringInfoString(&audit_name, quote_identifier(nsp_name));
@@ -95,6 +103,8 @@ sepgsql_schema_post_create(Oid namespaceId)
 
 	/*
 	 * Assign the default security label on a new procedure
+	 *
+	 * 为新过程分配默认安全标签
 	 */
 	object.classId = NamespaceRelationId;
 	object.objectId = namespaceId;
@@ -109,6 +119,8 @@ sepgsql_schema_post_create(Oid namespaceId)
  * sepgsql_schema_drop
  *
  * It checks privileges to drop the supplied schema object.
+ *
+ * 它检查删除提供的模式对象的权限。
  */
 void
 sepgsql_schema_drop(Oid namespaceId)
@@ -118,6 +130,8 @@ sepgsql_schema_drop(Oid namespaceId)
 
 	/*
 	 * check db_schema:{drop} permission
+	 *
+	 * 检查 db_schema:{drop} 权限
 	 */
 	object.classId = NamespaceRelationId;
 	object.objectId = namespaceId;
@@ -137,6 +151,8 @@ sepgsql_schema_drop(Oid namespaceId)
  *
  * It checks privileges to relabel the supplied schema
  * by the `seclabel'.
+ *
+ * 它检查通过“seclabel”重新标记所提供模式的权限。
  */
 void
 sepgsql_schema_relabel(Oid namespaceId, const char *seclabel)
@@ -151,6 +167,8 @@ sepgsql_schema_relabel(Oid namespaceId, const char *seclabel)
 
 	/*
 	 * check db_schema:{setattr relabelfrom} permission
+	 *
+	 * 检查 db_schema:{setattr relabelfrom} 权限
 	 */
 	sepgsql_avc_check_perms(&object,
 							SEPG_CLASS_DB_SCHEMA,
@@ -161,6 +179,8 @@ sepgsql_schema_relabel(Oid namespaceId, const char *seclabel)
 
 	/*
 	 * check db_schema:{relabelto} permission
+	 *
+	 * 检查 db_schema:{relabelto} 权限
 	 */
 	sepgsql_avc_check_perms_label(seclabel,
 								  SEPG_CLASS_DB_SCHEMA,
@@ -174,6 +194,8 @@ sepgsql_schema_relabel(Oid namespaceId, const char *seclabel)
  * sepgsql_schema_check_perms
  *
  * utility routine to check db_schema:{xxx} permissions
+ *
+ * 检查 db_schema:{xxx} 权限的实用程序例程
  */
 static bool
 check_schema_perms(Oid namespaceId, uint32 required, bool abort_on_violation)
@@ -197,14 +219,20 @@ check_schema_perms(Oid namespaceId, uint32 required, bool abort_on_violation)
 	return result;
 }
 
-/* db_schema:{setattr} permission */
+/* db_schema:{setattr} permission
+ *
+ * db_schema:{setattr} 权限
+ */
 void
 sepgsql_schema_setattr(Oid namespaceId)
 {
 	check_schema_perms(namespaceId, SEPG_DB_SCHEMA__SETATTR, true);
 }
 
-/* db_schema:{search} permission */
+/* db_schema:{search} permission
+ *
+ * db_schema:{搜索}权限
+ */
 bool
 sepgsql_schema_search(Oid namespaceId, bool abort_on_violation)
 {

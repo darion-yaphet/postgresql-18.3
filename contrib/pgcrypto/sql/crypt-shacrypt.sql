@@ -1,8 +1,12 @@
 --
 -- crypt() and gensalt: sha256crypt, sha512crypt
 --
+-- crypt() 和 gensalt：sha256crypt、sha512crypt
+--
 
 -- $5$ is sha256crypt
+--
+-- $5$ 是 sha256crypt
 SELECT crypt('', '$5$Szzz0yzz');
 
 SELECT crypt('foox', '$5$Szzz0yzz');
@@ -11,26 +15,36 @@ CREATE TABLE ctest (data text, res text, salt text);
 INSERT INTO ctest VALUES ('password', '', '');
 
 -- generate a salt for sha256crypt, default rounds
+--
+-- 为 sha256crypt 生成盐，默认轮数
 UPDATE ctest SET salt = gen_salt('sha256crypt');
 UPDATE ctest SET res = crypt(data, salt);
 SELECT res = crypt(data, res) AS "worked"
 FROM ctest;
 
 -- generate a salt for sha256crypt, rounds 9999
+--
+-- 为 sha256crypt 生成盐，第 9999 轮
 UPDATE ctest SET salt = gen_salt('sha256crypt', 9999);
 UPDATE ctest SET res = crypt(data, salt);
 SELECT res = crypt(data, res) AS "worked"
 FROM ctest;
 
 -- should fail, below supported minimum rounds value
+--
+-- 应该会失败，低于支持的最小回合值
 UPDATE ctest SET salt = gen_salt('sha256crypt', 10);
 
 -- should fail, exceeds supported maximum rounds value
+--
+-- 应该失败，超过支持的最大回合值
 UPDATE ctest SET salt = gen_salt('sha256crypt', 1000000000);
 
 TRUNCATE ctest;
 
 -- $6$ is sha512crypt
+--
+-- $6$ 是 sha512crypt
 SELECT crypt('', '$6$Szzz0yzz');
 
 SELECT crypt('foox', '$6$Szzz0yzz');
@@ -38,30 +52,44 @@ SELECT crypt('foox', '$6$Szzz0yzz');
 INSERT INTO ctest VALUES ('password', '', '');
 
 -- generate a salt for sha512crypt, default rounds
+--
+-- 为 sha512crypt 生成盐，默认轮数
 UPDATE ctest SET salt = gen_salt('sha512crypt');
 UPDATE ctest SET res = crypt(data, salt);
 SELECT res = crypt(data, res) AS "worked"
 FROM ctest;
 
 -- generate a salt for sha512crypt, rounds 9999
+--
+-- 为 sha512crypt 生成盐，轮数 9999
 UPDATE ctest SET salt = gen_salt('sha512crypt', 9999);
 UPDATE ctest SET res = crypt(data, salt);
 SELECT res = crypt(data, res) AS "worked"
 FROM ctest;
 
 -- should fail, below supported minimum rounds value
+--
+-- 应该会失败，低于支持的最小回合值
 UPDATE ctest SET salt = gen_salt('sha512crypt', 10);
 
 -- should fail, exceeds supported maximum rounds value
+--
+-- 应该失败，超过支持的最大回合值
 UPDATE ctest SET salt = gen_salt('sha512crypt', 1000000000);
 
 -- Extended tests taken from public domain code at
+--
+-- 从公共域代码中进行的扩展测试
 -- https://www.akkadia.org/drepper/SHA-crypt.txt
 --
 -- We adapt the tests defined there to make sure we are compatible with the reference
+--
+-- 我们调整那里定义的测试，以确保我们与参考兼容
 -- implementation.
 
 -- This tests sha256crypt (magic byte $5$ with salt and rounds)
+--
+-- 这测试了 sha256crypt（带有盐和轮的魔法字节 5 美元）
 SELECT crypt('Hello world!', '$5$saltstring')
            = '$5$saltstring$5B8vYYiY.CVt1RlTTf8KbXBH3hsxY/GNooZaBBGWEc5' AS result;
 SELECT crypt('Hello world!', '$5$rounds=10000$saltstringsaltstring')
@@ -79,6 +107,8 @@ SELECT crypt('the minimum number is still observed', '$5$rounds=10$roundstoolow'
            = '$5$rounds=1000$roundstoolow$yfvwcWrQ8l/K0DAWyuPMDNHpIVlTQebY9l/gL972bIC' AS result;
 
 -- The following tests sha512crypt (magic byte $6$ with salt and rounds)
+--
+-- 以下测试 sha512crypt（带有盐和轮的魔术字节 $6$）
 SELECT crypt('Hello world!', '$6$saltstring')
            = '$6$saltstring$svn8UoSVapNtMuq1ukKS4tPQd8iKwSMHWjl/O817G3uBnIFNjnQJuesI68u4OTLiBFdcbYEdFCoEOfaS35inz1' AS result;
 SELECT crypt('Hello world!', '$6$rounds=10000$saltstringsaltstring')

@@ -7,10 +7,16 @@
 #include "access/gist.h"
 #include "btree_gist.h"
 
-/* Variable length key */
+/* Variable length key
+ *
+ * 可变长度密钥
+ */
 typedef bytea GBT_VARKEY;
 
-/* Better readable key */
+/* Better readable key
+ *
+ * 更好的可读密钥
+ */
 typedef struct
 {
 	bytea	   *lower,
@@ -19,6 +25,8 @@ typedef struct
 
 /*
  * type description
+ *
+ * 类型描述
  */
 typedef struct
 {
@@ -44,8 +52,12 @@ typedef struct
 /*
  * Free ptr1 in case its a copy of ptr2.
  *
+ * 释放 ptr1，以防它是 ptr2 的副本。
+ *
  * This is adapted from varlena's PG_FREE_IF_COPY, though doesn't require
  * fcinfo access.
+ *
+ * 这是改编自 varlena 的 PG_FREE_IF_COPY，但不需要 fcinfo 访问。
  */
 #define GBT_FREE_IF_COPY(ptr1, ptr2) \
 	do { \

@@ -18,8 +18,14 @@ create unique index pkeys_i on pkeys (pkey1, pkey2);
 
 --
 -- For fkeys:
+--
+-- 对于 fkey：
 -- 	(fkey1, fkey2)	--> pkeys (pkey1, pkey2)
+--
+-- (fkey1, fkey2) --> pkeys (pkey1, pkey2)
 -- 	(fkey3)		--> fkeys2 (pkey23)
+--
+-- (fkey3) --> fkeys2 (pkey23)
 --
 create trigger check_fkeys_pkey_exist
 	after insert or update on fkeys
@@ -34,7 +40,11 @@ create trigger check_fkeys_pkey2_exist
 
 --
 -- For fkeys2:
+--
+-- 对于 fkeys2：
 -- 	(fkey21, fkey22)	--> pkeys (pkey1, pkey2)
+--
+-- (fkey21, fkey22) --> pkeys (pkey1, pkey2)
 --
 create trigger check_fkeys2_pkey_exist
 	after insert or update on fkeys2
@@ -44,8 +54,14 @@ create trigger check_fkeys2_pkey_exist
 
 --
 -- For pkeys:
+--
+-- 对于 pkey：
 -- 	ON DELETE/UPDATE (pkey1, pkey2) CASCADE:
+--
+-- 删除/更新时（pkey1、pkey2）级联：
 -- 		fkeys (fkey1, fkey2) and fkeys2 (fkey21, fkey22)
+--
+-- fkeys（fkey1、fkey2）和 fkeys2（fkey21、fkey22）
 --
 create trigger check_pkeys_fkey_cascade
 	after delete or update on pkeys
@@ -56,8 +72,14 @@ create trigger check_pkeys_fkey_cascade
 
 --
 -- For fkeys2:
+--
+-- 对于 fkeys2：
 -- 	ON DELETE/UPDATE (pkey23) RESTRICT:
+--
+-- 删除/更新 (pkey23) 限制：
 -- 		fkeys (fkey3)
+--
+-- F键 (fkey3)
 --
 create trigger check_fkeys2_fkey_restrict
 	after delete or update on fkeys2
@@ -69,6 +91,8 @@ insert into fkeys2 values (30, '3', 2);
 insert into fkeys2 values (40, '4', 5);
 insert into fkeys2 values (50, '5', 3);
 -- no key in pkeys
+--
+-- pkey 中没有密钥
 insert into fkeys2 values (70, '5', 3);
 
 insert into fkeys values (10, '1', 2);
@@ -76,8 +100,12 @@ insert into fkeys values (30, '3', 3);
 insert into fkeys values (40, '4', 2);
 insert into fkeys values (50, '5', 2);
 -- no key in pkeys
+--
+-- pkey 中没有密钥
 insert into fkeys values (70, '5', 1);
 -- no key in fkeys2
+--
+-- fkeys2 中没有键
 insert into fkeys values (60, '6', 4);
 
 delete from pkeys where pkey1 = 30 and pkey2 = '3';

@@ -15,7 +15,10 @@ typedef struct inetkey
 	double		upper;
 } inetKEY;
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_inet_compress);
 PG_FUNCTION_INFO_V1(gbt_inet_union);
 PG_FUNCTION_INFO_V1(gbt_inet_picksplit);
@@ -86,6 +89,8 @@ static const gbtree_ninfo tinfo =
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 Datum
@@ -120,7 +125,10 @@ gbt_inet_consistent(PG_FUNCTION_ARGS)
 	Datum		dquery = PG_GETARG_DATUM(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	inetKEY    *kkk = (inetKEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
@@ -130,7 +138,10 @@ gbt_inet_consistent(PG_FUNCTION_ARGS)
 	query = convert_network_to_scalar(dquery, INETOID, &failure);
 	Assert(!failure);
 
-	/* All cases served by this function are inexact */
+	/* All cases served by this function are inexact
+	 *
+	 * 该函数提供的所有案例都是不准确的
+	 */
 	*recheck = true;
 
 	key.lower = (GBT_NUMKEY *) &kkk->lower;
@@ -187,7 +198,10 @@ gbt_inet_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	inetKEY    *arg1 = (inetKEY *) DatumGetPointer(x);
 	inetKEY    *arg2 = (inetKEY *) DatumGetPointer(y);
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	if (arg1->lower < arg2->lower)
 		return -1;
 	else if (arg1->lower > arg2->lower)

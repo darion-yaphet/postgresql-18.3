@@ -22,7 +22,11 @@ REGRESS = select dml cursors utility level_tracking planning \
 	user_activity wal entry_timestamp privileges extended \
 	parallel cleanup oldextversions squashing
 # Disabled because these tests require "shared_preload_libraries=pg_stat_statements",
+#
+# 禁用，因为这些测试需要“shared_preload_libraries=pg_stat_statements”，
 # which typical installcheck users do not have (e.g. buildfarm clients).
+#
+# 典型的 installcheck 用户没有（例如 buildfarm 客户端）。
 NO_INSTALLCHECK = 1
 
 TAP_TESTS = 1

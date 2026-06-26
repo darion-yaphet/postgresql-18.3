@@ -29,6 +29,8 @@ include $(top_srcdir)/contrib/contrib-global.mk
 endif
 
 # Force this dependency to be known even without dependency info built:
+#
+# 即使没有构建依赖信息，也强制了解此依赖关系：
 daitch_mokotoff.o: daitch_mokotoff.h
 
 daitch_mokotoff.h: daitch_mokotoff_header.pl

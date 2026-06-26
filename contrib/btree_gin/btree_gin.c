@@ -27,7 +27,10 @@ typedef struct QueryInfo
 	Datum		(*typecmp) (FunctionCallInfo);
 } QueryInfo;
 
-/*** GIN support functions shared by all datatypes ***/
+/* ** GIN support functions shared by all datatypes **
+ *
+ * ** GIN 支持所有数据类型共享的函数 **
+ */
 
 static Datum
 gin_btree_extract_value(FunctionCallInfo fcinfo, bool is_varlena)
@@ -51,6 +54,8 @@ gin_btree_extract_value(FunctionCallInfo fcinfo, bool is_varlena)
  * and BTLessEqualStrategyNumber, we need to start at the leftmost
  * key, and work forward until the supplied query datum (which must be
  * sent along inside the QueryInfo structure).
+ *
+ * 对于 BTGreaterEqualStrategyNumber、BTGreaterStrategyNumber 和 BTEqualStrategyNumber，我们希望在提供的查询数据处开始索引扫描，然后继续进行。对于 BTLessStrategyNumber 和 BTLessEqualStrategyNumber，我们需要从最左边的键开始，一直向前直到提供的查询数据（必须在 QueryInfo 结构内部发送）。
  */
 static Datum
 gin_btree_extract_query(FunctionCallInfo fcinfo,
@@ -104,6 +109,8 @@ gin_btree_extract_query(FunctionCallInfo fcinfo,
  * Datum a is a value from extract_query method and for BTLess*
  * strategy it is a left-most value.  So, use original datum from QueryInfo
  * to decide to stop scanning or not.  Datum b is always from index.
+ *
+ * 数据 a 是 extract_query 方法中的值，对于 BTLess* 策略，它是最左边的值。  因此，使用 QueryInfo 中的原始数据来决定是否停止扫描。  数据 b 始终来自索引。
  */
 static Datum
 gin_btree_compare_prefix(FunctionCallInfo fcinfo)
@@ -125,14 +132,20 @@ gin_btree_compare_prefix(FunctionCallInfo fcinfo)
 	switch (data->strategy)
 	{
 		case BTLessStrategyNumber:
-			/* If original datum > indexed one then return match */
+			/* If original datum > indexed one then return match
+			 *
+			 * 如果原始数据 > 索引数据则返回匹配项
+			 */
 			if (cmp > 0)
 				res = 0;
 			else
 				res = 1;
 			break;
 		case BTLessEqualStrategyNumber:
-			/* The same except equality */
+			/* The same except equality
+			 *
+			 * 除了平等之外都一样
+			 */
 			if (cmp >= 0)
 				res = 0;
 			else
@@ -145,15 +158,24 @@ gin_btree_compare_prefix(FunctionCallInfo fcinfo)
 				res = 0;
 			break;
 		case BTGreaterEqualStrategyNumber:
-			/* If original datum <= indexed one then return match */
+			/* If original datum <= indexed one then return match
+			 *
+			 * 如果原始数据 <= 索引数据则返回匹配项
+			 */
 			if (cmp <= 0)
 				res = 0;
 			else
 				res = 1;
 			break;
 		case BTGreaterStrategyNumber:
-			/* If original datum <= indexed one then return match */
-			/* If original datum == indexed one then continue scan */
+			/* If original datum <= indexed one then return match
+			 *
+			 * 如果原始数据 <= 索引数据则返回匹配项
+			 */
+			/* If original datum == indexed one then continue scan
+			 *
+			 * 如果原始数据 == 索引数据则继续扫描
+			 */
 			if (cmp < 0)
 				res = 0;
 			else if (cmp == 0)
@@ -180,7 +202,10 @@ gin_btree_consistent(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(true);
 }
 
-/*** GIN_SUPPORT macro defines the datatype specific functions ***/
+/* ** GIN_SUPPORT macro defines the datatype specific functions **
+ *
+ * ** GIN_SUPPORT 宏定义了数据类型特定的函数 **
+ */
 
 #define GIN_SUPPORT(type, is_varlena, leftmostvalue, typecmp)				\
 PG_FUNCTION_INFO_V1(gin_extract_value_##type);								\
@@ -204,7 +229,10 @@ gin_compare_prefix_##type(PG_FUNCTION_ARGS)									\
 }
 
 
-/*** Datatype specifications ***/
+/* ** Datatype specifications **
+ *
+ * ** 数据类型规范 **
+ */
 
 static Datum
 leftmostvalue_int2(void)
@@ -391,6 +419,8 @@ GIN_SUPPORT(varbit, true, leftmostvalue_varbit, bitcmp)
  * the value returned by our leftmostvalue function will never be stored in
  * the index nor passed to anything except our compare and prefix-comparison
  * functions.  The same trick could be used for other pass-by-reference types.
+ *
+ * 数字类型没有真正的最左边值，因此我们使用 PointerGetDatum(NULL)（*不是* SQL NULL）来表示它。  我们可以摆脱这一点，因为我们的 leftmostvalue 函数返回的值永远不会存储在索引中，也不会传递给除了我们的比较和前缀比较函数之外的任何东西。  相同的技巧可以用于其他按引用传递类型。
  */
 
 #define NUMERIC_IS_LEFTMOST(x)	((x) == NULL)
@@ -435,9 +465,13 @@ GIN_SUPPORT(numeric, true, leftmostvalue_numeric, gin_numeric_cmp)
  * actually know the leftmost value of any enum without knowing the concrete
  * type, so we use a dummy leftmost value of InvalidOid.
  *
+ * 使用与枚举数字类似的技巧，因为在不知道具体类型的情况下，我们实际上不知道任何枚举的最左边值，因此我们使用 InvalidOid 的虚拟最左边值。
+ *
  * Note that we use CallerFInfoFunctionCall2 here so that enum_cmp
  * gets a valid fn_extra to work with. Unlike most other type comparison
  * routines it needs it, so we can't use DirectFunctionCall2.
+ *
+ * 请注意，我们在这里使用 CallerFInfoFunctionCall2，以便 enum_cmp 获得有效的 fn_extra 来使用。与大多数其他类型比较例程不同，它需要它，因此我们不能使用 DirectFunctionCall2。
  */
 
 #define ENUM_IS_LEFTMOST(x) ((x) == InvalidOid)
@@ -485,6 +519,8 @@ leftmostvalue_uuid(void)
 	/*
 	 * palloc0 will create the UUID with all zeroes:
 	 * "00000000-0000-0000-0000-000000000000"
+	 *
+	 * palloc0 将创建全零的 UUID：“00000000-0000-0000-0000-000000000000”
 	 */
 	pg_uuid_t  *retval = (pg_uuid_t *) palloc0(sizeof(pg_uuid_t));
 

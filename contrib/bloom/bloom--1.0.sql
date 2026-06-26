@@ -1,6 +1,8 @@
 /* contrib/bloom/bloom--1.0.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION bloom" to load this file. \quit
 
 CREATE FUNCTION blhandler(internal)
@@ -9,6 +11,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C;
 
 -- Access method
+--
+-- 接入方式
 CREATE ACCESS METHOD bloom TYPE INDEX HANDLER blhandler;
 COMMENT ON ACCESS METHOD bloom IS 'bloom index access method';
 

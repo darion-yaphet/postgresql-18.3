@@ -46,8 +46,12 @@
  * two types of interfaces, with regclass-type input arg and text-type
  * input arg, for each function.
  *
+ * 由于向后兼容性问题，我们决定为每个函数提供两种类型的接口，即 regclass 类型输入 arg 和文本类型输入 arg。
+ *
  * Those functions which have text-type input arg will be deprecated
  * in the future release.
+ *
+ * 那些具有文本类型输入参数的函数将在未来版本中被弃用。
  */
 PG_FUNCTION_INFO_V1(pgstatindex);
 PG_FUNCTION_INFO_V1(pgstatindexbyid);
@@ -72,6 +76,8 @@ Datum		pgstatginindex_internal(Oid relid, FunctionCallInfo fcinfo);
 /* ------------------------------------------------
  * A structure for a whole btree index statistics
  * used by pgstatindex().
+ *
+ * pgstatindex() 使用的整个 btree 索引统计信息的结构。
  * ------------------------------------------------
  */
 typedef struct BTIndexStat
@@ -94,6 +100,8 @@ typedef struct BTIndexStat
 /* ------------------------------------------------
  * A structure for a whole GIN index statistics
  * used by pgstatginindex().
+ *
+ * pgstatginindex() 使用的整个 GIN 索引统计信息的结构。
  * ------------------------------------------------
  */
 typedef struct GinIndexStat
@@ -107,6 +115,8 @@ typedef struct GinIndexStat
 /* ------------------------------------------------
  * A structure for a whole HASH index statistics
  * used by pgstathashindex().
+ *
+ * pgstathashindex() 使用的整个 HASH 索引统计信息的结构。
  * ------------------------------------------------
  */
 typedef struct HashIndexStat
@@ -133,9 +143,13 @@ static void GetHashPageStats(Page page, HashIndexStat *stats);
  *
  * Usage: SELECT * FROM pgstatindex('t1_pkey');
  *
+ * 用法： SELECT * FROM pgstatindex('t1_pkey');
+ *
  * The superuser() check here must be kept as the library might be upgraded
  * without the extension being upgraded, meaning that in pre-1.5 installations
  * these functions could be called by any user.
+ *
+ * 必须保留此处的 superuser() 检查，因为库可能会在扩展未升级的情况下升级，这意味着在 1.5 之前的安装中，任何用户都可以调用这些函数。
  * ------------------------------------------------------
  */
 Datum
@@ -161,7 +175,11 @@ pgstatindex(PG_FUNCTION_ARGS)
  * is a superuser because we REVOKE EXECUTE on the function from PUBLIC.
  * Users can then grant access to it based on their policies.
  *
+ * 从 pgstattuple 版本 1.5 开始，我们不再需要检查用户是否是超级用户，因为我们从 PUBLIC 中撤销了函数上的 EXECUTE。然后，用户可以根据自己的策略授予对其的访问权限。
+ *
  * Otherwise identical to pgstatindex (above).
+ *
+ * 其他方面与 pgstatindex （上面）相同。
  */
 Datum
 pgstatindex_v1_5(PG_FUNCTION_ARGS)
@@ -180,6 +198,8 @@ pgstatindex_v1_5(PG_FUNCTION_ARGS)
  * The superuser() check here must be kept as the library might be upgraded
  * without the extension being upgraded, meaning that in pre-1.5 installations
  * these functions could be called by any user.
+ *
+ * 必须保留此处的 superuser() 检查，因为库可能会在扩展未升级的情况下升级，这意味着在 1.5 之前的安装中，任何用户都可以调用这些函数。
  */
 Datum
 pgstatindexbyid(PG_FUNCTION_ARGS)
@@ -197,7 +217,10 @@ pgstatindexbyid(PG_FUNCTION_ARGS)
 	PG_RETURN_DATUM(pgstatindex_impl(rel, fcinfo));
 }
 
-/* No need for superuser checks in v1.5, see above */
+/* No need for superuser checks in v1.5, see above
+ *
+ * v1.5 中不需要超级用户检查，见上文
+ */
 Datum
 pgstatindexbyid_v1_5(PG_FUNCTION_ARGS)
 {
@@ -228,6 +251,8 @@ pgstatindex_impl(Relation rel, FunctionCallInfo fcinfo)
 	 * Reject attempts to read non-local temporary relations; we would be
 	 * likely to get wrong data since we have no visibility into the owning
 	 * session's local buffers.
+	 *
+	 * 拒绝读取非本地临时关系的尝试；我们可能会得到错误的数据，因为我们看不到拥有会话的本地缓冲区。
 	 */
 	if (RELATION_IS_OTHER_TEMP(rel))
 		ereport(ERROR,
@@ -239,6 +264,8 @@ pgstatindex_impl(Relation rel, FunctionCallInfo fcinfo)
 	 * early.  We're capable of assessing an indisready&&!indisvalid index,
 	 * but the results could be confusing.  For example, the index's size
 	 * could be too low for a valid index of the table.
+	 *
+	 * !indisready 索引可能会导致稍后出现 ERRCODE_DATA_CORRUPTED，因此请尽早退出。  我们能够评估 indisready&&!indisvalid 索引，但结果可能会令人困惑。  例如，索引的大小对于表的有效索引来说可能太小。
 	 */
 	if (!rel->rd_index->indisvalid)
 		ereport(ERROR,
@@ -248,6 +275,8 @@ pgstatindex_impl(Relation rel, FunctionCallInfo fcinfo)
 
 	/*
 	 * Read metapage
+	 *
+	 * 阅读元页面
 	 */
 	{
 		Buffer		buffer = ReadBufferExtended(rel, MAIN_FORKNUM, 0, RBM_NORMAL, bstrategy);
@@ -261,7 +290,10 @@ pgstatindex_impl(Relation rel, FunctionCallInfo fcinfo)
 		ReleaseBuffer(buffer);
 	}
 
-	/* -- init counters -- */
+	/* -- init counters --
+	 *
+	 * -- 初始化计数器 --
+	 */
 	indexStat.internal_pages = 0;
 	indexStat.leaf_pages = 0;
 	indexStat.empty_pages = 0;
@@ -274,6 +306,8 @@ pgstatindex_impl(Relation rel, FunctionCallInfo fcinfo)
 
 	/*
 	 * Scan all blocks except the metapage
+	 *
+	 * 扫描除元页之外的所有块
 	 */
 	nblocks = RelationGetNumberOfBlocks(rel);
 
@@ -285,7 +319,10 @@ pgstatindex_impl(Relation rel, FunctionCallInfo fcinfo)
 
 		CHECK_FOR_INTERRUPTS();
 
-		/* Read and lock buffer */
+		/* Read and lock buffer
+		 *
+		 * 读取并锁定缓冲区
+		 */
 		buffer = ReadBufferExtended(rel, MAIN_FORKNUM, blkno, RBM_NORMAL, bstrategy);
 		LockBuffer(buffer, BUFFER_LOCK_SHARE);
 
@@ -295,8 +332,12 @@ pgstatindex_impl(Relation rel, FunctionCallInfo fcinfo)
 		/*
 		 * Determine page type, and update totals.
 		 *
+		 * 确定页面类型并更新总计。
+		 *
 		 * Note that we arbitrarily bucket deleted pages together without
 		 * considering if they're leaf pages or internal pages.
+		 *
+		 * 请注意，我们任意将删除的页面存储在一起，而不考虑它们是叶页面还是内部页面。
 		 */
 		if (P_ISDELETED(opaque))
 			indexStat.deleted_pages++;
@@ -315,6 +356,8 @@ pgstatindex_impl(Relation rel, FunctionCallInfo fcinfo)
 			/*
 			 * If the next leaf is on an earlier block, it means a
 			 * fragmentation.
+			 *
+			 * 如果下一个叶子位于较早的块上，则意味着碎片。
 			 */
 			if (opaque->btpo_next != P_NONE && opaque->btpo_next < blkno)
 				indexStat.fragments++;
@@ -322,7 +365,10 @@ pgstatindex_impl(Relation rel, FunctionCallInfo fcinfo)
 		else
 			indexStat.internal_pages++;
 
-		/* Unlock and release buffer */
+		/* Unlock and release buffer
+		 *
+		 * 解锁并释放缓冲区
+		 */
 		LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 		ReleaseBuffer(buffer);
 	}
@@ -331,6 +377,8 @@ pgstatindex_impl(Relation rel, FunctionCallInfo fcinfo)
 
 	/*----------------------------
 	 * Build a result tuple
+	 *
+	 * 构建结果元组
 	 *----------------------------
 	 */
 	{
@@ -339,7 +387,10 @@ pgstatindex_impl(Relation rel, FunctionCallInfo fcinfo)
 		char	   *values[10];
 		HeapTuple	tuple;
 
-		/* Build a tuple descriptor for our result type */
+		/* Build a tuple descriptor for our result type
+		 *
+		 * 为我们的结果类型构建一个元组描述符
+		 */
 		if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 			elog(ERROR, "return type must be a row type");
 
@@ -382,10 +433,16 @@ pgstatindex_impl(Relation rel, FunctionCallInfo fcinfo)
  *
  * Get the number of pages of the table/index.
  *
+ * 获取表/索引的页数。
+ *
  * Usage: SELECT pg_relpages('t1');
  *		  SELECT pg_relpages('t1_pkey');
  *
+ * 用法： SELECT pg_relpages('t1');选择 pg_relpages('t1_pkey');
+ *
  * Must keep superuser() check, see above.
+ *
+ * 必须保持 superuser() 检查，见上文。
  * --------------------------------------------------------
  */
 Datum
@@ -406,7 +463,10 @@ pg_relpages(PG_FUNCTION_ARGS)
 	PG_RETURN_INT64(pg_relpages_impl(rel));
 }
 
-/* No need for superuser checks in v1.5, see above */
+/* No need for superuser checks in v1.5, see above
+ *
+ * v1.5 中不需要超级用户检查，见上文
+ */
 Datum
 pg_relpages_v1_5(PG_FUNCTION_ARGS)
 {
@@ -420,7 +480,10 @@ pg_relpages_v1_5(PG_FUNCTION_ARGS)
 	PG_RETURN_INT64(pg_relpages_impl(rel));
 }
 
-/* Must keep superuser() check, see above. */
+/* Must keep superuser() check, see above.
+ *
+ * 必须保持 superuser() 检查，见上文。
+ */
 Datum
 pg_relpagesbyid(PG_FUNCTION_ARGS)
 {
@@ -437,7 +500,10 @@ pg_relpagesbyid(PG_FUNCTION_ARGS)
 	PG_RETURN_INT64(pg_relpages_impl(rel));
 }
 
-/* No need for superuser checks in v1.5, see above */
+/* No need for superuser checks in v1.5, see above
+ *
+ * v1.5 中不需要超级用户检查，见上文
+ */
 Datum
 pg_relpagesbyid_v1_5(PG_FUNCTION_ARGS)
 {
@@ -461,7 +527,10 @@ pg_relpages_impl(Relation rel)
 						RelationGetRelationName(rel)),
 				 errdetail_relkind_not_supported(rel->rd_rel->relkind)));
 
-	/* note: this will work OK on non-local temp tables */
+	/* note: this will work OK on non-local temp tables
+	 *
+	 * 注意：这在非本地临时表上可以正常工作
+	 */
 
 	relpages = RelationGetNumberOfBlocks(rel);
 
@@ -475,7 +544,11 @@ pg_relpages_impl(Relation rel)
  *
  * Usage: SELECT * FROM pgstatginindex('ginindex');
  *
+ * 用法： SELECT * FROM pgstatginindex('ginindex');
+ *
  * Must keep superuser() check, see above.
+ *
+ * 必须保持 superuser() 检查，见上文。
  * ------------------------------------------------------
  */
 Datum
@@ -491,7 +564,10 @@ pgstatginindex(PG_FUNCTION_ARGS)
 	PG_RETURN_DATUM(pgstatginindex_internal(relid, fcinfo));
 }
 
-/* No need for superuser checks in v1.5, see above */
+/* No need for superuser checks in v1.5, see above
+ *
+ * v1.5 中不需要超级用户检查，见上文
+ */
 Datum
 pgstatginindex_v1_5(PG_FUNCTION_ARGS)
 {
@@ -526,13 +602,18 @@ pgstatginindex_internal(Oid relid, FunctionCallInfo fcinfo)
 	 * Reject attempts to read non-local temporary relations; we would be
 	 * likely to get wrong data since we have no visibility into the owning
 	 * session's local buffers.
+	 *
+	 * 拒绝读取非本地临时关系的尝试；我们可能会得到错误的数据，因为我们看不到拥有会话的本地缓冲区。
 	 */
 	if (RELATION_IS_OTHER_TEMP(rel))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("cannot access temporary indexes of other sessions")));
 
-	/* see pgstatindex_impl */
+	/* see pgstatindex_impl
+	 *
+	 * 参见 pgstatindex_impl
+	 */
 	if (!rel->rd_index->indisvalid)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -541,6 +622,8 @@ pgstatginindex_internal(Oid relid, FunctionCallInfo fcinfo)
 
 	/*
 	 * Read metapage
+	 *
+	 * 阅读元页面
 	 */
 	buffer = ReadBuffer(rel, GIN_METAPAGE_BLKNO);
 	LockBuffer(buffer, GIN_SHARE);
@@ -556,6 +639,8 @@ pgstatginindex_internal(Oid relid, FunctionCallInfo fcinfo)
 
 	/*
 	 * Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
 	 */
 	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
@@ -566,6 +651,8 @@ pgstatginindex_internal(Oid relid, FunctionCallInfo fcinfo)
 
 	/*
 	 * Build and return the tuple
+	 *
+	 * 构建并返回元组
 	 */
 	tuple = heap_form_tuple(tupleDesc, values, nulls);
 	result = HeapTupleGetDatum(tuple);
@@ -577,6 +664,8 @@ pgstatginindex_internal(Oid relid, FunctionCallInfo fcinfo)
  * pgstathashindex()
  *
  * Usage: SELECT * FROM pgstathashindex('hashindex');
+ *
+ * 用法： SELECT * FROM pgstathashindex('hashindex');
  * ------------------------------------------------------
  */
 Datum
@@ -609,20 +698,28 @@ pgstathashindex(PG_FUNCTION_ARGS)
 	 * Reject attempts to read non-local temporary relations; we would be
 	 * likely to get wrong data since we have no visibility into the owning
 	 * session's local buffers.
+	 *
+	 * 拒绝读取非本地临时关系的尝试；我们可能会得到错误的数据，因为我们看不到拥有会话的本地缓冲区。
 	 */
 	if (RELATION_IS_OTHER_TEMP(rel))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("cannot access temporary indexes of other sessions")));
 
-	/* see pgstatindex_impl */
+	/* see pgstatindex_impl
+	 *
+	 * 参见 pgstatindex_impl
+	 */
 	if (!rel->rd_index->indisvalid)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("index \"%s\" is not valid",
 						RelationGetRelationName(rel))));
 
-	/* Get the information we need from the metapage. */
+	/* Get the information we need from the metapage.
+	 *
+	 * 从元页面获取我们需要的信息。
+	 */
 	memset(&stats, 0, sizeof(stats));
 	metabuf = _hash_getbuf(rel, HASH_METAPAGE, HASH_READ, LH_META_PAGE);
 	metap = HashPageGetMeta(BufferGetPage(metabuf));
@@ -630,13 +727,22 @@ pgstathashindex(PG_FUNCTION_ARGS)
 	stats.space_per_page = metap->hashm_bsize;
 	_hash_relbuf(rel, metabuf);
 
-	/* Get the current relation length */
+	/* Get the current relation length
+	 *
+	 * 获取当前关系长度
+	 */
 	nblocks = RelationGetNumberOfBlocks(rel);
 
-	/* prepare access strategy for this index */
+	/* prepare access strategy for this index
+	 *
+	 * 准备该索引的访问策略
+	 */
 	bstrategy = GetAccessStrategy(BAS_BULKREAD);
 
-	/* Start from blkno 1 as 0th block is metapage */
+	/* Start from blkno 1 as 0th block is metapage
+	 *
+	 * 从 blkno 1 开始，因为第 0 个块是元页
+	 */
 	for (blkno = 1; blkno < nblocks; blkno++)
 	{
 		Buffer		buf;
@@ -690,15 +796,23 @@ pgstathashindex(PG_FUNCTION_ARGS)
 		UnlockReleaseBuffer(buf);
 	}
 
-	/* Done accessing the index */
+	/* Done accessing the index
+	 *
+	 * 完成索引访问
+	 */
 	index_close(rel, AccessShareLock);
 
-	/* Count unused pages as free space. */
+	/* Count unused pages as free space.
+	 *
+	 * 将未使用的页面计为可用空间。
+	 */
 	stats.free_space += (uint64) stats.unused_pages * stats.space_per_page;
 
 	/*
 	 * Total space available for tuples excludes the metapage and the bitmap
 	 * pages.
+	 *
+	 * 元组可用的总空间不包括元页和位图页。
 	 */
 	total_space = (uint64) (nblocks - (stats.bitmap_pages + 1)) *
 		stats.space_per_page;
@@ -710,6 +824,8 @@ pgstathashindex(PG_FUNCTION_ARGS)
 
 	/*
 	 * Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
 	 */
 	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
@@ -718,6 +834,8 @@ pgstathashindex(PG_FUNCTION_ARGS)
 
 	/*
 	 * Build and return the tuple
+	 *
+	 * 构建并返回元组
 	 */
 	values[0] = Int32GetDatum(stats.version);
 	values[1] = Int64GetDatum((int64) stats.bucket_pages);
@@ -736,6 +854,8 @@ pgstathashindex(PG_FUNCTION_ARGS)
  * GetHashPageStats()
  *
  * Collect statistics of single hash page
+ *
+ * 统计单个hash页
  * -------------------------------------------------
  */
 static void
@@ -744,7 +864,10 @@ GetHashPageStats(Page page, HashIndexStat *stats)
 	OffsetNumber maxoff = PageGetMaxOffsetNumber(page);
 	int			off;
 
-	/* count live and dead tuples, and free space */
+	/* count live and dead tuples, and free space
+	 *
+	 * 计算活元组和死元组以及可用空间
+	 */
 	for (off = FirstOffsetNumber; off <= maxoff; off++)
 	{
 		ItemId		id = PageGetItemId(page, off);

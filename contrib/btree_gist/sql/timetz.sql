@@ -1,4 +1,6 @@
 -- timetz check
+--
+-- 时间检查
 
 CREATE TABLE timetztmp (a timetz);
 \copy timetztmp from 'data/timetz.data'

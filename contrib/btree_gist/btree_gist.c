@@ -19,6 +19,8 @@ PG_FUNCTION_INFO_V1(gist_translate_cmptype_btree);
 
 /**************************************************
  * In/Out for keys
+ *
+ * 按键输入/输出
  **************************************************/
 
 
@@ -39,7 +41,10 @@ gbtreekey_in(PG_FUNCTION_ARGS)
 Datum
 gbtreekey_out(PG_FUNCTION_ARGS)
 {
-	/* Sadly, we do not receive any indication of the specific type */
+	/* Sadly, we do not receive any indication of the specific type
+	 *
+	 * 遗憾的是，我们没有收到任何具体类型的指示
+	 */
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("cannot display a value of type %s", "gbtreekey?")));
@@ -51,6 +56,8 @@ gbtreekey_out(PG_FUNCTION_ARGS)
 /*
 ** GiST DeCompress methods
 ** do not do anything.
+*
+* * GiST Decompress 方法 * 不执行任何操作。
 */
 Datum
 gbt_decompress(PG_FUNCTION_ARGS)
@@ -60,6 +67,8 @@ gbt_decompress(PG_FUNCTION_ARGS)
 
 /*
  * Returns the btree number for supported operators, otherwise invalid.
+ *
+ * 返回支持的运算符的 btree 编号，否则无效。
  */
 Datum
 gist_translate_cmptype_btree(PG_FUNCTION_ARGS)

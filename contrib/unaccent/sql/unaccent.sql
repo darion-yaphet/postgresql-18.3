@@ -1,6 +1,8 @@
 /*
  * This test must be run in a database with UTF-8 encoding,
  * because other encodings don't support all the characters used.
+ *
+ * 此测试必须在使用 UTF-8 编码的数据库中运行，因为其他编码不支持所使用的所有字符。
  */
 
 SELECT getdatabaseencoding() <> 'UTF8'
@@ -44,5 +46,9 @@ SELECT ts_lexize('unaccent', '1½');
 SELECT ts_lexize('unaccent', '〝');
 
 -- Controversial case.  Black-Letter Capital H (U+210C) is translated by
+--
+-- 有争议的案例。  黑体大写字母 H (U+210C) 翻译自
 -- Latin-ASCII.xml as 'x', but it should be 'H'.
+--
+-- Latin-ASCII.xml 为“x”，但它应该是“H”。
 SELECT unaccent('ℌ');

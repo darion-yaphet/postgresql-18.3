@@ -12,6 +12,8 @@
 /*
  * Options ... but note that trgm_regexp.c effectively assumes these values
  * of LPADDING and RPADDING.
+ *
+ * 选项...但请注意，trgm_regexp.c 实际上假定了 LPADDING 和 RPADDING 的这些值。
  */
 #define LPADDING		2
 #define RPADDING		1
@@ -21,11 +23,16 @@
  * the operator classes, because we can't handle case-insensitive wildcard
  * search with case-sensitive trigrams.  Failure to do this will result in
  * "cannot handle ~*(~~*) with case-sensitive trigrams" errors.
+ *
+ * 注意： IGNORECASE 宏意味着三元组不区分大小写。如果禁用此宏，则必须从运算符类中删除 ~* 和 ~~* 运算符，因为我们无法使用区分大小写的三元组来处理不区分大小写的通配符搜索。  如果不这样做，将导致“无法使用区分大小写的三元组处理 ~*(~~*)”错误。
  */
 #define IGNORECASE
 #define DIVUNION
 
-/* operator strategy numbers */
+/* operator strategy numbers
+ *
+ * 运营商策略编号
+ */
 #define SimilarityStrategyNumber			1
 #define DistanceStrategyNumber				2
 #define LikeStrategyNumber					3
@@ -103,6 +110,8 @@ typedef char *BITVECP;
  * count / (len1 + len2 - count)
  * else if DIVUNION is not defined then similarity formula is:
  * count / max(len1, len2)
+ *
+ * 如果定义了 DIVUNION，则相似度公式为：count / (len1 + len2 - count) 否则，如果未定义 DIVUNION，则相似度公式为：count / max(len1, len2)
  */
 #ifdef DIVUNION
 #define CALCSML(count, len1, len2) ((float4) (count)) / ((float4) ((len1) + (len2) - (count)))

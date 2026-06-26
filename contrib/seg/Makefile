@@ -31,10 +31,14 @@ endif
 
 
 # See notes in src/backend/parser/Makefile about the following two rules
+#
+# 请参阅 src/backend/parser/Makefile 中关于以下两条规则的注释
 segparse.h: segparse.c
 	touch $@
 
 segparse.c: BISONFLAGS += -d
 
 # Force these dependencies to be known even without dependency info built:
+#
+# 即使没有构建依赖信息，也强制了解这些依赖关系：
 segparse.o segscan.o: segparse.h

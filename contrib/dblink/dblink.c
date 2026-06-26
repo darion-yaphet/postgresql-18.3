@@ -84,13 +84,18 @@ typedef struct storeInfo
 	AttInMetadata *attinmeta;
 	MemoryContext tmpcontext;
 	char	  **cstrs;
-	/* temp storage for results to avoid leaks on exception */
+	/* temp storage for results to avoid leaks on exception
+	 *
+	 * 结果的临时存储以避免异常泄漏
+	 */
 	PGresult   *last_res;
 	PGresult   *cur_res;
 } storeInfo;
 
 /*
  * Internal declarations
+ *
+ * 内部声明
  */
 static Datum dblink_record_internal(FunctionCallInfo fcinfo, bool is_async);
 static void prepTuplestoreResult(FunctionCallInfo fcinfo);
@@ -142,7 +147,10 @@ static bool dblink_connstr_has_required_scram_options(const char *connstr);
 static remoteConn *pconn = NULL;
 static HTAB *remoteConnHash = NULL;
 
-/* custom wait event values, retrieved from shared memory */
+/* custom wait event values, retrieved from shared memory
+ *
+ * 自定义等待事件值，从共享内存中检索
+ */
 static uint32 dblink_we_connect = 0;
 static uint32 dblink_we_get_conn = 0;
 static uint32 dblink_we_get_result = 0;
@@ -153,11 +161,15 @@ static uint32 dblink_we_get_result = 0;
  *	connection name as the first parameter. The connection hash is
  *	much like ecpg e.g. a mapping between a name and a PGconn object.
  *
+ * 以下是保存多个远程连接的哈希。每个 dblink 函数的调用约定都更改为接受连接名称作为第一个参数。连接哈希很像 ecpg，例如名称和 PGconn 对象之间的映射。
+ *
  *	To avoid potentially leaking a PGconn object in case of out-of-memory
  *	errors, we first create the hash entry, then open the PGconn.
  *	Hence, a hash entry whose rconn.conn pointer is NULL must be
  *	understood as a leftover from a failed create; it should be ignored
  *	by lookup operations, and silently replaced by create operations.
+ *
+ * 为了避免在内存不足错误的情况下可能泄漏 PGconn 对象，我们首先创建哈希条目，然后打开 PGconn。因此，rconn.conn 指针为 NULL 的哈希条目必须被理解为创建失败的剩余内容；它应该被查找操作忽略，并被创建操作默默地替换。
  */
 
 typedef struct remoteConnHashEnt
@@ -166,7 +178,10 @@ typedef struct remoteConnHashEnt
 	remoteConn	rconn;
 } remoteConnHashEnt;
 
-/* initial number of connection hashes */
+/* initial number of connection hashes
+ *
+ * 连接哈希的初始数量
+ */
 #define NUMCONN 16
 
 static char *
@@ -223,11 +238,17 @@ dblink_get_conn(char *conname_or_str,
 			connstr = conname_or_str;
 		dblink_connstr_check(connstr);
 
-		/* first time, allocate or get the custom wait event */
+		/* first time, allocate or get the custom wait event
+		 *
+		 * 第一次，分配或获取自定义等待事件
+		 */
 		if (dblink_we_get_conn == 0)
 			dblink_we_get_conn = WaitEventExtensionNew("DblinkGetConnect");
 
-		/* OK to make connection */
+		/* OK to make connection
+		 *
+		 * 确定建立连接
+		 */
 		conn = libpqsrv_connect(connstr, dblink_we_get_conn);
 
 		if (PQstatus(conn) == CONNECTION_BAD)
@@ -281,6 +302,8 @@ dblink_init(void)
 
 /*
  * Create a persistent connection to another database
+ *
+ * 创建到另一个数据库的持久连接
  */
 PG_FUNCTION_INFO_V1(dblink_connect);
 Datum
@@ -303,26 +326,41 @@ dblink_connect(PG_FUNCTION_ARGS)
 	else if (PG_NARGS() == 1)
 		conname_or_str = text_to_cstring(PG_GETARG_TEXT_PP(0));
 
-	/* first check for valid foreign data server */
+	/* first check for valid foreign data server
+	 *
+	 * 首先检查有效的外部数据服务器
+	 */
 	connstr = get_connect_string(conname_or_str);
 	if (connstr == NULL)
 		connstr = conname_or_str;
 
-	/* check password in connection string if not superuser */
+	/* check password in connection string if not superuser
+	 *
+	 * 检查连接字符串中的密码（如果不是超级用户）
+	 */
 	dblink_connstr_check(connstr);
 
-	/* first time, allocate or get the custom wait event */
+	/* first time, allocate or get the custom wait event
+	 *
+	 * 第一次，分配或获取自定义等待事件
+	 */
 	if (dblink_we_connect == 0)
 		dblink_we_connect = WaitEventExtensionNew("DblinkConnect");
 
-	/* if we need a hashtable entry, make that first, since it might fail */
+	/* if we need a hashtable entry, make that first, since it might fail
+	 *
+	 * 如果我们需要一个哈希表条目，请先创建它，因为它可能会失败
+	 */
 	if (connname)
 	{
 		rconn = createNewConnection(connname);
 		Assert(rconn->conn == NULL);
 	}
 
-	/* OK to make connection */
+	/* OK to make connection
+	 *
+	 * 确定建立连接
+	 */
 	conn = libpqsrv_connect(connstr, dblink_we_connect);
 
 	if (PQstatus(conn) == CONNECTION_BAD)
@@ -338,14 +376,23 @@ dblink_connect(PG_FUNCTION_ARGS)
 				 errdetail_internal("%s", msg)));
 	}
 
-	/* check password actually used if not superuser */
+	/* check password actually used if not superuser
+	 *
+	 * 检查实际使用的密码（如果不是超级用户）
+	 */
 	dblink_security_check(conn, connname, connstr);
 
-	/* attempt to set client encoding to match server encoding, if needed */
+	/* attempt to set client encoding to match server encoding, if needed
+	 *
+	 * 如果需要，尝试设置客户端编码以匹配服务器编码
+	 */
 	if (PQclientEncoding(conn) != GetDatabaseEncoding())
 		PQsetClientEncoding(conn, GetDatabaseEncodingName());
 
-	/* all OK, save away the conn */
+	/* all OK, save away the conn
+	 *
+	 * 一切OK，保存掉conn
+	 */
 	if (connname)
 	{
 		rconn->conn = conn;
@@ -362,6 +409,8 @@ dblink_connect(PG_FUNCTION_ARGS)
 
 /*
  * Clear a persistent connection to another database
+ *
+ * 清除与另一个数据库的持久连接
  */
 PG_FUNCTION_INFO_V1(dblink_disconnect);
 Datum
@@ -397,6 +446,8 @@ dblink_disconnect(PG_FUNCTION_ARGS)
 
 /*
  * opens a cursor using a persistent connection
+ *
+ * 使用持久连接打开游标
  */
 PG_FUNCTION_INFO_V1(dblink_open);
 Datum
@@ -416,14 +467,20 @@ dblink_open(PG_FUNCTION_ARGS)
 
 	if (PG_NARGS() == 2)
 	{
-		/* text,text */
+		/* text,text
+		 *
+		 * 文字，文字
+		 */
 		curname = text_to_cstring(PG_GETARG_TEXT_PP(0));
 		sql = text_to_cstring(PG_GETARG_TEXT_PP(1));
 		rconn = pconn;
 	}
 	else if (PG_NARGS() == 3)
 	{
-		/* might be text,text,text or text,text,bool */
+		/* might be text,text,text or text,text,bool
+		 *
+		 * 可能是文本、文本、文本或文本、文本、布尔值
+		 */
 		if (get_fn_expr_argtype(fcinfo->flinfo, 2) == BOOLOID)
 		{
 			curname = text_to_cstring(PG_GETARG_TEXT_PP(0));
@@ -441,7 +498,10 @@ dblink_open(PG_FUNCTION_ARGS)
 	}
 	else if (PG_NARGS() == 4)
 	{
-		/* text,text,text,bool */
+		/* text,text,text,bool
+		 *
+		 * 文本，文本，文本，布尔
+		 */
 		conname = text_to_cstring(PG_GETARG_TEXT_PP(0));
 		curname = text_to_cstring(PG_GETARG_TEXT_PP(1));
 		sql = text_to_cstring(PG_GETARG_TEXT_PP(2));
@@ -454,7 +514,10 @@ dblink_open(PG_FUNCTION_ARGS)
 
 	conn = rconn->conn;
 
-	/* If we are not in a transaction, start one */
+	/* If we are not in a transaction, start one
+	 *
+	 * 如果我们没有进行交易，则开始一项交易
+	 */
 	if (PQtransactionStatus(conn) == PQTRANS_IDLE)
 	{
 		res = libpqsrv_exec(conn, "BEGIN", dblink_we_get_result);
@@ -467,11 +530,16 @@ dblink_open(PG_FUNCTION_ARGS)
 		 * Since transaction state was IDLE, we force cursor count to
 		 * initially be 0. This is needed as a previous ABORT might have wiped
 		 * out our transaction without maintaining the cursor count for us.
+		 *
+		 * 由于事务状态为 IDLE，我们强制游标计数最初为 0。这是必需的，因为之前的 ABORT 可能会清除我们的事务，而不会为我们维护游标计数。
 		 */
 		rconn->openCursorCount = 0;
 	}
 
-	/* if we started a transaction, increment cursor count */
+	/* if we started a transaction, increment cursor count
+	 *
+	 * 如果我们开始一个事务，则增加游标计数
+	 */
 	if (rconn->newXactForCursor)
 		(rconn->openCursorCount)++;
 
@@ -490,6 +558,8 @@ dblink_open(PG_FUNCTION_ARGS)
 
 /*
  * closes a cursor
+ *
+ * 关闭光标
  */
 PG_FUNCTION_INFO_V1(dblink_close);
 Datum
@@ -514,7 +584,10 @@ dblink_close(PG_FUNCTION_ARGS)
 	}
 	else if (PG_NARGS() == 2)
 	{
-		/* might be text,text or text,bool */
+		/* might be text,text or text,bool
+		 *
+		 * 可能是文本、文本或文本、布尔值
+		 */
 		if (get_fn_expr_argtype(fcinfo->flinfo, 1) == BOOLOID)
 		{
 			curname = text_to_cstring(PG_GETARG_TEXT_PP(0));
@@ -530,7 +603,10 @@ dblink_close(PG_FUNCTION_ARGS)
 	}
 	if (PG_NARGS() == 3)
 	{
-		/* text,text,bool */
+		/* text,text,bool
+		 *
+		 * 文本,文本,布尔值
+		 */
 		conname = text_to_cstring(PG_GETARG_TEXT_PP(0));
 		curname = text_to_cstring(PG_GETARG_TEXT_PP(1));
 		fail = PG_GETARG_BOOL(2);
@@ -544,7 +620,10 @@ dblink_close(PG_FUNCTION_ARGS)
 
 	appendStringInfo(&buf, "CLOSE %s", curname);
 
-	/* close the cursor */
+	/* close the cursor
+	 *
+	 * 关闭光标
+	 */
 	res = libpqsrv_exec(conn, buf.data, dblink_we_get_result);
 	if (!res || PQresultStatus(res) != PGRES_COMMAND_OK)
 	{
@@ -555,12 +634,18 @@ dblink_close(PG_FUNCTION_ARGS)
 
 	PQclear(res);
 
-	/* if we started a transaction, decrement cursor count */
+	/* if we started a transaction, decrement cursor count
+	 *
+	 * 如果我们开始一个事务，则减少游标计数
+	 */
 	if (rconn->newXactForCursor)
 	{
 		(rconn->openCursorCount)--;
 
-		/* if count is zero, commit the transaction */
+		/* if count is zero, commit the transaction
+		 *
+		 * 如果计数为零，则提交事务
+		 */
 		if (rconn->openCursorCount == 0)
 		{
 			rconn->newXactForCursor = false;
@@ -577,6 +662,8 @@ dblink_close(PG_FUNCTION_ARGS)
 
 /*
  * Fetch results from an open cursor
+ *
+ * 从打开的游标中获取结果
  */
 PG_FUNCTION_INFO_V1(dblink_fetch);
 Datum
@@ -597,7 +684,10 @@ dblink_fetch(PG_FUNCTION_ARGS)
 
 	if (PG_NARGS() == 4)
 	{
-		/* text,text,int,bool */
+		/* text,text,int,bool
+		 *
+		 * 文本,文本,整数,布尔
+		 */
 		conname = text_to_cstring(PG_GETARG_TEXT_PP(0));
 		curname = text_to_cstring(PG_GETARG_TEXT_PP(1));
 		howmany = PG_GETARG_INT32(2);
@@ -609,7 +699,10 @@ dblink_fetch(PG_FUNCTION_ARGS)
 	}
 	else if (PG_NARGS() == 3)
 	{
-		/* text,text,int or text,int,bool */
+		/* text,text,int or text,int,bool
+		 *
+		 * 文本、文本、int 或文本、int、bool
+		 */
 		if (get_fn_expr_argtype(fcinfo->flinfo, 2) == BOOLOID)
 		{
 			curname = text_to_cstring(PG_GETARG_TEXT_PP(0));
@@ -630,7 +723,10 @@ dblink_fetch(PG_FUNCTION_ARGS)
 	}
 	else if (PG_NARGS() == 2)
 	{
-		/* text,int */
+		/* text,int
+		 *
+		 * 文本，整数
+		 */
 		curname = text_to_cstring(PG_GETARG_TEXT_PP(0));
 		howmany = PG_GETARG_INT32(1);
 		conn = pconn->conn;
@@ -646,6 +742,8 @@ dblink_fetch(PG_FUNCTION_ARGS)
 	 * Try to execute the query.  Note that since libpq uses malloc, the
 	 * PGresult will be long-lived even though we are still in a short-lived
 	 * memory context.
+	 *
+	 * 尝试执行查询。  请注意，由于 libpq 使用 malloc，因此即使我们仍处于短期内存上下文中，PGresult 也将长期存在。
 	 */
 	res = libpqsrv_exec(conn, buf.data, dblink_we_get_result);
 	if (!res ||
@@ -658,7 +756,10 @@ dblink_fetch(PG_FUNCTION_ARGS)
 	}
 	else if (PQresultStatus(res) == PGRES_COMMAND_OK)
 	{
-		/* cursor does not exist - closed already or bad name */
+		/* cursor does not exist - closed already or bad name
+		 *
+		 * 游标不存在 - 已关闭或名称错误
+		 */
 		PQclear(res);
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_CURSOR_NAME),
@@ -671,6 +772,8 @@ dblink_fetch(PG_FUNCTION_ARGS)
 
 /*
  * Note: this is the new preferred version of dblink
+ *
+ * 注意：这是 dblink 的新首选版本
  */
 PG_FUNCTION_INFO_V1(dblink_record);
 Datum
@@ -693,10 +796,16 @@ dblink_send_query(PG_FUNCTION_ARGS)
 		sql = text_to_cstring(PG_GETARG_TEXT_PP(1));
 	}
 	else
-		/* shouldn't happen */
+		/* shouldn't happen
+		 *
+		 * 不应该发生
+		 */
 		elog(ERROR, "wrong number of arguments");
 
-	/* async query send */
+	/* async query send
+	 *
+	 * 异步查询发送
+	 */
 	retval = PQsendQuery(conn, sql);
 	if (retval != 1)
 		elog(NOTICE, "could not send query: %s", pchomp(PQerrorMessage(conn)));
@@ -731,7 +840,10 @@ dblink_record_internal(FunctionCallInfo fcinfo, bool is_async)
 		{
 			if (PG_NARGS() == 3)
 			{
-				/* text,text,bool */
+				/* text,text,bool
+				 *
+				 * 文本,文本,布尔值
+				 */
 				conname = text_to_cstring(PG_GETARG_TEXT_PP(0));
 				sql = text_to_cstring(PG_GETARG_TEXT_PP(1));
 				fail = PG_GETARG_BOOL(2);
@@ -739,7 +851,10 @@ dblink_record_internal(FunctionCallInfo fcinfo, bool is_async)
 			}
 			else if (PG_NARGS() == 2)
 			{
-				/* text,text or text,bool */
+				/* text,text or text,bool
+				 *
+				 * 文本，文本或文本，布尔
+				 */
 				if (get_fn_expr_argtype(fcinfo->flinfo, 1) == BOOLOID)
 				{
 					sql = text_to_cstring(PG_GETARG_TEXT_PP(0));
@@ -760,17 +875,26 @@ dblink_record_internal(FunctionCallInfo fcinfo, bool is_async)
 				sql = text_to_cstring(PG_GETARG_TEXT_PP(0));
 			}
 			else
-				/* shouldn't happen */
+				/* shouldn't happen
+				 *
+				 * 不应该发生
+				 */
 				elog(ERROR, "wrong number of arguments");
 		}
 		else					/* is_async */
 		{
-			/* get async result */
+			/* get async result
+			 *
+			 * 获取异步结果
+			 */
 			conname = text_to_cstring(PG_GETARG_TEXT_PP(0));
 
 			if (PG_NARGS() == 2)
 			{
-				/* text,bool */
+				/* text,bool
+				 *
+				 * 文本，布尔值
+				 */
 				fail = PG_GETARG_BOOL(1);
 				conn = dblink_get_named_conn(conname);
 			}
@@ -780,7 +904,10 @@ dblink_record_internal(FunctionCallInfo fcinfo, bool is_async)
 				conn = dblink_get_named_conn(conname);
 			}
 			else
-				/* shouldn't happen */
+				/* shouldn't happen
+				 *
+				 * 不应该发生
+				 */
 				elog(ERROR, "wrong number of arguments");
 		}
 
@@ -789,15 +916,24 @@ dblink_record_internal(FunctionCallInfo fcinfo, bool is_async)
 
 		if (!is_async)
 		{
-			/* synchronous query, use efficient tuple collection method */
+			/* synchronous query, use efficient tuple collection method
+			 *
+			 * 同步查询，使用高效的元​​组集合方法
+			 */
 			materializeQueryResult(fcinfo, conn, conname, sql, fail);
 		}
 		else
 		{
-			/* async result retrieval, do it the old way */
+			/* async result retrieval, do it the old way
+			 *
+			 * 异步结果检索，按照旧方法进行
+			 */
 			PGresult   *res = libpqsrv_get_result(conn, dblink_we_get_result);
 
-			/* NULL means we're all done with the async results */
+			/* NULL means we're all done with the async results
+			 *
+			 * NULL 意味着我们已经完成了异步结果
+			 */
 			if (res)
 			{
 				if (PQresultStatus(res) != PGRES_COMMAND_OK &&
@@ -805,7 +941,10 @@ dblink_record_internal(FunctionCallInfo fcinfo, bool is_async)
 				{
 					dblink_res_error(conn, conname, res, fail,
 									 "while executing query");
-					/* if fail isn't set, we'll return an empty query result */
+					/* if fail isn't set, we'll return an empty query result
+					 *
+					 * 如果未设置fail，我们将返回一个空的查询结果
+					 */
 				}
 				else
 				{
@@ -816,7 +955,10 @@ dblink_record_internal(FunctionCallInfo fcinfo, bool is_async)
 	}
 	PG_FINALLY();
 	{
-		/* if needed, close the connection to the database */
+		/* if needed, close the connection to the database
+		 *
+		 * 如果需要，关闭与数据库的连接
+		 */
 		if (freeconn)
 			libpqsrv_disconnect(conn);
 	}
@@ -828,15 +970,22 @@ dblink_record_internal(FunctionCallInfo fcinfo, bool is_async)
 /*
  * Verify function caller can handle a tuplestore result, and set up for that.
  *
+ * 验证函数调用者可以处理元组存储结果，并为此进行设置。
+ *
  * Note: if the caller returns without actually creating a tuplestore, the
  * executor will treat the function result as an empty set.
+ *
+ * 注意：如果调用者返回时没有实际创建元组存储，则执行器会将函数结果视为空集。
  */
 static void
 prepTuplestoreResult(FunctionCallInfo fcinfo)
 {
 	ReturnSetInfo *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
 
-	/* check to see if query supports us returning a tuplestore */
+	/* check to see if query supports us returning a tuplestore
+	 *
+	 * 检查查询是否支持我们返回元组存储
+	 */
 	if (rsinfo == NULL || !IsA(rsinfo, ReturnSetInfo))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -846,10 +995,16 @@ prepTuplestoreResult(FunctionCallInfo fcinfo)
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("materialize mode required, but it is not allowed in this context")));
 
-	/* let the executor know we're sending back a tuplestore */
+	/* let the executor know we're sending back a tuplestore
+	 *
+	 * 让执行者知道我们正在发回一个元组存储
+	 */
 	rsinfo->returnMode = SFRM_Materialize;
 
-	/* caller must fill these to return a non-empty result */
+	/* caller must fill these to return a non-empty result
+	 *
+	 * 调用者必须填写这些以返回非空结果
+	 */
 	rsinfo->setResult = NULL;
 	rsinfo->setDesc = NULL;
 }
@@ -858,13 +1013,18 @@ prepTuplestoreResult(FunctionCallInfo fcinfo)
  * Copy the contents of the PGresult into a tuplestore to be returned
  * as the result of the current function.
  * The PGresult will be released in this function.
+ *
+ * 将 PGresult 的内容复制到元组存储中，以作为当前函数的结果返回。 PGresult将在此函数中释放。
  */
 static void
 materializeResult(FunctionCallInfo fcinfo, PGconn *conn, PGresult *res)
 {
 	ReturnSetInfo *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
 
-	/* prepTuplestoreResult must have been called previously */
+	/* prepTuplestoreResult must have been called previously
+	 *
+	 * prepTuplestoreResult 必须先前已调用
+	 */
 	Assert(rsinfo->returnMode == SFRM_Materialize);
 
 	PG_TRY();
@@ -881,6 +1041,8 @@ materializeResult(FunctionCallInfo fcinfo, PGconn *conn, PGresult *res)
 			/*
 			 * need a tuple descriptor representing one TEXT column to return
 			 * the command status string as our result tuple
+			 *
+			 * 需要一个表示一个 TEXT 列的元组描述符来返回命令状态字符串作为我们的结果元组
 			 */
 			tupdesc = CreateTemplateTupleDesc(1);
 			TupleDescInitEntry(tupdesc, (AttrNumber) 1, "status",
@@ -894,26 +1056,38 @@ materializeResult(FunctionCallInfo fcinfo, PGconn *conn, PGresult *res)
 
 			is_sql_cmd = false;
 
-			/* get a tuple descriptor for our result type */
+			/* get a tuple descriptor for our result type
+			 *
+			 * 获取结果类型的元组描述符
+			 */
 			switch (get_call_result_type(fcinfo, NULL, &tupdesc))
 			{
 				case TYPEFUNC_COMPOSITE:
 					/* success */
 					break;
 				case TYPEFUNC_RECORD:
-					/* failed to determine actual type of RECORD */
+					/* failed to determine actual type of RECORD
+					 *
+					 * 无法确定 RECORD 的实际类型
+					 */
 					ereport(ERROR,
 							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 							 errmsg("function returning record called in context "
 									"that cannot accept type record")));
 					break;
 				default:
-					/* result type isn't composite */
+					/* result type isn't composite
+					 *
+					 * 结果类型不是复合类型
+					 */
 					elog(ERROR, "return type must be a row type");
 					break;
 			}
 
-			/* make sure we have a persistent copy of the tupdesc */
+			/* make sure we have a persistent copy of the tupdesc
+			 *
+			 * 确保我们有 tupdesc 的持久副本
+			 */
 			tupdesc = CreateTupleDescCopy(tupdesc);
 			ntuples = PQntuples(res);
 			nfields = PQnfields(res);
@@ -921,6 +1095,8 @@ materializeResult(FunctionCallInfo fcinfo, PGconn *conn, PGresult *res)
 
 		/*
 		 * check result and tuple descriptor have the same number of columns
+		 *
+		 * 检查结果和元组描述符具有相同的列数
 		 */
 		if (nfields != tupdesc->natts)
 			ereport(ERROR,
@@ -939,7 +1115,10 @@ materializeResult(FunctionCallInfo fcinfo, PGconn *conn, PGresult *res)
 
 			attinmeta = TupleDescGetAttInMetadata(tupdesc);
 
-			/* Set GUCs to ensure we read GUC-sensitive data types correctly */
+			/* Set GUCs to ensure we read GUC-sensitive data types correctly
+			 *
+			 * 设置GUC以确保我们正确读取GUC敏感的数据类型
+			 */
 			if (!is_sql_cmd)
 				nestlevel = applyRemoteGucs(conn);
 
@@ -951,7 +1130,10 @@ materializeResult(FunctionCallInfo fcinfo, PGconn *conn, PGresult *res)
 
 			values = palloc_array(char *, nfields);
 
-			/* put all tuples into the tuplestore */
+			/* put all tuples into the tuplestore
+			 *
+			 * 将所有元组放入元组存储中
+			 */
 			for (row = 0; row < ntuples; row++)
 			{
 				HeapTuple	tuple;
@@ -973,18 +1155,27 @@ materializeResult(FunctionCallInfo fcinfo, PGconn *conn, PGresult *res)
 					values[0] = PQcmdStatus(res);
 				}
 
-				/* build the tuple and put it into the tuplestore. */
+				/* build the tuple and put it into the tuplestore.
+				 *
+				 * 构建元组并将其放入元组存储中。
+				 */
 				tuple = BuildTupleFromCStrings(attinmeta, values);
 				tuplestore_puttuple(tupstore, tuple);
 			}
 
-			/* clean up GUC settings, if we changed any */
+			/* clean up GUC settings, if we changed any
+			 *
+			 * 清理 GUC 设置（如果我们更改了任何设置）
+			 */
 			restoreLocalGucs(nestlevel);
 		}
 	}
 	PG_FINALLY();
 	{
-		/* be sure to release the libpq result */
+		/* be sure to release the libpq result
+		 *
+		 * 请务必发布 libpq 结果
+		 */
 		PQclear(res);
 	}
 	PG_END_TRY();
@@ -994,9 +1185,13 @@ materializeResult(FunctionCallInfo fcinfo, PGconn *conn, PGresult *res)
  * Execute the given SQL command and store its results into a tuplestore
  * to be returned as the result of the current function.
  *
+ * 执行给定的 SQL 命令并将其结果存储到元组存储中，以作为当前函数的结果返回。
+ *
  * This is equivalent to PQexec followed by materializeResult, but we make
  * use of libpq's single-row mode to avoid accumulating the whole result
  * inside libpq before it gets transferred to the tuplestore.
+ *
+ * 这相当于 PQexec 后跟 MaterializeResult，但我们利用 libpq 的单行模式来避免在传输到元组存储之前将整个结果累加到 libpq 中。
  */
 static void
 materializeQueryResult(FunctionCallInfo fcinfo,
@@ -1009,19 +1204,28 @@ materializeQueryResult(FunctionCallInfo fcinfo,
 	PGresult   *volatile res = NULL;
 	volatile storeInfo sinfo = {0};
 
-	/* prepTuplestoreResult must have been called previously */
+	/* prepTuplestoreResult must have been called previously
+	 *
+	 * prepTuplestoreResult 必须先前已调用
+	 */
 	Assert(rsinfo->returnMode == SFRM_Materialize);
 
 	sinfo.fcinfo = fcinfo;
 
 	PG_TRY();
 	{
-		/* Create short-lived memory context for data conversions */
+		/* Create short-lived memory context for data conversions
+		 *
+		 * 为数据转换创建短暂的内存上下文
+		 */
 		sinfo.tmpcontext = AllocSetContextCreate(CurrentMemoryContext,
 												 "dblink temporary context",
 												 ALLOCSET_DEFAULT_SIZES);
 
-		/* execute query, collecting any tuples into the tuplestore */
+		/* execute query, collecting any tuples into the tuplestore
+		 *
+		 * 执行查询，将所有元组收集到元组存储中
+		 */
 		res = storeQueryResult(&sinfo, conn, sql);
 
 		if (!res ||
@@ -1031,19 +1235,26 @@ materializeQueryResult(FunctionCallInfo fcinfo,
 			/*
 			 * dblink_res_error will clear the passed PGresult, so we need
 			 * this ugly dance to avoid doing so twice during error exit
+			 *
+			 * dblink_res_error 将清除传递的 PGresult，因此我们需要这种丑陋的舞蹈来避免在错误退出期间这样做两次
 			 */
 			PGresult   *res1 = res;
 
 			res = NULL;
 			dblink_res_error(conn, conname, res1, fail,
 							 "while executing query");
-			/* if fail isn't set, we'll return an empty query result */
+			/* if fail isn't set, we'll return an empty query result
+			 *
+			 * 如果未设置fail，我们将返回一个空的查询结果
+			 */
 		}
 		else if (PQresultStatus(res) == PGRES_COMMAND_OK)
 		{
 			/*
 			 * storeRow didn't get called, so we need to convert the command
 			 * status string to a tuple manually
+			 *
+			 * storeRow 没有被调用，所以我们需要手动将命令状态字符串转换为元组
 			 */
 			TupleDesc	tupdesc;
 			AttInMetadata *attinmeta;
@@ -1055,6 +1266,8 @@ materializeQueryResult(FunctionCallInfo fcinfo,
 			/*
 			 * need a tuple descriptor representing one TEXT column to return
 			 * the command status string as our result tuple
+			 *
+			 * 需要一个表示一个 TEXT 列的元组描述符来返回命令状态字符串作为我们的结果元组
 			 */
 			tupdesc = CreateTemplateTupleDesc(1);
 			TupleDescInitEntry(tupdesc, (AttrNumber) 1, "status",
@@ -1069,7 +1282,10 @@ materializeQueryResult(FunctionCallInfo fcinfo,
 
 			values[0] = PQcmdStatus(res);
 
-			/* build the tuple and put it into the tuplestore. */
+			/* build the tuple and put it into the tuplestore.
+			 *
+			 * 构建元组并将其放入元组存储中。
+			 */
 			tuple = BuildTupleFromCStrings(attinmeta, values);
 			tuplestore_puttuple(tupstore, tuple);
 
@@ -1079,14 +1295,20 @@ materializeQueryResult(FunctionCallInfo fcinfo,
 		else
 		{
 			Assert(PQresultStatus(res) == PGRES_TUPLES_OK);
-			/* storeRow should have created a tuplestore */
+			/* storeRow should have created a tuplestore
+			 *
+			 * storeRow 应该创建一个 tuplestore
+			 */
 			Assert(rsinfo->setResult != NULL);
 
 			PQclear(res);
 			res = NULL;
 		}
 
-		/* clean up data conversion short-lived memory context */
+		/* clean up data conversion short-lived memory context
+		 *
+		 * 清理数据转换短期内存上下文
+		 */
 		if (sinfo.tmpcontext != NULL)
 			MemoryContextDelete(sinfo.tmpcontext);
 		sinfo.tmpcontext = NULL;
@@ -1098,11 +1320,17 @@ materializeQueryResult(FunctionCallInfo fcinfo,
 	}
 	PG_CATCH();
 	{
-		/* be sure to release any libpq result we collected */
+		/* be sure to release any libpq result we collected
+		 *
+		 * 请务必发布我们收集的所有 libpq 结果
+		 */
 		PQclear(res);
 		PQclear(sinfo.last_res);
 		PQclear(sinfo.cur_res);
-		/* and clear out any pending data in libpq */
+		/* and clear out any pending data in libpq
+		 *
+		 * 并清除 libpq 中所有待处理的数据
+		 */
 		while ((res = libpqsrv_get_result(conn, dblink_we_get_result)) !=
 			   NULL)
 			PQclear(res);
@@ -1113,6 +1341,8 @@ materializeQueryResult(FunctionCallInfo fcinfo,
 
 /*
  * Execute query, and send any result rows to sinfo->tuplestore.
+ *
+ * 执行查询，并将任何结果行发送到 sinfo->tuplestore。
  */
 static PGresult *
 storeQueryResult(volatile storeInfo *sinfo, PGconn *conn, const char *sql)
@@ -1137,12 +1367,17 @@ storeQueryResult(volatile storeInfo *sinfo, PGconn *conn, const char *sql)
 
 		if (PQresultStatus(sinfo->cur_res) == PGRES_SINGLE_TUPLE)
 		{
-			/* got one row from possibly-bigger resultset */
+			/* got one row from possibly-bigger resultset
+			 *
+			 * 从可能更大的结果集中获取一行
+			 */
 
 			/*
 			 * Set GUCs to ensure we read GUC-sensitive data types correctly.
 			 * We shouldn't do this until we have a row in hand, to ensure
 			 * libpq has seen any earlier ParameterStatus protocol messages.
+			 *
+			 * 设置 GUC 以确保我们正确读取 GUC 敏感数据类型。在手头有一行之前我们不应该这样做，以确保 libpq 已经看到任何早期的 ParameterStatus 协议消息。
 			 */
 			if (first && nestlevel < 0)
 				nestlevel = applyRemoteGucs(conn);
@@ -1155,11 +1390,17 @@ storeQueryResult(volatile storeInfo *sinfo, PGconn *conn, const char *sql)
 		}
 		else
 		{
-			/* if empty resultset, fill tuplestore header */
+			/* if empty resultset, fill tuplestore header
+			 *
+			 * 如果结果集为空，则填充 tuplestore 标头
+			 */
 			if (first && PQresultStatus(sinfo->cur_res) == PGRES_TUPLES_OK)
 				storeRow(sinfo, sinfo->cur_res, first);
 
-			/* store completed result at last_res */
+			/* store completed result at last_res
+			 *
+			 * 将完成的结果存储在last_res中
+			 */
 			PQclear(sinfo->last_res);
 			sinfo->last_res = sinfo->cur_res;
 			sinfo->cur_res = NULL;
@@ -1167,10 +1408,16 @@ storeQueryResult(volatile storeInfo *sinfo, PGconn *conn, const char *sql)
 		}
 	}
 
-	/* clean up GUC settings, if we changed any */
+	/* clean up GUC settings, if we changed any
+	 *
+	 * 清理 GUC 设置（如果我们更改了任何设置）
+	 */
 	restoreLocalGucs(nestlevel);
 
-	/* return last_res */
+	/* return last_res
+	 *
+	 * 返回最后的结果
+	 */
 	res = sinfo->last_res;
 	sinfo->last_res = NULL;
 	return res;
@@ -1179,8 +1426,12 @@ storeQueryResult(volatile storeInfo *sinfo, PGconn *conn, const char *sql)
 /*
  * Send single row to sinfo->tuplestore.
  *
+ * 将单行发送到 sinfo->tuplestore。
+ *
  * If "first" is true, create the tuplestore using PGresult's metadata
  * (in this case the PGresult might contain either zero or one row).
+ *
+ * 如果“first”为 true，则使用 PGresult 的元数据创建元组存储（在这种情况下，PGresult 可能包含零行或一行）。
  */
 static void
 storeRow(volatile storeInfo *sinfo, PGresult *res, bool first)
@@ -1192,7 +1443,10 @@ storeRow(volatile storeInfo *sinfo, PGresult *res, bool first)
 
 	if (first)
 	{
-		/* Prepare for new result set */
+		/* Prepare for new result set
+		 *
+		 * 准备新的结果集
+		 */
 		ReturnSetInfo *rsinfo = (ReturnSetInfo *) sinfo->fcinfo->resultinfo;
 		TupleDesc	tupdesc;
 
@@ -1200,75 +1454,110 @@ storeRow(volatile storeInfo *sinfo, PGresult *res, bool first)
 		 * It's possible to get more than one result set if the query string
 		 * contained multiple SQL commands.  In that case, we follow PQexec's
 		 * traditional behavior of throwing away all but the last result.
+		 *
+		 * 如果查询字符串包含多个 SQL 命令，则可能会获得多个结果集。  在这种情况下，我们遵循 PQexec 的传统行为，即丢弃除最后结果之外的所有结果。
 		 */
 		if (sinfo->tuplestore)
 			tuplestore_end(sinfo->tuplestore);
 		sinfo->tuplestore = NULL;
 
-		/* get a tuple descriptor for our result type */
+		/* get a tuple descriptor for our result type
+		 *
+		 * 获取结果类型的元组描述符
+		 */
 		switch (get_call_result_type(sinfo->fcinfo, NULL, &tupdesc))
 		{
 			case TYPEFUNC_COMPOSITE:
 				/* success */
 				break;
 			case TYPEFUNC_RECORD:
-				/* failed to determine actual type of RECORD */
+				/* failed to determine actual type of RECORD
+				 *
+				 * 无法确定 RECORD 的实际类型
+				 */
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 						 errmsg("function returning record called in context "
 								"that cannot accept type record")));
 				break;
 			default:
-				/* result type isn't composite */
+				/* result type isn't composite
+				 *
+				 * 结果类型不是复合类型
+				 */
 				elog(ERROR, "return type must be a row type");
 				break;
 		}
 
-		/* make sure we have a persistent copy of the tupdesc */
+		/* make sure we have a persistent copy of the tupdesc
+		 *
+		 * 确保我们有 tupdesc 的持久副本
+		 */
 		tupdesc = CreateTupleDescCopy(tupdesc);
 
-		/* check result and tuple descriptor have the same number of columns */
+		/* check result and tuple descriptor have the same number of columns
+		 *
+		 * 检查结果和元组描述符具有相同的列数
+		 */
 		if (nfields != tupdesc->natts)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 					 errmsg("remote query result rowtype does not match "
 							"the specified FROM clause rowtype")));
 
-		/* Prepare attinmeta for later data conversions */
+		/* Prepare attinmeta for later data conversions
+		 *
+		 * 为以后的数据转换准备attinmeta
+		 */
 		sinfo->attinmeta = TupleDescGetAttInMetadata(tupdesc);
 
-		/* Create a new, empty tuplestore */
+		/* Create a new, empty tuplestore
+		 *
+		 * 创建一个新的空元组存储
+		 */
 		oldcontext = MemoryContextSwitchTo(rsinfo->econtext->ecxt_per_query_memory);
 		sinfo->tuplestore = tuplestore_begin_heap(true, false, work_mem);
 		rsinfo->setResult = sinfo->tuplestore;
 		rsinfo->setDesc = tupdesc;
 		MemoryContextSwitchTo(oldcontext);
 
-		/* Done if empty resultset */
+		/* Done if empty resultset
+		 *
+		 * 如果结果集为空则完成
+		 */
 		if (PQntuples(res) == 0)
 			return;
 
 		/*
 		 * Set up sufficiently-wide string pointers array; this won't change
 		 * in size so it's easy to preallocate.
+		 *
+		 * 设置足够宽的字符串指针数组；它的大小不会改变，因此很容易预分配。
 		 */
 		if (sinfo->cstrs)
 			pfree(sinfo->cstrs);
 		sinfo->cstrs = palloc_array(char *, nfields);
 	}
 
-	/* Should have a single-row result if we get here */
+	/* Should have a single-row result if we get here
+	 *
+	 * 如果我们到达这里应该有一个单行结果
+	 */
 	Assert(PQntuples(res) == 1);
 
 	/*
 	 * Do the following work in a temp context that we reset after each tuple.
 	 * This cleans up not only the data we have direct access to, but any
 	 * cruft the I/O functions might leak.
+	 *
+	 * 在我们在每个元组之后重置的临时上下文中执行以下工作。这不仅清理了我们可以直接访问的数据，还清理了 I/O 函数可能泄漏的任何残骸。
 	 */
 	oldcontext = MemoryContextSwitchTo(sinfo->tmpcontext);
 
 	/*
 	 * Fill cstrs with null-terminated strings of column values.
+	 *
+	 * 使用以 null 结尾的列值字符串填充 cstr。
 	 */
 	for (i = 0; i < nfields; i++)
 	{
@@ -1278,12 +1567,18 @@ storeRow(volatile storeInfo *sinfo, PGresult *res, bool first)
 			sinfo->cstrs[i] = PQgetvalue(res, 0, i);
 	}
 
-	/* Convert row to a tuple, and add it to the tuplestore */
+	/* Convert row to a tuple, and add it to the tuplestore
+	 *
+	 * 将行转换为元组，并将其添加到元组存储中
+	 */
 	tuple = BuildTupleFromCStrings(sinfo->attinmeta, sinfo->cstrs);
 
 	tuplestore_puttuple(sinfo->tuplestore, tuple);
 
-	/* Clean up */
+	/* Clean up
+	 *
+	 * 清理
+	 */
 	MemoryContextSwitchTo(oldcontext);
 	MemoryContextReset(sinfo->tmpcontext);
 }
@@ -1292,6 +1587,8 @@ storeRow(volatile storeInfo *sinfo, PGresult *res, bool first)
  * List all open dblink connections by name.
  * Returns an array of all connection names.
  * Takes no params
+ *
+ * 按名称列出所有打开的 dblink 连接。返回所有连接名称的数组。不带参数
  */
 PG_FUNCTION_INFO_V1(dblink_get_connections);
 Datum
@@ -1306,10 +1603,16 @@ dblink_get_connections(PG_FUNCTION_ARGS)
 		hash_seq_init(&status, remoteConnHash);
 		while ((hentry = (remoteConnHashEnt *) hash_seq_search(&status)) != NULL)
 		{
-			/* ignore it if it's not an open connection */
+			/* ignore it if it's not an open connection
+			 *
+			 * 如果不是打开的连接则忽略它
+			 */
 			if (hentry->rconn.conn == NULL)
 				continue;
-			/* stash away current value */
+			/* stash away current value
+			 *
+			 * 隐藏当前值
+			 */
 			astate = accumArrayResult(astate,
 									  CStringGetTextDatum(hentry->name),
 									  false, TEXTOID, CurrentMemoryContext);
@@ -1326,9 +1629,13 @@ dblink_get_connections(PG_FUNCTION_ARGS)
 /*
  * Checks if a given remote connection is busy
  *
+ * 检查给定的远程连接是否繁忙
+ *
  * Returns 1 if the connection is busy, 0 otherwise
  * Params:
  *	text connection_name - name of the connection to check
+ *
+ * 如果连接繁忙则返回 1，否则返回 0 参数：text connection_name - 要检查的连接名称
  *
  */
 PG_FUNCTION_INFO_V1(dblink_is_busy);
@@ -1347,12 +1654,18 @@ dblink_is_busy(PG_FUNCTION_ARGS)
 /*
  * Cancels a running request on a connection
  *
+ * 取消连接上正在运行的请求
+ *
  * Returns text:
  *	"OK" if the cancel request has been sent correctly,
  *		an error message otherwise
  *
+ * 返回文本：如果取消请求已正确发送，则返回“OK”，否则返回错误消息
+ *
  * Params:
  *	text connection_name - name of the connection to check
+ *
+ * 参数：文本connection_name - 要检查的连接的名称
  *
  */
 PG_FUNCTION_INFO_V1(dblink_cancel_query);
@@ -1378,11 +1691,17 @@ dblink_cancel_query(PG_FUNCTION_ARGS)
 /*
  * Get error message from a connection
  *
+ * 从连接获取错误消息
+ *
  * Returns text:
  *	"OK" if no error, an error message otherwise
  *
+ * 返回文本：如果没有错误则返回“OK”，否则返回错误消息
+ *
  * Params:
  *	text connection_name - name of the connection to check
+ *
+ * 参数：文本connection_name - 要检查的连接的名称
  *
  */
 PG_FUNCTION_INFO_V1(dblink_error_message);
@@ -1404,6 +1723,8 @@ dblink_error_message(PG_FUNCTION_ARGS)
 
 /*
  * Execute an SQL non-SELECT command
+ *
+ * 执行 SQL 非 SELECT 命令
  */
 PG_FUNCTION_INFO_V1(dblink_exec);
 Datum
@@ -1424,7 +1745,10 @@ dblink_exec(PG_FUNCTION_ARGS)
 
 		if (PG_NARGS() == 3)
 		{
-			/* must be text,text,bool */
+			/* must be text,text,bool
+			 *
+			 * 必须是文本、文本、布尔值
+			 */
 			conname = text_to_cstring(PG_GETARG_TEXT_PP(0));
 			sql = text_to_cstring(PG_GETARG_TEXT_PP(1));
 			fail = PG_GETARG_BOOL(2);
@@ -1432,7 +1756,10 @@ dblink_exec(PG_FUNCTION_ARGS)
 		}
 		else if (PG_NARGS() == 2)
 		{
-			/* might be text,text or text,bool */
+			/* might be text,text or text,bool
+			 *
+			 * 可能是文本、文本或文本、布尔值
+			 */
 			if (get_fn_expr_argtype(fcinfo->flinfo, 1) == BOOLOID)
 			{
 				sql = text_to_cstring(PG_GETARG_TEXT_PP(0));
@@ -1448,12 +1775,18 @@ dblink_exec(PG_FUNCTION_ARGS)
 		}
 		else if (PG_NARGS() == 1)
 		{
-			/* must be single text argument */
+			/* must be single text argument
+			 *
+			 * 必须是单个文本参数
+			 */
 			conn = pconn->conn;
 			sql = text_to_cstring(PG_GETARG_TEXT_PP(0));
 		}
 		else
-			/* shouldn't happen */
+			/* shouldn't happen
+			 *
+			 * 不应该发生
+			 */
 			elog(ERROR, "wrong number of arguments");
 
 		if (!conn)
@@ -1470,6 +1803,8 @@ dblink_exec(PG_FUNCTION_ARGS)
 			/*
 			 * and save a copy of the command status string to return as our
 			 * result tuple
+			 *
+			 * 并保存命令状态字符串的副本以作为结果元组返回
 			 */
 			sql_cmd_status = cstring_to_text("ERROR");
 		}
@@ -1478,6 +1813,8 @@ dblink_exec(PG_FUNCTION_ARGS)
 			/*
 			 * and save a copy of the command status string to return as our
 			 * result tuple
+			 *
+			 * 并保存命令状态字符串的副本以作为结果元组返回
 			 */
 			sql_cmd_status = cstring_to_text(PQcmdStatus(res));
 			PQclear(res);
@@ -1492,7 +1829,10 @@ dblink_exec(PG_FUNCTION_ARGS)
 	}
 	PG_FINALLY();
 	{
-		/* if needed, close the connection to the database */
+		/* if needed, close the connection to the database
+		 *
+		 * 如果需要，关闭与数据库的连接
+		 */
 		if (freeconn)
 			libpqsrv_disconnect(conn);
 	}
@@ -1507,6 +1847,8 @@ dblink_exec(PG_FUNCTION_ARGS)
  *
  * Return list of primary key fields for the supplied relation,
  * or NULL if none exists.
+ *
+ * 返回所提供关系的主键字段列表，如果不存在则返回 NULL。
  */
 PG_FUNCTION_INFO_V1(dblink_get_pkey);
 Datum
@@ -1520,30 +1862,46 @@ dblink_get_pkey(PG_FUNCTION_ARGS)
 	AttInMetadata *attinmeta;
 	MemoryContext oldcontext;
 
-	/* stuff done only on the first call of the function */
+	/* stuff done only on the first call of the function
+	 *
+	 * 仅在第一次调用函数时完成的操作
+	 */
 	if (SRF_IS_FIRSTCALL())
 	{
 		Relation	rel;
 		TupleDesc	tupdesc;
 
-		/* create a function context for cross-call persistence */
+		/* create a function context for cross-call persistence
+		 *
+		 * 创建用于交叉调用持久化的函数上下文
+		 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
 		/*
 		 * switch to memory context appropriate for multiple function calls
+		 *
+		 * 切换到适合多个函数调用的内存上下文
 		 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* open target relation */
+		/* open target relation
+		 *
+		 * 开放目标关系
+		 */
 		rel = get_rel_from_relname(PG_GETARG_TEXT_PP(0), AccessShareLock, ACL_SELECT);
 
-		/* get the array of attnums */
+		/* get the array of attnums
+		 *
+		 * 获取 attnums 数组
+		 */
 		results = get_pkey_attnames(rel, &indnkeyatts);
 
 		relation_close(rel, AccessShareLock);
 
 		/*
 		 * need a tuple descriptor representing one INT and one TEXT column
+		 *
+		 * 需要一个表示一个 INT 和一个 TEXT 列的元组描述符
 		 */
 		tupdesc = CreateTemplateTupleDesc(2);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "position",
@@ -1554,6 +1912,8 @@ dblink_get_pkey(PG_FUNCTION_ARGS)
 		/*
 		 * Generate attribute metadata needed later to produce tuples from raw
 		 * C strings
+		 *
+		 * 生成稍后需要的属性元数据，以从原始 C 字符串生成元组
 		 */
 		attinmeta = TupleDescGetAttInMetadata(tupdesc);
 		funcctx->attinmeta = attinmeta;
@@ -1562,12 +1922,18 @@ dblink_get_pkey(PG_FUNCTION_ARGS)
 		{
 			funcctx->max_calls = indnkeyatts;
 
-			/* got results, keep track of them */
+			/* got results, keep track of them
+			 *
+			 * 得到结果，跟踪它们
+			 */
 			funcctx->user_fctx = results;
 		}
 		else
 		{
-			/* fast track when no results */
+			/* fast track when no results
+			 *
+			 * 没有结果时快速跟踪
+			 */
 			MemoryContextSwitchTo(oldcontext);
 			SRF_RETURN_DONE(funcctx);
 		}
@@ -1575,11 +1941,16 @@ dblink_get_pkey(PG_FUNCTION_ARGS)
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* stuff done on every call of the function */
+	/* stuff done on every call of the function
+	 *
+	 * 每次调用函数时完成的事情
+	 */
 	funcctx = SRF_PERCALL_SETUP();
 
 	/*
 	 * initialize per-call variables
+	 *
+	 * 初始化每次调用变量
 	 */
 	call_cntr = funcctx->call_cntr;
 	max_calls = funcctx->max_calls;
@@ -1597,17 +1968,26 @@ dblink_get_pkey(PG_FUNCTION_ARGS)
 		values[0] = psprintf("%d", call_cntr + 1);
 		values[1] = results[call_cntr];
 
-		/* build the tuple */
+		/* build the tuple
+		 *
+		 * 构建元组
+		 */
 		tuple = BuildTupleFromCStrings(attinmeta, values);
 
-		/* make the tuple into a datum */
+		/* make the tuple into a datum
+		 *
+		 * 使元组成为数据
+		 */
 		result = HeapTupleGetDatum(tuple);
 
 		SRF_RETURN_NEXT(funcctx, result);
 	}
 	else
 	{
-		/* do when there is no more left */
+		/* do when there is no more left
+		 *
+		 * 当没有剩下的时候做
+		 */
 		SRF_RETURN_DONE(funcctx);
 	}
 }
@@ -1621,6 +2001,8 @@ dblink_get_pkey(PG_FUNCTION_ARGS)
  * This is useful for selectively replicating data
  * to another server via dblink.
  *
+ * 用于根据本地关系中的现有元组生成 SQL 插入语句。这对于通过 dblink 有选择地将数据复制到另一台服务器非常有用。
+ *
  * API:
  * <relname> - name of local table of interest
  * <pkattnums> - an int2vector of attnums which will be used
@@ -1631,6 +2013,8 @@ dblink_get_pkey(PG_FUNCTION_ARGS)
  * <tgt_pkattvals_arry> - text array of key values which will be used
  * to build the string for execution remotely. These are substituted
  * for their counterparts in src_pkattvals_arry
+ *
+ * API： <relname> - 感兴趣的本地表的名称 <pkattnums> - 将用于标识感兴趣的本地元组的 attnums 的 int2vector <pknumatts> - pkattnums 中的 attnum 数量 <src_pkattvals_arry> - 将用于标识感兴趣的本地元组的键值文本数组 <tgt_pkattvals_arry> - 将用于构建的键值文本数组用于远程执行的字符串。这些被替换为 src_pkattvals_arry 中的对应项
  */
 PG_FUNCTION_INFO_V1(dblink_build_sql_insert);
 Datum
@@ -1652,11 +2036,15 @@ dblink_build_sql_insert(PG_FUNCTION_ARGS)
 
 	/*
 	 * Open target relation.
+	 *
+	 * 打开目标关系。
 	 */
 	rel = get_rel_from_relname(relname_text, AccessShareLock, ACL_SELECT);
 
 	/*
 	 * Process pkattnums argument.
+	 *
+	 * 处理 pkattnums 参数。
 	 */
 	validate_pkattnums(rel, pkattnums_arg, pknumatts_arg,
 					   &pkattnums, &pknumatts);
@@ -1664,11 +2052,15 @@ dblink_build_sql_insert(PG_FUNCTION_ARGS)
 	/*
 	 * Source array is made up of key values that will be used to locate the
 	 * tuple of interest from the local system.
+	 *
+	 * 源数组由键值组成，这些键值将用于从本地系统定位感兴趣的元组。
 	 */
 	src_pkattvals = get_text_array_contents(src_pkattvals_arry, &src_nitems);
 
 	/*
 	 * There should be one source array key value for each key attnum
+	 *
+	 * 每个键 attnum 应该有一个源数组键值
 	 */
 	if (src_nitems != pknumatts)
 		ereport(ERROR,
@@ -1678,11 +2070,15 @@ dblink_build_sql_insert(PG_FUNCTION_ARGS)
 	/*
 	 * Target array is made up of key values that will be used to build the
 	 * SQL string for use on the remote system.
+	 *
+	 * 目标数组由键值组成，这些键值将用于构建在远程系统上使用的 SQL 字符串。
 	 */
 	tgt_pkattvals = get_text_array_contents(tgt_pkattvals_arry, &tgt_nitems);
 
 	/*
 	 * There should be one target array key value for each key attnum
+	 *
+	 * 每个键值应该有一个目标数组键值
 	 */
 	if (tgt_nitems != pknumatts)
 		ereport(ERROR,
@@ -1691,16 +2087,22 @@ dblink_build_sql_insert(PG_FUNCTION_ARGS)
 
 	/*
 	 * Prep work is finally done. Go get the SQL string.
+	 *
+	 * 准备工作终于完成了。去获取 SQL 字符串。
 	 */
 	sql = get_sql_insert(rel, pkattnums, pknumatts, src_pkattvals, tgt_pkattvals);
 
 	/*
 	 * Now we can close the relation.
+	 *
+	 * 现在我们可以关闭关系了。
 	 */
 	relation_close(rel, AccessShareLock);
 
 	/*
 	 * And send it
+	 *
+	 * 并发送它
 	 */
 	PG_RETURN_TEXT_P(cstring_to_text(sql));
 }
@@ -1713,6 +2115,8 @@ dblink_build_sql_insert(PG_FUNCTION_ARGS)
  * This is useful for selectively replicating a
  * delete to another server via dblink.
  *
+ * 用于生成 SQL 删除语句。这对于通过 dblink 有选择地将删除复制到另一台服务器非常有用。
+ *
  * API:
  * <relname> - name of remote table of interest
  * <pkattnums> - an int2vector of attnums which will be used
@@ -1720,6 +2124,8 @@ dblink_build_sql_insert(PG_FUNCTION_ARGS)
  * <pknumatts> - number of attnums in pkattnums
  * <tgt_pkattvals_arry> - text array of key values which will be used
  * to build the string for execution remotely.
+ *
+ * API： <relname> - 感兴趣的远程表的名称 <pkattnums> - attnums 的 int2vector，将用于标识感兴趣的远程元组 <pknumatts> - pkattnums 中的 attnums 数量 <tgt_pkattvals_arry> - 键值的文本数组，将用于构建远程执行的字符串。
  */
 PG_FUNCTION_INFO_V1(dblink_build_sql_delete);
 Datum
@@ -1738,11 +2144,15 @@ dblink_build_sql_delete(PG_FUNCTION_ARGS)
 
 	/*
 	 * Open target relation.
+	 *
+	 * 打开目标关系。
 	 */
 	rel = get_rel_from_relname(relname_text, AccessShareLock, ACL_SELECT);
 
 	/*
 	 * Process pkattnums argument.
+	 *
+	 * 处理 pkattnums 参数。
 	 */
 	validate_pkattnums(rel, pkattnums_arg, pknumatts_arg,
 					   &pkattnums, &pknumatts);
@@ -1750,11 +2160,15 @@ dblink_build_sql_delete(PG_FUNCTION_ARGS)
 	/*
 	 * Target array is made up of key values that will be used to build the
 	 * SQL string for use on the remote system.
+	 *
+	 * 目标数组由键值组成，这些键值将用于构建在远程系统上使用的 SQL 字符串。
 	 */
 	tgt_pkattvals = get_text_array_contents(tgt_pkattvals_arry, &tgt_nitems);
 
 	/*
 	 * There should be one target array key value for each key attnum
+	 *
+	 * 每个键值应该有一个目标数组键值
 	 */
 	if (tgt_nitems != pknumatts)
 		ereport(ERROR,
@@ -1763,16 +2177,22 @@ dblink_build_sql_delete(PG_FUNCTION_ARGS)
 
 	/*
 	 * Prep work is finally done. Go get the SQL string.
+	 *
+	 * 准备工作终于完成了。去获取 SQL 字符串。
 	 */
 	sql = get_sql_delete(rel, pkattnums, pknumatts, tgt_pkattvals);
 
 	/*
 	 * Now we can close the relation.
+	 *
+	 * 现在我们可以关闭关系了。
 	 */
 	relation_close(rel, AccessShareLock);
 
 	/*
 	 * And send it
+	 *
+	 * 并发送它
 	 */
 	PG_RETURN_TEXT_P(cstring_to_text(sql));
 }
@@ -1786,6 +2206,8 @@ dblink_build_sql_delete(PG_FUNCTION_ARGS)
  * This is useful for selectively replicating data
  * to another server via dblink.
  *
+ * 用于根据本地关系中的现有元组生成 SQL 更新语句。这对于通过 dblink 有选择地将数据复制到另一台服务器非常有用。
+ *
  * API:
  * <relname> - name of local table of interest
  * <pkattnums> - an int2vector of attnums which will be used
@@ -1796,6 +2218,8 @@ dblink_build_sql_delete(PG_FUNCTION_ARGS)
  * <tgt_pkattvals_arry> - text array of key values which will be used
  * to build the string for execution remotely. These are substituted
  * for their counterparts in src_pkattvals_arry
+ *
+ * API： <relname> - 感兴趣的本地表的名称 <pkattnums> - 将用于标识感兴趣的本地元组的 attnums 的 int2vector <pknumatts> - pkattnums 中的 attnum 数量 <src_pkattvals_arry> - 将用于标识感兴趣的本地元组的键值文本数组 <tgt_pkattvals_arry> - 将用于构建的键值文本数组用于远程执行的字符串。这些被替换为 src_pkattvals_arry 中的对应项
  */
 PG_FUNCTION_INFO_V1(dblink_build_sql_update);
 Datum
@@ -1817,11 +2241,15 @@ dblink_build_sql_update(PG_FUNCTION_ARGS)
 
 	/*
 	 * Open target relation.
+	 *
+	 * 打开目标关系。
 	 */
 	rel = get_rel_from_relname(relname_text, AccessShareLock, ACL_SELECT);
 
 	/*
 	 * Process pkattnums argument.
+	 *
+	 * 处理 pkattnums 参数。
 	 */
 	validate_pkattnums(rel, pkattnums_arg, pknumatts_arg,
 					   &pkattnums, &pknumatts);
@@ -1829,11 +2257,15 @@ dblink_build_sql_update(PG_FUNCTION_ARGS)
 	/*
 	 * Source array is made up of key values that will be used to locate the
 	 * tuple of interest from the local system.
+	 *
+	 * 源数组由键值组成，这些键值将用于从本地系统定位感兴趣的元组。
 	 */
 	src_pkattvals = get_text_array_contents(src_pkattvals_arry, &src_nitems);
 
 	/*
 	 * There should be one source array key value for each key attnum
+	 *
+	 * 每个键 attnum 应该有一个源数组键值
 	 */
 	if (src_nitems != pknumatts)
 		ereport(ERROR,
@@ -1843,11 +2275,15 @@ dblink_build_sql_update(PG_FUNCTION_ARGS)
 	/*
 	 * Target array is made up of key values that will be used to build the
 	 * SQL string for use on the remote system.
+	 *
+	 * 目标数组由键值组成，这些键值将用于构建在远程系统上使用的 SQL 字符串。
 	 */
 	tgt_pkattvals = get_text_array_contents(tgt_pkattvals_arry, &tgt_nitems);
 
 	/*
 	 * There should be one target array key value for each key attnum
+	 *
+	 * 每个键值应该有一个目标数组键值
 	 */
 	if (tgt_nitems != pknumatts)
 		ereport(ERROR,
@@ -1856,16 +2292,22 @@ dblink_build_sql_update(PG_FUNCTION_ARGS)
 
 	/*
 	 * Prep work is finally done. Go get the SQL string.
+	 *
+	 * 准备工作终于完成了。去获取 SQL 字符串。
 	 */
 	sql = get_sql_update(rel, pkattnums, pknumatts, src_pkattvals, tgt_pkattvals);
 
 	/*
 	 * Now we can close the relation.
+	 *
+	 * 现在我们可以关闭关系了。
 	 */
 	relation_close(rel, AccessShareLock);
 
 	/*
 	 * And send it
+	 *
+	 * 并发送它
 	 */
 	PG_RETURN_TEXT_P(cstring_to_text(sql));
 }
@@ -1875,21 +2317,30 @@ dblink_build_sql_update(PG_FUNCTION_ARGS)
  * return the current query string
  * to allow its use in (among other things)
  * rewrite rules
+ *
+ * dblink_current_query 返回当前查询字符串以允许其在（除其他外）重写规则中使用
  */
 PG_FUNCTION_INFO_V1(dblink_current_query);
 Datum
 dblink_current_query(PG_FUNCTION_ARGS)
 {
-	/* This is now just an alias for the built-in function current_query() */
+	/* This is now just an alias for the built-in function current_query()
+	 *
+	 * 现在这只是内置函数 current_query() 的别名
+	 */
 	PG_RETURN_DATUM(current_query(fcinfo));
 }
 
 /*
  * Retrieve async notifications for a connection.
  *
+ * 检索连接的异步通知。
+ *
  * Returns a setof record of notifications, or an empty set if none received.
  * Can optionally take a named connection as parameter, but uses the unnamed
  * connection per default.
+ *
+ * 返回一组通知记录，如果没有收到，则返回一个空集。可以选择将命名连接作为参数，但默认使用未命名连接。
  *
  */
 #define DBLINK_NOTIFY_COLS		3
@@ -1944,8 +2395,12 @@ dblink_get_notify(PG_FUNCTION_ARGS)
  * Validate the options given to a dblink foreign server or user mapping.
  * Raise an error if any option is invalid.
  *
+ * 验证为 dblink 外部服务器或用户映射提供的选项。如果任何选项无效，则引发错误。
+ *
  * We just check the names of options here, so semantic errors in options,
  * such as invalid numeric format, will be detected at the attempt to connect.
+ *
+ * 我们只是在这里检查选项的名称，因此在尝试连接时将检测到选项中的语义错误，例如无效的数字格式。
  */
 PG_FUNCTION_INFO_V1(dblink_fdw_validator);
 Datum
@@ -1960,9 +2415,13 @@ dblink_fdw_validator(PG_FUNCTION_ARGS)
 	/*
 	 * Get list of valid libpq options.
 	 *
+	 * 获取有效 libpq 选项的列表。
+	 *
 	 * To avoid unnecessary work, we get the list once and use it throughout
 	 * the lifetime of this backend process.  We don't need to care about
 	 * memory context issues, because PQconndefaults allocates with malloc.
+	 *
+	 * 为了避免不必要的工作，我们只获取一次列表，并在后端进程的整个生命周期中使用它。  我们不需要关心内存上下文问题，因为 PQconndefaults 使用 malloc 进行分配。
 	 */
 	if (!options)
 	{
@@ -1974,7 +2433,10 @@ dblink_fdw_validator(PG_FUNCTION_ARGS)
 					 errdetail("Could not get libpq's default connection options.")));
 	}
 
-	/* Validate each supplied option. */
+	/* Validate each supplied option.
+	 *
+	 * 验证每个提供的选项。
+	 */
 	foreach(cell, options_list)
 	{
 		DefElem    *def = (DefElem *) lfirst(cell);
@@ -1985,6 +2447,8 @@ dblink_fdw_validator(PG_FUNCTION_ARGS)
 			 * Unknown option, or invalid option for the context specified, so
 			 * complain about it.  Provide a hint with a valid option that
 			 * looks similar, if there is one.
+			 *
+			 * 未知选项，或指定上下文的选项无效，因此请投诉。  提供一个提示，其中包含看起来相似的有效选项（如果有）。
 			 */
 			const PQconninfoOption *opt;
 			const char *closest_match;
@@ -2018,6 +2482,8 @@ dblink_fdw_validator(PG_FUNCTION_ARGS)
 
 /*************************************************************
  * internal functions
+ *
+ * 内部功能
  */
 
 
@@ -2026,6 +2492,8 @@ dblink_fdw_validator(PG_FUNCTION_ARGS)
  *
  * Get the primary key attnames for the given relation.
  * Return NULL, and set indnkeyatts = 0, if no primary key exists.
+ *
+ * 获取给定关系的主键属性名称。如果不存在主键，则返回 NULL，并设置 indnkeyatts = 0。
  */
 static char **
 get_pkey_attnames(Relation rel, int16 *indnkeyatts)
@@ -2038,12 +2506,18 @@ get_pkey_attnames(Relation rel, int16 *indnkeyatts)
 	char	  **result = NULL;
 	TupleDesc	tupdesc;
 
-	/* initialize indnkeyatts to 0 in case no primary key exists */
+	/* initialize indnkeyatts to 0 in case no primary key exists
+	 *
+	 * 如果不存在主键，则将 indnkeyatts 初始化为 0
+	 */
 	*indnkeyatts = 0;
 
 	tupdesc = rel->rd_att;
 
-	/* Prepare to scan pg_index for entries having indrelid = this rel. */
+	/* Prepare to scan pg_index for entries having indrelid = this rel.
+	 *
+	 * 准备扫描 pg_index 查找具有 indrelid = this rel 的条目。
+	 */
 	indexRelation = table_open(IndexRelationId, AccessShareLock);
 	ScanKeyInit(&skey,
 				Anum_pg_index_indrelid,
@@ -2057,7 +2531,10 @@ get_pkey_attnames(Relation rel, int16 *indnkeyatts)
 	{
 		Form_pg_index index = (Form_pg_index) GETSTRUCT(indexTuple);
 
-		/* we're only interested if it is the primary key */
+		/* we're only interested if it is the primary key
+		 *
+		 * 我们只对它是主键感兴趣
+		 */
 		if (index->indisprimary)
 		{
 			*indnkeyatts = index->indnkeyatts;
@@ -2081,6 +2558,8 @@ get_pkey_attnames(Relation rel, int16 *indnkeyatts)
 /*
  * Deconstruct a text[] into C-strings (note any NULL elements will be
  * returned as NULL pointers)
+ *
+ * 将 text[] 解构为 C 字符串（注意任何 NULL 元素都将作为 NULL 指针返回）
  */
 static char **
 get_text_array_contents(ArrayType *array, int *numitems)
@@ -2123,7 +2602,10 @@ get_text_array_contents(ArrayType *array, int *numitems)
 			ptr = (char *) att_align_nominal(ptr, typalign);
 		}
 
-		/* advance bitmap pointer if any */
+		/* advance bitmap pointer if any
+		 *
+		 * 提前位图指针（如果有）
+		 */
 		if (bitmap)
 		{
 			bitmask <<= 1;
@@ -2153,7 +2635,10 @@ get_sql_insert(Relation rel, int *pkattnums, int pknumatts, char **src_pkattvals
 
 	initStringInfo(&buf);
 
-	/* get relation name including any needed schema prefix and quoting */
+	/* get relation name including any needed schema prefix and quoting
+	 *
+	 * 获取关系名称，包括任何所需的模式前缀和引用
+	 */
 	relname = generate_relation_name(rel);
 
 	tupdesc = rel->rd_att;
@@ -2187,6 +2672,8 @@ get_sql_insert(Relation rel, int *pkattnums, int pknumatts, char **src_pkattvals
 
 	/*
 	 * Note: i is physical column number (counting from 0).
+	 *
+	 * 注：i为物理列号（从0开始计数）。
 	 */
 	needComma = false;
 	for (i = 0; i < natts; i++)
@@ -2228,7 +2715,10 @@ get_sql_delete(Relation rel, int *pkattnums, int pknumatts, char **tgt_pkattvals
 
 	initStringInfo(&buf);
 
-	/* get relation name including any needed schema prefix and quoting */
+	/* get relation name including any needed schema prefix and quoting
+	 *
+	 * 获取关系名称，包括任何所需的模式前缀和引用
+	 */
 	relname = generate_relation_name(rel);
 
 	tupdesc = rel->rd_att;
@@ -2270,7 +2760,10 @@ get_sql_update(Relation rel, int *pkattnums, int pknumatts, char **src_pkattvals
 
 	initStringInfo(&buf);
 
-	/* get relation name including any needed schema prefix and quoting */
+	/* get relation name including any needed schema prefix and quoting
+	 *
+	 * 获取关系名称，包括任何所需的模式前缀和引用
+	 */
 	relname = generate_relation_name(rel);
 
 	tupdesc = rel->rd_att;
@@ -2286,6 +2779,8 @@ get_sql_update(Relation rel, int *pkattnums, int pknumatts, char **src_pkattvals
 
 	/*
 	 * Note: i is physical column number (counting from 0).
+	 *
+	 * 注：i为物理列号（从0开始计数）。
 	 */
 	needComma = false;
 	for (i = 0; i < natts; i++)
@@ -2345,6 +2840,8 @@ get_sql_update(Relation rel, int *pkattnums, int pknumatts, char **src_pkattvals
 /*
  * Return a properly quoted identifier.
  * Uses quote_ident in quote.c
+ *
+ * 返回正确引用的标识符。在 quote.c 中使用 quote_ident
  */
 static char *
 quote_ident_cstr(char *rawstr)
@@ -2368,6 +2865,8 @@ get_attnum_pk_pos(int *pkattnums, int pknumatts, int key)
 
 	/*
 	 * Not likely a long list anyway, so just scan for the value
+	 *
+	 * 无论如何，列表不太可能很长，所以只需扫描该值即可
 	 */
 	for (i = 0; i < pknumatts; i++)
 		if (key == pkattnums[i])
@@ -2389,12 +2888,17 @@ get_tuple_of_interest(Relation rel, int *pkattnums, int pknumatts, char **src_pk
 
 	/*
 	 * Connect to SPI manager
+	 *
+	 * 连接到 SPI 管理器
 	 */
 	SPI_connect();
 
 	initStringInfo(&buf);
 
-	/* get relation name including any needed schema prefix and quoting */
+	/* get relation name including any needed schema prefix and quoting
+	 *
+	 * 获取关系名称，包括任何所需的模式前缀和引用
+	 */
 	relname = generate_relation_name(rel);
 
 	tupdesc = rel->rd_att;
@@ -2406,6 +2910,8 @@ get_tuple_of_interest(Relation rel, int *pkattnums, int pknumatts, char **src_pk
 	 * generate a result tuple that matches the table's physical structure,
 	 * with NULLs for any dropped columns.  Otherwise we have to deal with two
 	 * different tupdescs and everything's very confusing.
+	 *
+	 * 构建 sql 语句来查找感兴趣的元组，即匹配 src_pkattvals 的元组。  我们曾经在这里使用“SELECT *”，但生成与表的物理结构匹配的结果元组更简单，并且任何删除的列都为 NULL。  否则我们必须处理两个不同的 tupdesc，一切都会变得非常混乱。
 	 */
 	appendStringInfoString(&buf, "SELECT ");
 
@@ -2445,12 +2951,16 @@ get_tuple_of_interest(Relation rel, int *pkattnums, int pknumatts, char **src_pk
 
 	/*
 	 * Retrieve the desired tuple
+	 *
+	 * 检索所需的元组
 	 */
 	ret = SPI_exec(buf.data, 0);
 	pfree(buf.data);
 
 	/*
 	 * Only allow one qualifying tuple
+	 *
+	 * 只允许一个符合条件的元组
 	 */
 	if ((ret == SPI_OK_SELECT) && (SPI_processed > 1))
 		ereport(ERROR,
@@ -2470,6 +2980,8 @@ get_tuple_of_interest(Relation rel, int *pkattnums, int pknumatts, char **src_pk
 	{
 		/*
 		 * no qualifying tuples
+		 *
+		 * 没有合格的元组
 		 */
 		SPI_finish();
 
@@ -2478,6 +2990,8 @@ get_tuple_of_interest(Relation rel, int *pkattnums, int pknumatts, char **src_pk
 
 	/*
 	 * never reached, but keep compiler quiet
+	 *
+	 * 从未达到，但保持编译器安静
 	 */
 	return NULL;
 }
@@ -2486,6 +3000,8 @@ get_tuple_of_interest(Relation rel, int *pkattnums, int pknumatts, char **src_pk
  * Open the relation named by relname_text, acquire specified type of lock,
  * verify we have specified permissions.
  * Caller must close rel when done with it.
+ *
+ * 打开relname_text命名的关系，获取指定类型的锁，验证我们是否具有指定的权限。调用者必须在完成后关闭 rel。
  */
 static Relation
 get_rel_from_relname(text *relname_text, LOCKMODE lockmode, AclMode aclmode)
@@ -2510,7 +3026,11 @@ get_rel_from_relname(text *relname_text, LOCKMODE lockmode, AclMode aclmode)
  * generate_relation_name - copied from ruleutils.c
  *		Compute the name to display for a relation
  *
+ * generate_relation_name - 从ruleutils.c复制计算要显示的关系的名称
+ *
  * The result includes all necessary quoting and schema-prefixing.
+ *
+ * 结果包括所有必要的引用和模式前缀。
  */
 static char *
 generate_relation_name(Relation rel)
@@ -2518,7 +3038,10 @@ generate_relation_name(Relation rel)
 	char	   *nspname;
 	char	   *result;
 
-	/* Qualify the name if not visible in search path */
+	/* Qualify the name if not visible in search path
+	 *
+	 * 如果在搜索路径中不可见，则限定名称
+	 */
 	if (RelationIsVisible(RelationGetRelid(rel)))
 		nspname = NULL;
 	else
@@ -2582,7 +3105,10 @@ createNewConnection(const char *name)
 				(errcode(ERRCODE_DUPLICATE_OBJECT),
 				 errmsg("duplicate connection name")));
 
-	/* New, or reusable, so initialize the rconn struct to zeroes */
+	/* New, or reusable, so initialize the rconn struct to zeroes
+	 *
+	 * 新的或可重用的，因此将 rconn 结构初始化为零
+	 */
 	memset(&hentry->rconn, 0, sizeof(remoteConn));
 
 	return &hentry->rconn;
@@ -2614,10 +3140,16 @@ deleteConnection(const char *name)
   * SCRAM keys used to pass-through are coming from the initial connection
   * from the client with the server.
   *
+  * 确保在 connstr 上正确设置 require_auth 和 SCRAM 密钥。用于传递的 SCRAM 密钥来自客户端与服务器的初始连接。
+  *
   * All required SCRAM options are set by dblink, so we just need to ensure
   * that these options are not overwritten by the user.
   *
+  * 所有必需的 SCRAM 选项均由 dblink 设置，因此我们只需确保这些选项不被用户覆盖即可。
+  *
   * See appendSCRAMKeysInfo and its usage for more.
+  *
+  * 有关更多信息，请参阅appendSCRAMKeysInfo 及其用法。
   */
 bool
 dblink_connstr_has_required_scram_options(const char *connstr)
@@ -2635,6 +3167,8 @@ dblink_connstr_has_required_scram_options(const char *connstr)
 		 * Continue iterating even if we found the keys that we need to
 		 * validate to make sure that there is no other declaration of these
 		 * keys that can overwrite the first.
+		 *
+		 * 即使我们找到了需要验证的键，也要继续迭代，以确保这些键没有其他声明可以覆盖第一个。
 		 */
 		for (PQconninfoOption *option = options; option->keyword != NULL; option++)
 		{
@@ -2675,17 +3209,27 @@ dblink_connstr_has_required_scram_options(const char *connstr)
  * which were provided by the user, so check what credentials were
  * used to connect and then make sure that they came from the user.
  *
+ * 我们需要确保连接使用了用户提供的凭据，因此请检查用于连接的凭据，然后确保它们来自用户。
+ *
  * On failure, we close "conn" and also delete the hashtable entry
  * identified by "connname" (if that's not NULL).
+ *
+ * 失败时，我们关闭“conn”，并删除由“connname”标识的哈希表条目（如果它不为 NULL）。
  */
 static void
 dblink_security_check(PGconn *conn, const char *connname, const char *connstr)
 {
-	/* Superuser bypasses security check */
+	/* Superuser bypasses security check
+	 *
+	 * 超级用户绕过安全检查
+	 */
 	if (superuser())
 		return;
 
-	/* If password was used to connect, make sure it was one provided */
+	/* If password was used to connect, make sure it was one provided
+	 *
+	 * 如果使用密码进行连接，请确保已提供密码
+	 */
 	if (PQconnectionUsedPassword(conn) && dblink_connstr_has_pw(connstr))
 		return;
 
@@ -2693,21 +3237,31 @@ dblink_security_check(PGconn *conn, const char *connname, const char *connstr)
 	 * Password was not used to connect, check if SCRAM pass-through is in
 	 * use.
 	 *
+	 * 未使用密码进行连接，请检查 SCRAM 直通是否正在使用。
+	 *
 	 * If dblink_connstr_has_required_scram_options is true we assume that
 	 * UseScramPassthrough is also true because the required SCRAM keys are
 	 * only added if UseScramPassthrough is set, and the user is not allowed
 	 * to add the SCRAM keys on fdw and user mapping options.
+	 *
+	 * 如果 dblink_connstr_has_required_scram_options 为 true，我们假设 UseScramPassthrough 也为 true，因为仅当设置了 UseScramPassthrough 时才会添加所需的 SCRAM 密钥，并且不允许用户在 fdw 和用户映射选项上添加 SCRAM 密钥。
 	 */
 	if (MyProcPort != NULL && MyProcPort->has_scram_keys && dblink_connstr_has_required_scram_options(connstr))
 		return;
 
 #ifdef ENABLE_GSS
-	/* If GSSAPI creds used to connect, make sure it was one delegated */
+	/* If GSSAPI creds used to connect, make sure it was one delegated
+	 *
+	 * 如果使用 GSSAPI 信用进行连接，请确保它是委托的
+	 */
 	if (PQconnectionUsedGSSAPI(conn) && be_gssapi_get_delegation(MyProcPort))
 		return;
 #endif
 
-	/* Otherwise, fail out */
+	/* Otherwise, fail out
+	 *
+	 * 否则失败
+	 */
 	libpqsrv_disconnect(conn);
 	if (connname)
 		deleteConnection(connname);
@@ -2724,6 +3278,8 @@ dblink_security_check(PGconn *conn, const char *connname, const char *connstr)
  * password, needed to ensure that non-superuser password-based auth
  * is using a provided password and not one picked up from the
  * environment.
+ *
+ * 检查连接字符串是否包含显式密码的函数，需要确保基于非超级用户密码的身份验证使用提供的密码，而不是从环境中获取的密码。
  */
 static bool
 dblink_connstr_has_pw(const char *connstr)
@@ -2761,6 +3317,8 @@ dblink_connstr_has_pw(const char *connstr)
  * the postgres user's passwords or Kerberos credentials to be accessible to
  * non-superusers. In case of SCRAM pass-through insist that the connstr
  * has the required SCRAM pass-through options.
+ *
+ * 对于非超级用户，坚持要求 connstr 指定密码，除非已委派 GSSAPI 凭据（并且我们稍后检查它们是否用于 dblink_security_check 中的连接）或者是否正在使用 SCRAM 直通。  这可以防止从 .pgpass、服务文件、环境等中获取密码或 GSSAPI 凭据。我们不希望非超级用户可以访问 postgres 用户的密码或 Kerberos 凭据。如果是 SCRAM 直通，请坚持 connstr 具有所需的 SCRAM 直通选项。
  */
 static void
 dblink_connstr_check(const char *connstr)
@@ -2788,10 +3346,14 @@ dblink_connstr_check(const char *connstr)
 /*
  * Report an error received from the remote server
  *
+ * 报告从远程服务器收到的错误
+ *
  * res: the received error result (will be freed)
  * fail: true for ERROR ereport, false for NOTICE
  * fmt and following args: sprintf-style format and values for errcontext;
  * the resulting string should be worded like "while <some action>"
+ *
+ * res：接收到的错误结果（将被释放）失败：对于 ERROR ereport 为 true，对于 NOTICE fmt 为 false，以及以下参数：sprintf 样式格式和 errcontext 的值；结果字符串的措辞应类似于“while <some action>”
  */
 static void
 dblink_res_error(PGconn *conn, const char *conname, PGresult *res,
@@ -2834,6 +3396,8 @@ dblink_res_error(PGconn *conn, const char *conname, PGresult *res,
 	 * If we don't get a message from the PGresult, try the PGconn.  This is
 	 * needed because for connection-level failures, PQgetResult may just
 	 * return NULL, not a PGresult at all.
+	 *
+	 * 如果我们没有从 PGresult 收到消息，请尝试 PGconn。  这是必需的，因为对于连接级故障，PQgetResult 可能只返回 NULL，而不是 PGresult。
 	 */
 	if (message_primary == NULL)
 		message_primary = pchomp(PQerrorMessage(conn));
@@ -2843,6 +3407,8 @@ dblink_res_error(PGconn *conn, const char *conname, PGresult *res,
 	 * safe to free it.  We must do this to avoid PGresult leakage.  We're
 	 * leaking all the strings too, but those are in palloc'd memory that will
 	 * get cleaned up eventually.
+	 *
+	 * 现在我们已经从 PGresult 中复制了所需的所有数据，可以安全地释放它了。  我们必须这样做以避免 PGresult 泄漏。  我们也泄漏了所有字符串，但这些字符串位于已分配的内存中，最终会被清除。
 	 */
 	PQclear(res);
 
@@ -2852,6 +3418,8 @@ dblink_res_error(PGconn *conn, const char *conname, PGresult *res,
 	 * guidelines about constructing error messages out of parts, but since
 	 * there's no translation support for dblink, there's no need to worry
 	 * about that (yet).
+	 *
+	 * 设置基本 errcontext 字符串的格式。  下面，我们将添加有关连接名称的内容。  这违反了关于用部件构造错误消息的可翻译性准则，但由于 dblink 没有翻译支持，因此（目前）还无需担心这一点。
 	 */
 	va_start(ap, fmt);
 	vsnprintf(dblink_context_msg, sizeof(dblink_context_msg), fmt, ap);
@@ -2874,6 +3442,8 @@ dblink_res_error(PGconn *conn, const char *conname, PGresult *res,
 
 /*
  * Obtain connection string for a foreign server
+ *
+ * 获取外部服务器的连接字符串
  */
 static char *
 get_connect_string(const char *servername)
@@ -2893,9 +3463,13 @@ get_connect_string(const char *servername)
 	/*
 	 * Get list of valid libpq options.
 	 *
+	 * 获取有效 libpq 选项的列表。
+	 *
 	 * To avoid unnecessary work, we get the list once and use it throughout
 	 * the lifetime of this backend process.  We don't need to care about
 	 * memory context issues, because PQconndefaults allocates with malloc.
+	 *
+	 * 为了避免不必要的工作，我们只获取一次列表，并在后端进程的整个生命周期中使用它。  我们不需要关心内存上下文问题，因为 PQconndefaults 使用 malloc 进行分配。
 	 */
 	if (!options)
 	{
@@ -2907,7 +3481,10 @@ get_connect_string(const char *servername)
 					 errdetail("Could not get libpq's default connection options.")));
 	}
 
-	/* first gather the server connstr options */
+	/* first gather the server connstr options
+	 *
+	 * 首先收集服务器 connstr 选项
+	 */
 	srvname = pstrdup(servername);
 	truncate_identifier(srvname, strlen(srvname), false);
 	foreign_server = GetForeignServerByName(srvname, true);
@@ -2921,7 +3498,10 @@ get_connect_string(const char *servername)
 		user_mapping = GetUserMapping(userid, serverid);
 		fdw = GetForeignDataWrapper(fdwid);
 
-		/* Check permissions, user must have usage on the server. */
+		/* Check permissions, user must have usage on the server.
+		 *
+		 * 检查权限，用户必须在服务器上有使用权。
+		 */
 		aclresult = object_aclcheck(ForeignServerRelationId, serverid, userid, ACL_USAGE);
 		if (aclresult != ACLCHECK_OK)
 			aclcheck_error(aclresult, OBJECT_FOREIGN_SERVER, foreign_server->servername);
@@ -2930,6 +3510,8 @@ get_connect_string(const char *servername)
 		 * First append hardcoded options needed for SCRAM pass-through, so if
 		 * the user overwrites these options we can ereport on
 		 * dblink_connstr_check and dblink_security_check.
+		 *
+		 * 首先附加 SCRAM 传递所需的硬编码选项，因此如果用户覆盖这些选项，我们可以在 dblink_connstr_check 和 dblink_security_check 上报告。
 		 */
 		if (MyProcPort != NULL && MyProcPort->has_scram_keys && UseScramPassthrough(foreign_server, user_mapping))
 			appendSCRAMKeysInfo(&buf);
@@ -2971,7 +3553,11 @@ get_connect_string(const char *servername)
 /*
  * Escaping libpq connect parameter strings.
  *
+ * 转义 libpq 连接参数字符串。
+ *
  * Replaces "'" with "\'" and "\" with "\\".
+ *
+ * 将“'”替换为“\'”，将“\”替换为“\\”。
  */
 static char *
 escape_param_str(const char *str)
@@ -2995,6 +3581,8 @@ escape_param_str(const char *str)
  * Validate the PK-attnums argument for dblink_build_sql_insert() and related
  * functions, and translate to the internal representation.
  *
+ * 验证 dblink_build_sql_insert() 和相关函数的 PK-attnums 参数，并转换为内部表示形式。
+ *
  * The user supplies an int2vector of 1-based logical attnums, plus a count
  * argument (the need for the separate count argument is historical, but we
  * still check it).  We check that each attnum corresponds to a valid,
@@ -3003,8 +3591,12 @@ escape_param_str(const char *str)
  * Note that before Postgres 9.0, the user's attnums were interpreted as
  * physical not logical column numbers; this was changed for future-proofing.
  *
+ * 用户提供一个基于 1 的逻辑属性的 int2vector，加上一个计数参数（历史上需要单独的计数参数，但我们仍然检查它）。  我们检查每个 attnum 是否对应于 rel 的一个有效的、未删除的属性。  我们*不*阻止 attnums 被列出两次，尽管此类事情的实际用例是可疑的。请注意，在 Postgres 9.0 之前，用户的 attnums 被解释为物理而不是逻辑列号；这是为了面向未来而改变的。
+ *
  * The internal representation is a palloc'd int array of 0-based physical
  * attnums.
+ *
+ * 内部表示是一个从 0 开始的物理属性的 palloc'd int 数组。
  */
 static void
 validate_pkattnums(Relation rel,
@@ -3015,37 +3607,58 @@ validate_pkattnums(Relation rel,
 	int			natts = tupdesc->natts;
 	int			i;
 
-	/* Don't take more array elements than there are */
+	/* Don't take more array elements than there are
+	 *
+	 * 不要获取比实际数量更多的数组元素
+	 */
 	pknumatts_arg = Min(pknumatts_arg, pkattnums_arg->dim1);
 
-	/* Must have at least one pk attnum selected */
+	/* Must have at least one pk attnum selected
+	 *
+	 * 必须至少选择一项PK属性
+	 */
 	if (pknumatts_arg <= 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("number of key attributes must be > 0")));
 
-	/* Allocate output array */
+	/* Allocate output array
+	 *
+	 * 分配输出数组
+	 */
 	*pkattnums = palloc_array(int, pknumatts_arg);
 	*pknumatts = pknumatts_arg;
 
-	/* Validate attnums and convert to internal form */
+	/* Validate attnums and convert to internal form
+	 *
+	 * 验证 attnums 并转换为内部形式
+	 */
 	for (i = 0; i < pknumatts_arg; i++)
 	{
 		int			pkattnum = pkattnums_arg->values[i];
 		int			lnum;
 		int			j;
 
-		/* Can throw error immediately if out of range */
+		/* Can throw error immediately if out of range
+		 *
+		 * 如果超出范围可以立即抛出错误
+		 */
 		if (pkattnum <= 0 || pkattnum > natts)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("invalid attribute number %d", pkattnum)));
 
-		/* Identify which physical column has this logical number */
+		/* Identify which physical column has this logical number
+		 *
+		 * 确定哪个物理列具有该逻辑编号
+		 */
 		lnum = 0;
 		for (j = 0; j < natts; j++)
 		{
-			/* dropped columns don't count */
+			/* dropped columns don't count
+			 *
+			 * 删除的列不算数
+			 */
 			if (TupleDescAttr(tupdesc, j)->attisdropped)
 				continue;
 
@@ -3065,6 +3678,8 @@ validate_pkattnums(Relation rel,
 /*
  * Check if the specified connection option is valid.
  *
+ * 检查指定的连接选项是否有效。
+ *
  * We basically allow whatever libpq thinks is an option, with these
  * restrictions:
  *		debug options: disallowed
@@ -3073,9 +3688,13 @@ validate_pkattnums(Relation rel,
  *		secure options (eg password): valid only in USER MAPPING options
  *		others: valid only in FOREIGN SERVER options
  *
+ * 我们基本上允许 libpq 认为的任何选项，但有以下限制： 调试选项：不允许的“client_encoding”：不允许的“user”：仅在 USER MAPPING 选项中有效 安全选项（例如密码）：仅在 USER MAPPING 选项中有效 其他：仅在 FOREIGN SERVER 选项中有效
+ *
  * We disallow client_encoding because it would be overridden anyway via
  * PQclientEncoding; allowing it to be specified would merely promote
  * confusion.
+ *
+ * 我们不允许 client_encoding，因为它无论如何都会通过 PQclientEncoding 被覆盖；允许对其进行具体说明只会造成混乱。
  */
 static bool
 is_valid_dblink_option(const PQconninfoOption *options, const char *option,
@@ -3083,7 +3702,10 @@ is_valid_dblink_option(const PQconninfoOption *options, const char *option,
 {
 	const PQconninfoOption *opt;
 
-	/* Look up the option in libpq result */
+	/* Look up the option in libpq result
+	 *
+	 * 在 libpq 结果中查找选项
+	 */
 	for (opt = options; opt->keyword; opt++)
 	{
 		if (strcmp(opt->keyword, option) == 0)
@@ -3092,17 +3714,25 @@ is_valid_dblink_option(const PQconninfoOption *options, const char *option,
 	if (opt->keyword == NULL)
 		return false;
 
-	/* Disallow debug options (particularly "replication") */
+	/* Disallow debug options (particularly "replication")
+	 *
+	 * 禁止调试选项（特别是“复制”）
+	 */
 	if (strchr(opt->dispchar, 'D'))
 		return false;
 
-	/* Disallow "client_encoding" */
+	/* Disallow "client_encoding"
+	 *
+	 * 禁止“client_encoding”
+	 */
 	if (strcmp(opt->keyword, "client_encoding") == 0)
 		return false;
 
 	/*
 	 * Disallow OAuth options for now, since the builtin flow communicates on
 	 * stderr by default and can't cache tokens yet.
+	 *
+	 * 目前禁止 OAuth 选项，因为默认情况下内置流在 stderr 上进行通信并且尚无法缓存令牌。
 	 */
 	if (strncmp(opt->keyword, "oauth_", strlen("oauth_")) == 0)
 		return false;
@@ -3110,6 +3740,8 @@ is_valid_dblink_option(const PQconninfoOption *options, const char *option,
 	/*
 	 * If the option is "user" or marked secure, it should be specified only
 	 * in USER MAPPING.  Others should be specified only in SERVER.
+	 *
+	 * 如果选项是“user”或标记为安全，则应仅在 USER MAPPING 中指定。  其他的只能在 SERVER 中指定。
 	 */
 	if (strcmp(opt->keyword, "user") == 0 || strchr(opt->dispchar, '*'))
 	{
@@ -3128,6 +3760,8 @@ is_valid_dblink_option(const PQconninfoOption *options, const char *option,
 /*
  * Same as is_valid_dblink_option but also check for only dblink_fdw specific
  * options.
+ *
+ * 与 is_valid_dblink_option 相同，但也仅检查 dblink_fdw 特定选项。
  */
 static bool
 is_valid_dblink_fdw_option(const PQconninfoOption *options, const char *option,
@@ -3145,9 +3779,13 @@ is_valid_dblink_fdw_option(const PQconninfoOption *options, const char *option,
  * nestlevel (which is needed by restoreLocalGucs to undo the settings),
  * or -1 if no new nestlevel was needed.
  *
+ * 复制影响数据类型 I/O 的 GUC 远程会话值，并将它们本地应用到新的 GUC 嵌套级别中。  返回新的嵌套级别（restoreLocalGucs 需要它来撤消设置），如果不需要新的嵌套级别，则返回 -1。
+ *
  * We use the equivalent of a function SET option to allow the settings to
  * persist only until the caller calls restoreLocalGucs.  If an error is
  * thrown in between, guc.c will take care of undoing the settings.
+ *
+ * 我们使用函数 SET 选项的等效项来允许设置仅持续到调用者调用 RestoreLocalGucs 为止。  如果中间抛出错误，guc.c 将负责撤消设置。
  */
 static int
 applyRemoteGucs(PGconn *conn)
@@ -3171,6 +3809,8 @@ applyRemoteGucs(PGconn *conn)
 		 * that's okay because its output format won't be ambiguous.  So just
 		 * skip the GUC if we don't get a value for it.  (We might eventually
 		 * need more complicated logic with remote-version checks here.)
+		 *
+		 * 如果远程服务器是 8.4 之前的版本，则它不会有 IntervalStyle，但这没关系，因为它的输出格式不会含糊不清。  因此，如果我们没有得到 GUC 的值，就跳过它。  （我们最终可能需要更复杂的逻辑来进行远程版本检查。）
 		 */
 		if (remoteVal == NULL)
 			continue;
@@ -3178,6 +3818,8 @@ applyRemoteGucs(PGconn *conn)
 		/*
 		 * Avoid GUC-setting overhead if the remote and local GUCs already
 		 * have the same value.
+		 *
+		 * 如果远程和本地 GUC 已具有相同的值，请避免 GUC 设置开销。
 		 */
 		localVal = GetConfigOption(gucName, false, false);
 		Assert(localVal != NULL);
@@ -3185,11 +3827,17 @@ applyRemoteGucs(PGconn *conn)
 		if (strcmp(remoteVal, localVal) == 0)
 			continue;
 
-		/* Create new GUC nest level if we didn't already */
+		/* Create new GUC nest level if we didn't already
+		 *
+		 * 如果我们还没有创建新的 GUC 嵌套级别，请创建新的 GUC 嵌套级别
+		 */
 		if (nestlevel < 0)
 			nestlevel = NewGUCNestLevel();
 
-		/* Apply the option (this will throw error on failure) */
+		/* Apply the option (this will throw error on failure)
+		 *
+		 * 应用该选项（失败时会抛出错误）
+		 */
 		(void) set_config_option(gucName, remoteVal,
 								 PGC_USERSET, PGC_S_SESSION,
 								 GUC_ACTION_SAVE, true, 0, false);
@@ -3200,11 +3848,16 @@ applyRemoteGucs(PGconn *conn)
 
 /*
  * Restore local GUCs after they have been overlaid with remote settings.
+ *
+ * 在本地 GUC 被远程设置覆盖后恢复。
  */
 static void
 restoreLocalGucs(int nestlevel)
 {
-	/* Do nothing if no new nestlevel was created */
+	/* Do nothing if no new nestlevel was created
+	 *
+	 * 如果没有创建新的嵌套级别，则不执行任何操作
+	 */
 	if (nestlevel > 0)
 		AtEOXact_GUC(true, nestlevel);
 }
@@ -3212,6 +3865,8 @@ restoreLocalGucs(int nestlevel)
 /*
  * Append SCRAM client key and server key information from the global
  * MyProcPort into the given StringInfo buffer.
+ *
+ * 将 SCRAM 客户端密钥和服务器密钥信息从全局 MyProcPort 附加到给定的 StringInfo 缓冲区。
  */
 static void
 appendSCRAMKeysInfo(StringInfo buf)
@@ -3222,7 +3877,10 @@ appendSCRAMKeysInfo(StringInfo buf)
 	char	   *server_key;
 
 	len = pg_b64_enc_len(sizeof(MyProcPort->scram_ClientKey));
-	/* don't forget the zero-terminator */
+	/* don't forget the zero-terminator
+	 *
+	 * 不要忘记零终止符
+	 */
 	client_key = palloc0(len + 1);
 	encoded_len = pg_b64_encode(MyProcPort->scram_ClientKey,
 								sizeof(MyProcPort->scram_ClientKey),
@@ -3231,7 +3889,10 @@ appendSCRAMKeysInfo(StringInfo buf)
 		elog(ERROR, "could not encode SCRAM client key");
 
 	len = pg_b64_enc_len(sizeof(MyProcPort->scram_ServerKey));
-	/* don't forget the zero-terminator */
+	/* don't forget the zero-terminator
+	 *
+	 * 不要忘记零终止符
+	 */
 	server_key = palloc0(len + 1);
 	encoded_len = pg_b64_encode(MyProcPort->scram_ServerKey,
 								sizeof(MyProcPort->scram_ServerKey),

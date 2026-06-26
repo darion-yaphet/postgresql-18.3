@@ -1,8 +1,16 @@
 %{
 /* contrib/cube/cubeparse.y */
 
-/* NdBox = [(lowerleft),(upperright)] */
-/* [(xLL(1)...xLL(N)),(xUR(1)...xUR(n))] */
+/* NdBox = [(lowerleft),(upperright)]
+ *
+ * NdBox = [(左下),(右上角)]
+ */
+/* [(xLL(1)...xLL(N)),(xUR(1)...xUR(n))]
+ *
+ * [(xLL(1)...xLL(N)),(xUR(1)...xUR(n))]
+ *
+ * [(xLL(1)...xLL(N)),(xUR(1)...xUR(n))]
+ */
 
 #include "postgres.h"
 
@@ -16,6 +24,8 @@
  * Bison doesn't allocate anything that needs to live across parser calls,
  * so we can easily have it use palloc instead of malloc.  This prevents
  * memory leaks if we error out during parsing.
+ *
+ * Bison 不会分配任何需要跨解析器调用的东西，因此我们可以轻松地让它使用 palloc 而不是 malloc。  如果我们在解析过程中出错，这可以防止内存泄漏。
  */
 #define YYMALLOC palloc
 #define YYFREE   pfree
@@ -28,7 +38,10 @@ static bool write_point_as_box(int dim, char *str,
 
 %}
 
-/* BISON Declarations */
+/* BISON Declarations
+ *
+ * 野牛声明
+ */
 %parse-param {NDBOX **result}
 %parse-param {Size scanbuflen}
 %parse-param {struct Node *escontext}
@@ -41,7 +54,10 @@ static bool write_point_as_box(int dim, char *str,
 %token CUBEFLOAT O_PAREN C_PAREN O_BRACKET C_BRACKET COMMA
 %start box
 
-/* Grammar follows */
+/* Grammar follows
+ *
+ * 语法如下
+ */
 %%
 
 box: O_BRACKET paren_list COMMA paren_list C_BRACKET
@@ -153,7 +169,10 @@ paren_list: O_PAREN list C_PAREN
 
 list: CUBEFLOAT
 	{
-		/* alloc enough space to be sure whole list will fit */
+		/* alloc enough space to be sure whole list will fit
+		 *
+		 * 分配足够的空间以确保整个列表适合
+		 */
 		$$ = palloc(scanbuflen + 1);
 		strcpy($$, $1);
 	}
@@ -167,7 +186,10 @@ list: CUBEFLOAT
 
 %%
 
-/* This assumes the string has been normalized by productions above */
+/* This assumes the string has been normalized by productions above
+ *
+ * 这假设字符串已通过上述产生式标准化
+ */
 static int
 item_count(const char *s, char delim)
 {
@@ -223,7 +245,10 @@ write_box(int dim, char *str1, char *str2,
 		bp->x[i] = float8in_internal(s, &endptr, "cube", str2, escontext);
 		if (SOFT_ERROR_OCCURRED(escontext))
 			return false;
-		/* code this way to do right thing with NaN */
+		/* code this way to do right thing with NaN
+		 *
+		 * 以这种方式编写代码以使用 NaN 做正确的事情
+		 */
 		point &= (bp->x[i] == bp->x[0]);
 		i++;
 	}
@@ -246,6 +271,8 @@ write_box(int dim, char *str1, char *str2,
 		 * cube we constructed.  Note: we don't bother to repalloc() it
 		 * smaller, as it's unlikely that the tiny amount of memory freed that
 		 * way would be useful, and the output is always short-lived.
+		 *
+		 * 该值结果是一个点，即。所有右上角坐标都等于左下角坐标。调整我们构建的立方体的大小。  注意：我们不会费心去 repalloc() 将其变小，因为以这种方式释放的少量内存不太可能有用，而且输出总是短暂的。
 		 */
 		size = POINT_SIZE(dim);
 		SET_VARSIZE(bp, size);

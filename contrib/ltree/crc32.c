@@ -3,8 +3,12 @@
 /*
  * Implements CRC-32, as used in ltree.
  *
+ * 实现 CRC-32，如 ltree 中使用的那样。
+ *
  * Note that the CRC is used in the on-disk format of GiST indexes, so we
  * must stay backwards-compatible!
+ *
+ * 请注意，CRC 用于 GiST 索引的磁盘格式，因此我们必须保持向后兼容！
  */
 
 #include "postgres.h"
@@ -50,7 +54,10 @@ ltree_crc32_sz(const char *buf, int size)
 			int			srclen = pg_mblen_range(p, end);
 			size_t		foldlen;
 
-			/* fold one codepoint at a time */
+			/* fold one codepoint at a time
+			 *
+			 * 一次折叠一个代码点
+			 */
 			foldlen = pg_strfold(foldstr, UNICODE_CASEMAP_BUFSZ, p, srclen,
 								 locale);
 

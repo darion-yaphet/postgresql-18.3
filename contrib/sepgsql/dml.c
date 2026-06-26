@@ -34,6 +34,8 @@
  * When user references a whole-row Var, it is equivalent to referencing
  * all the user columns (not system columns). So, we need to fix up the
  * given bitmapset, if it contains a whole-row reference.
+ *
+ * 当用户引用整行Var时，相当于引用所有用户列（而不是系统列）。因此，如果给定的位图集包含整行引用，我们需要修复它。
  */
 static Bitmapset *
 fixup_whole_row_references(Oid relOid, Bitmapset *columns)
@@ -44,19 +46,28 @@ fixup_whole_row_references(Oid relOid, Bitmapset *columns)
 	AttrNumber	attno;
 	int			index;
 
-	/* if no whole-row references, nothing to do */
+	/* if no whole-row references, nothing to do
+	 *
+	 * 如果没有整行引用，则无需执行任何操作
+	 */
 	index = InvalidAttrNumber - FirstLowInvalidHeapAttributeNumber;
 	if (!bms_is_member(index, columns))
 		return columns;
 
-	/* obtain number of attributes */
+	/* obtain number of attributes
+	 *
+	 * 获取属性个数
+	 */
 	tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relOid));
 	if (!HeapTupleIsValid(tuple))
 		elog(ERROR, "cache lookup failed for relation %u", relOid);
 	natts = ((Form_pg_class) GETSTRUCT(tuple))->relnatts;
 	ReleaseSysCache(tuple);
 
-	/* remove bit 0 from column set, add in all the non-dropped columns */
+	/* remove bit 0 from column set, add in all the non-dropped columns
+	 *
+	 * 从列集中删除位 0，添加所有未删除的列
+	 */
 	result = bms_copy(columns);
 	result = bms_del_member(result, index);
 
@@ -88,6 +99,8 @@ fixup_whole_row_references(Oid relOid, Bitmapset *columns)
  * same between the parent and children.
  * It returns a bitmapset which contains attribute number of the child
  * table based on the given bitmapset of the parent.
+ *
+ * 当用户查询包含子表的表时，它也会隐式访问子表。因此，我们还需要检查子表和列的安全标签，但不能保证父子表之间的属性号相同。它返回一个位图集，其中包含基于父级给定位图集的子表的属性号。
  */
 static Bitmapset *
 fixup_inherited_columns(Oid parentId, Oid childId, Bitmapset *columns)
@@ -97,6 +110,8 @@ fixup_inherited_columns(Oid parentId, Oid childId, Bitmapset *columns)
 
 	/*
 	 * obviously, no need to do anything here
+	 *
+	 * 显然，不需要在这里做任何事情
 	 */
 	if (parentId == childId)
 		return columns;
@@ -104,12 +119,17 @@ fixup_inherited_columns(Oid parentId, Oid childId, Bitmapset *columns)
 	index = -1;
 	while ((index = bms_next_member(columns, index)) >= 0)
 	{
-		/* bit numbers are offset by FirstLowInvalidHeapAttributeNumber */
+		/* bit numbers are offset by FirstLowInvalidHeapAttributeNumber
+		 *
+		 * 位编号由 FirstLowInvalidHeapAttributeNumber 偏移
+		 */
 		AttrNumber	attno = index + FirstLowInvalidHeapAttributeNumber;
 		char	   *attname;
 
 		/*
 		 * whole-row-reference shall be fixed-up later
+		 *
+		 * 整行引用将在稍后修复
 		 */
 		if (attno == InvalidAttrNumber)
 		{
@@ -137,6 +157,8 @@ fixup_inherited_columns(Oid parentId, Oid childId, Bitmapset *columns)
  *
  * It actually checks required permissions on a certain relation
  * and its columns.
+ *
+ * 它实际上检查特定关系及其列所需的权限。
  */
 static bool
 check_relation_privileges(Oid relOid,
@@ -157,6 +179,8 @@ check_relation_privileges(Oid relOid,
 	 * Hardwired Policies: SE-PostgreSQL enforces - clients cannot modify
 	 * system catalogs using DMLs - clients cannot reference/modify toast
 	 * relations using DMLs
+	 *
+	 * 硬连线策略：SE-PostgreSQL 强制 - 客户端无法使用 DML 修改系统目录 - 客户端无法使用 DML 引用/修改 toast 关系
 	 */
 	if (sepgsql_getenforce() > 0)
 	{
@@ -176,6 +200,8 @@ check_relation_privileges(Oid relOid,
 
 	/*
 	 * Check permissions on the relation
+	 *
+	 * 检查关系的权限
 	 */
 	object.classId = RelationRelationId;
 	object.objectId = relOid;
@@ -212,19 +238,26 @@ check_relation_privileges(Oid relOid,
 			break;
 
 		default:
-			/* nothing to be checked */
+			/* nothing to be checked
+			 *
+			 * 没有什么需要检查的
+			 */
 			break;
 	}
 	pfree(audit_name);
 
 	/*
 	 * Only columns owned by relations shall be checked
+	 *
+	 * 仅应检查关系拥有的列
 	 */
 	if (relkind != RELKIND_RELATION && relkind != RELKIND_PARTITIONED_TABLE)
 		return true;
 
 	/*
 	 * Check permissions on the columns
+	 *
+	 * 检查列的权限
 	 */
 	selected = fixup_whole_row_references(relOid, selected);
 	inserted = fixup_whole_row_references(relOid, inserted);
@@ -252,7 +285,10 @@ check_relation_privileges(Oid relOid,
 		if (column_perms == 0)
 			continue;
 
-		/* obtain column's permission */
+		/* obtain column's permission
+		 *
+		 * 获得专栏许可
+		 */
 		attnum = index + FirstLowInvalidHeapAttributeNumber;
 
 		object.classId = RelationRelationId;
@@ -277,6 +313,8 @@ check_relation_privileges(Oid relOid,
  * sepgsql_dml_privileges
  *
  * Entrypoint of the DML permission checks
+ *
+ * DML权限检查的入口点
  */
 bool
 sepgsql_dml_privileges(List *rangeTbls, List *rteperminfos,
@@ -293,6 +331,8 @@ sepgsql_dml_privileges(List *rangeTbls, List *rteperminfos,
 
 		/*
 		 * Find out required permissions
+		 *
+		 * 找出所需的权限
 		 */
 		if (perminfo->requiredPerms & ACL_SELECT)
 			required |= SEPG_DB_TABLE__SELECT;
@@ -310,6 +350,8 @@ sepgsql_dml_privileges(List *rangeTbls, List *rteperminfos,
 
 		/*
 		 * Skip, if nothing to be checked
+		 *
+		 * 如果没有什么要检查的，则跳过
 		 */
 		if (required == 0)
 			continue;
@@ -319,6 +361,8 @@ sepgsql_dml_privileges(List *rangeTbls, List *rteperminfos,
 		 * tables, we need to check security label of the child tables. So, we
 		 * expand rte->relid into list of OIDs of inheritance hierarchy, then
 		 * checker routine will be invoked for each relations.
+		 *
+		 * 如果这个RangeTblEntry也应该引用继承的表，我们需要检查子表的安全标签。因此，我们将 rte->relid 扩展为继承层次结构的 OID 列表，然后将为每个关系调用检查器例程。
 		 */
 		if (!perminfo->inh)
 			tableIds = list_make1_oid(perminfo->relid);
@@ -335,6 +379,8 @@ sepgsql_dml_privileges(List *rangeTbls, List *rteperminfos,
 			/*
 			 * child table has different attribute numbers, so we need to fix
 			 * up them.
+			 *
+			 * 子表有不同的属性编号，因此我们需要修复它们。
 			 */
 			selectedCols = fixup_inherited_columns(perminfo->relid, tableOid,
 												   perminfo->selectedCols);
@@ -345,6 +391,8 @@ sepgsql_dml_privileges(List *rangeTbls, List *rteperminfos,
 
 			/*
 			 * check permissions on individual tables
+			 *
+			 * 检查各个表的权限
 			 */
 			if (!check_relation_privileges(tableOid,
 										   selectedCols,

@@ -25,8 +25,12 @@
  * It's possible that there's more than one uuid.h header file present.
  * We expect configure to set the HAVE_ symbol for only the one we want.
  *
+ * 可能存在多个 uuid.h 头文件。我们希望configure 只为我们想要的符号设置HAVE_ 符号。
+ *
  * BSD includes a uuid_hash() function that conflicts with the one in
  * builtins.h; we #define it out of the way.
+ *
+ * BSD 包含一个 uuid_hash() 函数，该函数与builtins.h 中的函数冲突；我们#define它了。
  */
 #define uuid_hash bsd_uuid_hash
 
@@ -42,12 +46,18 @@
 
 #undef uuid_hash
 
-/* Check our UUID length against OSSP's; better both be 16 */
+/* Check our UUID length against OSSP's; better both be 16
+ *
+ * 对照 OSSP 检查我们的 UUID 长度；最好都是16岁
+ */
 #if defined(HAVE_UUID_OSSP) && (UUID_LEN != UUID_LEN_BIN)
 #error UUID length mismatch
 #endif
 
-/* Define some constants like OSSP's, to make the code more readable */
+/* Define some constants like OSSP's, to make the code more readable
+ *
+ * 定义一些常量，如 OSSP 的常量，使代码更具可读性
+ */
 #ifndef HAVE_UUID_OSSP
 #define UUID_MAKE_MC 0
 #define UUID_MAKE_V1 1
@@ -60,6 +70,8 @@
 /*
  * A DCE 1.1 compatible source representation of UUIDs, derived from
  * the BSD implementation.  BSD already has this; OSSP doesn't need it.
+ *
+ * UUID 的 DCE 1.1 兼容源表示，源自 BSD 实现。  BSD 已经有了这个； OSSP 不需要它。
  */
 #ifdef HAVE_UUID_E2FS
 typedef struct
@@ -75,7 +87,10 @@ typedef struct
 #define dce_uuid_t uuid_t
 #endif
 
-/* If not OSSP, we need some endianness-manipulation macros */
+/* If not OSSP, we need some endianness-manipulation macros
+ *
+ * 如果不是 OSSP，我们需要一些字节顺序操作宏
+ */
 #ifndef HAVE_UUID_OSSP
 
 #define UUID_TO_NETWORK(uu) \
@@ -148,10 +163,14 @@ pguuid_complain(uuid_rc_t rc)
  * collisions whenever random initialization of the uuid_t's clock sequence
  * value chanced to produce duplicates.)
  *
+ * 我们每个会话只创建一次 uuid_t 对象，并将其重新用于该模块中的所有操作。  OSSP UUID 在此对象中缓存系统 MAC 地址和其他状态。  重用该对象有很多好处：节省反复获取系统 MAC 地址所需的周期，减少我们从 /dev/urandom 中获取的熵量，并提供连续生成的 V1 样式 UUID 不会冲突的积极保证。 （在一台足够快每微秒生成多个 UUID 的机器上，或者无论系统的挂钟分辨率如何，否则只要 uuid_t 时钟序列值的随机初始化有可能产生重复，我们就会面临冲突的风险。）
+ *
  * However: when we're doing V3 or V5 UUID creation, uuid_make needs two
  * uuid_t objects, one holding the namespace UUID and one for the result.
  * It's unspecified whether it's safe to use the same uuid_t for both cases,
  * so let's cache a second uuid_t for use as the namespace holder object.
+ *
+ * 然而：当我们进行 V3 或 V5 UUID 创建时，uuid_make 需要两个 uuid_t 对象，一个保存命名空间 UUID，另一个保存结果。未指定在这两种情况下使用相同的 uuid_t 是否安全，因此让我们缓存第二个 uuid_t 用作命名空间持有者对象。
  */
 static uuid_t *
 get_cached_uuid_t(int which)
@@ -214,7 +233,10 @@ special_uuid_value(const char *name)
 	return DirectFunctionCall1(uuid_in, CStringGetDatum(str));
 }
 
-/* len is unused with OSSP, but we want to have the same number of args */
+/* len is unused with OSSP, but we want to have the same number of args
+ *
+ * OSSP 未使用 len，但我们希望拥有相同数量的参数
+ */
 static Datum
 uuid_generate_internal(int mode, const uuid_t *ns, const char *name, int len)
 {
@@ -271,6 +293,8 @@ uuid_generate_internal(int v, unsigned char *ns, const char *ptr, int len)
 				 * PTR, if set, replaces the trailing characters of the uuid;
 				 * this is to support v1mc, where a random multicast MAC is
 				 * used instead of the physical one
+				 *
+				 * PTR，如果设置，将替换 uuid 的尾随字符；这是为了支持 v1mc，其中使用随机多播 MAC 而不是物理 MAC
 				 */
 				if (ptr && len <= 36)
 					strcpy(strbuf + (36 - len), ptr);
@@ -292,11 +316,16 @@ uuid_generate_internal(int v, unsigned char *ns, const char *ptr, int len)
 						 * In recent NetBSD, uuid_create() has started
 						 * producing v4 instead of v1 UUIDs.  Check the
 						 * version field and complain if it's not v1.
+						 *
+						 * 在最近的 NetBSD 中，uuid_create() 已开始生成 v4 而不是 v1 UUID。  检查版本字段，如果不是 v1 则抱怨。
 						 */
 						if (strbuf[14] != '1')
 							ereport(ERROR,
 									(errcode(ERRCODE_EXTERNAL_ROUTINE_EXCEPTION),
-							/* translator: %c will be a hex digit */
+							/* translator: %c will be a hex digit
+							 *
+							 * 译者：%c 将是一个十六进制数字
+							 */
 									 errmsg("uuid_create() produced a version %c UUID instead of the expected version 1",
 											strbuf[14])));
 
@@ -304,6 +333,8 @@ uuid_generate_internal(int v, unsigned char *ns, const char *ptr, int len)
 						 * PTR, if set, replaces the trailing characters of
 						 * the uuid; this is to support v1mc, where a random
 						 * multicast MAC is used instead of the physical one
+						 *
+						 * PTR，如果设置，将替换 uuid 的尾随字符；这是为了支持 v1mc，其中使用随机多播 MAC 而不是物理 MAC
 						 */
 						if (ptr && len <= 36)
 							strcpy(strbuf + (36 - len), ptr);
@@ -340,7 +371,10 @@ uuid_generate_internal(int v, unsigned char *ns, const char *ptr, int len)
 						pg_cryptohash_update(ctx, (unsigned char *) ptr, len) < 0)
 						elog(ERROR, "could not update %s context: %s", "MD5",
 							 pg_cryptohash_error(ctx));
-					/* we assume sizeof MD5 result is 16, same as UUID size */
+					/* we assume sizeof MD5 result is 16, same as UUID size
+					 *
+					 * 我们假设 MD5 结果的 size 是 16，与 UUID 大小相同
+					 */
 					if (pg_cryptohash_final(ctx, (unsigned char *) &uu,
 											sizeof(uu)) < 0)
 						elog(ERROR, "could not finalize %s context: %s", "MD5",
@@ -367,12 +401,18 @@ uuid_generate_internal(int v, unsigned char *ns, const char *ptr, int len)
 					memcpy(&uu, sha1result, sizeof(uu));
 				}
 
-				/* the calculated hash is using local order */
+				/* the calculated hash is using local order
+				 *
+				 * 计算的哈希值使用本地顺序
+				 */
 				UUID_TO_NETWORK(uu);
 				UUID_V3_OR_V5(uu, v);
 
 #ifdef HAVE_UUID_E2FS
-				/* uuid_unparse expects local order */
+				/* uuid_unparse expects local order
+				 *
+				 * uuid_unparse 需要本地顺序
+				 */
 				UUID_TO_LOCAL(uu);
 				uuid_unparse((unsigned char *) &uu, strbuf);
 #else							/* BSD */
@@ -499,7 +539,10 @@ uuid_generate_v1mc(PG_FUNCTION_ARGS)
 
 	uuid_generate_random(uu);
 
-	/* set IEEE802 multicast and local-admin bits */
+	/* set IEEE802 multicast and local-admin bits
+	 *
+	 * 设置 IEEE802 多播和本地管理位
+	 */
 	((dce_uuid_t *) &uu)->node[0] |= 0x03;
 
 	uuid_unparse(uu, strbuf);
@@ -507,7 +550,10 @@ uuid_generate_v1mc(PG_FUNCTION_ARGS)
 #else							/* BSD */
 	char		buf[16];
 
-	/* set IEEE802 multicast and local-admin bits */
+	/* set IEEE802 multicast and local-admin bits
+	 *
+	 * 设置 IEEE802 多播和本地管理位
+	 */
 	snprintf(buf, sizeof(buf), "-%04x%08lx",
 			 (unsigned) ((arc4random() & 0xffff) | 0x0300),
 			 (unsigned long) arc4random());

@@ -1,6 +1,8 @@
 /* contrib/hstore/hstore--1.4.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION hstore" to load this file. \quit
 
 CREATE TYPE hstore;
@@ -324,6 +326,8 @@ CREATE OPERATOR #= (
 );
 
 -- btree support
+--
+-- B树支持
 
 CREATE FUNCTION hstore_eq(hstore,hstore)
 RETURNS boolean
@@ -382,8 +386,14 @@ CREATE OPERATOR <> (
 );
 
 -- the comparison operators have funky names (and are undocumented)
+--
+-- 比较运算符有时髦的名称（并且没有文档记录）
 -- in an attempt to discourage anyone from actually using them. they
+--
+-- 试图阻止任何人实际使用它们。他们
 -- only exist to support the btree opclass
+--
+-- 仅用于支持 btree opclass
 
 CREATE OPERATOR #<# (
        LEFTARG = hstore,
@@ -433,6 +443,8 @@ AS
 	FUNCTION	1	hstore_cmp(hstore,hstore);
 
 -- hash support
+--
+-- 哈希支持
 
 CREATE FUNCTION hstore_hash(hstore)
 RETURNS integer
@@ -446,6 +458,8 @@ AS
 	FUNCTION	1	hstore_hash(hstore);
 
 -- GiST support
+--
+-- GiST 支持
 
 CREATE TYPE ghstore;
 
@@ -508,8 +522,12 @@ AS
 	OPERATOR        10      ?|(hstore,text[]) ,
 	OPERATOR        11      ?&(hstore,text[]) ,
         --OPERATOR        8       <@ ,
+        --
+        --运算符 8 <@,
         OPERATOR        13      @ ,
         --OPERATOR        14      ~ ,
+        --
+        --操作员 14 ~ ,
         FUNCTION        1       ghstore_consistent (internal, hstore, smallint, oid, internal),
         FUNCTION        2       ghstore_union (internal, internal),
         FUNCTION        3       ghstore_compress (internal),
@@ -520,6 +538,8 @@ AS
         STORAGE         ghstore;
 
 -- GIN support
+--
+-- 杜松子酒支持
 
 CREATE FUNCTION gin_extract_hstore(hstore, internal)
 RETURNS internal

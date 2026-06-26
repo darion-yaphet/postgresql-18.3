@@ -5,10 +5,16 @@
  * and crypt(3) interfaces added, but optimizations specific to password
  * cracking removed.
  *
+ * 该代码来自 John the Ripper 密码破解程序，添加了可重入和 crypt(3) 接口，但删除了针对密码破解的优化。
+ *
  * Written by Solar Designer <solar at openwall.com> in 1998-2002 and
  * placed in the public domain.
  *
+ * 由 Solar Designer <solar at openwall.com> 于 1998-2002 年编写，并置于公共领域。
+ *
  * There's absolutely no warranty.
+ *
+ * 绝对没有保修。
  *
  * It is my intent that you should be able to use this on your system,
  * as a part of a software package, or anywhere else to improve security,
@@ -18,18 +24,26 @@
  * you place this code and any modifications you make under a license
  * of your choice.
  *
+ * 我的目的是，您应该能够在您的系统上（作为软件包的一部分）或其他任何地方使用它，以提高安全性、确保兼容性或用于任何其他目的。如果您给予应有的信任，并将您的修改保留在公共领域，我将不胜感激，但我不要求这样做，以便让您将此代码和您所做的任何修改置于您选择的许可证下。
+ *
  * This implementation is compatible with OpenBSD bcrypt.c (version 2a)
  * by Niels Provos <provos at citi.umich.edu>, and uses some of his
  * ideas.  The password hashing algorithm was designed by David Mazieres
  * <dm at lcs.mit.edu>.
  *
+ * 此实现与 Niels Provos <provos at citi.umich.edu> 的 OpenBSD bcrypt.c（版本 2a）兼容，并使用了他的一些想法。  密码哈希算法由 David Mazieres <dm at lcs.mit.edu> 设计。
+ *
  * There's a paper on the algorithm that explains its design decisions:
+ *
+ * 有一篇关于该算法的论文解释了其设计决策：
  *
  *	http://www.usenix.org/events/usenix99/provos.html
  *
  * Some of the tricks in BF_ROUND might be inspired by Eric Young's
  * Blowfish library (I can't be sure if I would think of something if I
  * hadn't seen his code).
+ *
+ * BF_ROUND 中的一些技巧可能受到 Eric Young 的 Blowfish 库的启发（我不确定如果我没有看到他的代码我是否会想到一些东西）。
  */
 
 #include "postgres.h"
@@ -52,7 +66,10 @@
 typedef unsigned int BF_word;
 typedef signed int BF_word_signed;
 
-/* Number of Blowfish rounds, this is also hardcoded into a few places */
+/* Number of Blowfish rounds, this is also hardcoded into a few places
+ *
+ * 河豚轮数，这也被硬编码到几个地方
+ */
 #define BF_N				16
 
 typedef BF_word BF_key[BF_N + 2];
@@ -66,6 +83,8 @@ typedef struct
 /*
  * Magic IV for 64 Blowfish encryptions that we do at the end.
  * The string is "OrpheanBeholderScryDoubt" on big-endian.
+ *
+ * 我们最后完成的 64 Blowfish 加密的 Magic IV。该字符串在大尾数法上为“OrpheanBeholderScryDoubt”。
  */
 static BF_word BF_magic_w[6] = {
 	0x4F727068, 0x65616E42, 0x65686F6C,
@@ -74,6 +93,8 @@ static BF_word BF_magic_w[6] = {
 
 /*
  * P-box and S-box tables initialized with digits of Pi.
+ *
+ * P 盒和 S 盒表用 Pi 的数字初始化。
  */
 static BF_ctx BF_init_state = {
 	{
@@ -440,7 +461,10 @@ BF_encode(char *dst, const BF_word *src, int size)
 static void
 BF_swap(BF_word *x, int count)
 {
-	/* Swap on little-endian hardware, else do nothing */
+	/* Swap on little-endian hardware, else do nothing
+	 *
+	 * 交换小端硬件，否则什么也不做
+	 */
 #ifndef WORDS_BIGENDIAN
 	BF_word		tmp;
 
@@ -454,7 +478,10 @@ BF_swap(BF_word *x, int count)
 }
 
 #if BF_SCALE
-/* Architectures which can shift addresses left by 2 bits with no extra cost */
+/* Architectures which can shift addresses left by 2 bits with no extra cost
+ *
+ * 无需额外成本即可将地址左移 2 位的架构
+ */
 #define BF_ROUND(L, R, N) \
 	tmp1 = (L) & 0xFF; \
 	tmp2 = (L) >> 8; \
@@ -471,7 +498,10 @@ BF_swap(BF_word *x, int count)
 	tmp3 += tmp1; \
 	(R) ^= tmp3
 #else
-/* Architectures with no complicated addressing modes supported */
+/* Architectures with no complicated addressing modes supported
+ *
+ * 不支持复杂寻址模式的架构
+ */
 #define BF_INDEX(S, i) \
 	(*((BF_word *)(((unsigned char *)(S)) + (i))))
 #define BF_ROUND(L, R, N) \
@@ -495,6 +525,8 @@ BF_swap(BF_word *x, int count)
 
 /*
  * Encrypt one block, BF_N is hardcoded here.
+ *
+ * 加密一个块，BF_N这里是硬编码的。
  */
 #define BF_ENCRYPT \
 	L ^= data.ctx.P[0]; \
@@ -610,6 +642,8 @@ _crypt_blowfish_rn(const char *key, const char *setting,
 	 * two digit cost parameter, "$", and 22 digits from the alphabet
 	 * "./0-9A-Za-z". -- from the PHP crypt docs. Apparently we enforce a few
 	 * more restrictions on the count in the salt as well.
+	 *
+	 * Blowfish 盐值的格式必须如下：“$2a$”或“$2x$”、两位数成本参数、“$”以及字母表中的 22 位数字“./0-9A-Za-z”。 ——来自 PHP crypt 文档。显然，我们还对盐的计数施加了更多限制。
 	 */
 	if (strlen(setting) < 29)
 		ereport(ERROR,
@@ -749,6 +783,8 @@ _crypt_blowfish_rn(const char *key, const char *setting,
 
 /* Overwrite the most obvious sensitive data we have on the stack. Note
  * that this does not guarantee there's no sensitive data left on the
+ *
+ * 这并不能保证没有敏感数据留在
  * stack and/or in registers; I'm not aware of portable code that does. */
 	px_memset(&data, 0, sizeof(data));
 

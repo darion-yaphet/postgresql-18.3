@@ -17,6 +17,8 @@
 
 /*
  * Extension version number, for supporting older extension versions' objects
+ *
+ * 扩展版本号，用于支持旧扩展版本的对象
  */
 enum pageinspect_version
 {
@@ -24,7 +26,10 @@ enum pageinspect_version
 	PAGEINSPECT_V1_9,
 };
 
-/* in rawpage.c */
+/* in rawpage.c
+ *
+ * 在rawpage.c中
+ */
 extern Page get_page_from_raw(bytea *raw_page);
 
 #endif							/* _PAGEINSPECT_H_ */

@@ -124,7 +124,10 @@ parse_old_len(PullFilter *src, int *len_p, int lentype)
 	return PKT_NORMAL;
 }
 
-/* returns pkttype or 0 on eof */
+/* returns pkttype or 0 on eof
+ *
+ * 在 eof 上返回 pkttype 或 0
+ */
 int
 pgp_parse_pkt_hdr(PullFilter *src, uint8 *tag, int *len_p, int allow_ctx)
 {
@@ -132,7 +135,10 @@ pgp_parse_pkt_hdr(PullFilter *src, uint8 *tag, int *len_p, int allow_ctx)
 	int			res;
 	uint8	   *p;
 
-	/* EOF is normal here, thus we don't use GETBYTE */
+	/* EOF is normal here, thus we don't use GETBYTE
+	 *
+	 * EOF在这里是正常的，因此我们不使用GETBYTE
+	 */
 	res = pullf_read(src, 1, &p);
 	if (res < 0)
 		return res;
@@ -164,6 +170,8 @@ pgp_parse_pkt_hdr(PullFilter *src, uint8 *tag, int *len_p, int allow_ctx)
 
 /*
  * Packet reader
+ *
+ * 数据包阅读器
  */
 struct PktData
 {
@@ -178,17 +186,26 @@ pktreader_pull(void *priv, PullFilter *src, int len,
 	int			res;
 	struct PktData *pkt = priv;
 
-	/* PKT_CONTEXT means: whatever there is */
+	/* PKT_CONTEXT means: whatever there is
+	 *
+	 * PKT_CONTEXT 意思是：无论有什么
+	 */
 	if (pkt->type == PKT_CONTEXT)
 		return pullf_read(src, len, data_p);
 
 	while (pkt->len == 0)
 	{
-		/* this was last chunk in stream */
+		/* this was last chunk in stream
+		 *
+		 * 这是流中的最后一个块
+		 */
 		if (pkt->type == PKT_NORMAL)
 			return 0;
 
-		/* next chunk in stream */
+		/* next chunk in stream
+		 *
+		 * 流中的下一个块
+		 */
 		res = parse_new_len(src, &pkt->len);
 		if (res < 0)
 			return res;
@@ -218,7 +235,10 @@ static struct PullFilterOps pktreader_filter = {
 	NULL, pktreader_pull, pktreader_free
 };
 
-/* needs helper function to pass several parameters */
+/* needs helper function to pass several parameters
+ *
+ * 需要辅助函数来传递多个参数
+ */
 int
 pgp_create_pkt_reader(PullFilter **pf_p, PullFilter *src, int len,
 					  int pkttype, PGP_Context *ctx)
@@ -238,6 +258,8 @@ pgp_create_pkt_reader(PullFilter **pf_p, PullFilter *src, int len,
  * Prefix check filter
  * https://tools.ietf.org/html/rfc4880#section-5.7
  * https://tools.ietf.org/html/rfc4880#section-5.13
+ *
+ * 前缀检查过滤器 https://tools.ietf.org/html/rfc4880#section-5.7 https://tools.ietf.org/html/rfc4880#section-5.13
  */
 
 static int
@@ -250,7 +272,10 @@ prefix_init(void **priv_p, void *arg, PullFilter *src)
 	uint8		tmpbuf[PGP_MAX_BLOCK + 2];
 
 	len = pgp_get_cipher_block_size(ctx->cipher_algo);
-	/* Make sure we have space for prefix */
+	/* Make sure we have space for prefix
+	 *
+	 * 确保我们有前缀空间
+	 */
 	if (len > PGP_MAX_BLOCK)
 		return PXE_BUG;
 
@@ -267,7 +292,10 @@ prefix_init(void **priv_p, void *arg, PullFilter *src)
 	if (buf[len - 2] != buf[len] || buf[len - 1] != buf[len + 1])
 	{
 		px_debug("prefix_init: corrupt prefix");
-		/* report error in pgp_decrypt() */
+		/* report error in pgp_decrypt()
+		 *
+		 * 报告 pgp_decrypt() 错误
+		 */
 		ctx->corrupt_prefix = 1;
 	}
 	px_memset(tmpbuf, 0, sizeof(tmpbuf));
@@ -281,6 +309,8 @@ static struct PullFilterOps prefix_filter = {
 
 /*
  * Decrypt filter
+ *
+ * 解密过滤器
  */
 
 static int
@@ -290,7 +320,10 @@ decrypt_init(void **priv_p, void *arg, PullFilter *src)
 
 	*priv_p = cfb;
 
-	/* we need to write somewhere, so ask for a buffer */
+	/* we need to write somewhere, so ask for a buffer
+	 *
+	 * 我们需要在某个地方写入，所以需要一个缓冲区
+	 */
 	return 4096;
 }
 
@@ -318,6 +351,8 @@ struct PullFilterOps pgp_decrypt_filter = {
 
 /*
  * MDC hasher filter
+ *
+ * MDC 哈希过滤器
  */
 
 static int
@@ -348,18 +383,30 @@ mdc_finish(PGP_Context *ctx, PullFilter *src, int len)
 	uint8		tmpbuf[20];
 	uint8	   *data;
 
-	/* should not happen */
+	/* should not happen
+	 *
+	 * 不应该发生
+	 */
 	if (ctx->use_mdcbuf_filter)
 		return PXE_BUG;
 
-	/* It's SHA1 */
+	/* It's SHA1
+	 *
+	 * 这是 SHA1
+	 */
 	if (len != 20)
 		return PXE_PGP_CORRUPT_DATA;
 
-	/* mdc_read should not call px_md_update */
+	/* mdc_read should not call px_md_update
+	 *
+	 * mdc_read 不应调用 px_md_update
+	 */
 	ctx->in_mdc_pkt = 1;
 
-	/* read data */
+	/* read data
+	 *
+	 * 读取数据
+	 */
 	res = pullf_read_max(src, len, &data, tmpbuf);
 	if (res < 0)
 		return res;
@@ -369,7 +416,10 @@ mdc_finish(PGP_Context *ctx, PullFilter *src, int len)
 		return PXE_PGP_CORRUPT_DATA;
 	}
 
-	/* is the packet sane? */
+	/* is the packet sane?
+	 *
+	 * 数据包正常吗？
+	 */
 	if (res != 20)
 	{
 		px_debug("mdc_finish: read failed, res=%d", res);
@@ -378,6 +428,8 @@ mdc_finish(PGP_Context *ctx, PullFilter *src, int len)
 
 	/*
 	 * ok, we got the hash, now check
+	 *
+	 * 好的，我们得到了哈希值，现在检查
 	 */
 	px_md_finish(ctx->mdc_ctx, hash);
 	res = memcmp(hash, data, 20);
@@ -399,7 +451,10 @@ mdc_read(void *priv, PullFilter *src, int len,
 	int			res;
 	PGP_Context *ctx = priv;
 
-	/* skip this filter? */
+	/* skip this filter?
+	 *
+	 * 跳过这个过滤器？
+	 */
 	if (ctx->use_mdcbuf_filter || ctx->in_mdc_pkt)
 		return pullf_read(src, len, data_p);
 
@@ -424,10 +479,14 @@ static struct PullFilterOps mdc_filter = {
 /*
  * Combined Pkt reader and MDC hasher.
  *
+ * 组合 Pkt 读取器和 MDC 哈希器。
+ *
  * For the case of SYMENCRYPTED_DATA_MDC packet, where
  * the data part has 'context length', which means
  * that data packet ends 22 bytes before end of parent
  * packet, which is silly.
+ *
+ * 对于 SYMENCRYPTED_DATA_MDC 数据包的情况，其中数据部分具有“上下文长度”，这意味着数据包在父数据包结束之前 22 个字节结束，这是愚蠢的。
  */
 #define MDCBUF_LEN 8192
 struct MDCBufData
@@ -453,7 +512,10 @@ mdcbuf_init(void **priv_p, void *arg, PullFilter *src)
 	st->ctx = ctx;
 	*priv_p = st;
 
-	/* take over the work of mdc_filter */
+	/* take over the work of mdc_filter
+	 *
+	 * 接管mdc_filter的工作
+	 */
 	ctx->use_mdcbuf_filter = 1;
 
 	return 0;
@@ -508,12 +570,18 @@ mdcbuf_refill(struct MDCBufData *st, PullFilter *src)
 	int			res;
 	int			need;
 
-	/* put avail data in start */
+	/* put avail data in start
+	 *
+	 * 将可用数据放入开始
+	 */
 	if (st->avail > 0 && st->pos != st->buf)
 		memmove(st->buf, st->pos, st->avail);
 	st->pos = st->buf;
 
-	/* read new data */
+	/* read new data
+	 *
+	 * 读取新数据
+	 */
 	need = st->buflen + 22 - st->avail - st->mdc_avail;
 	res = pullf_read(src, need, &data);
 	if (res < 0)
@@ -521,7 +589,10 @@ mdcbuf_refill(struct MDCBufData *st, PullFilter *src)
 	if (res == 0)
 		return mdcbuf_finish(st);
 
-	/* add to buffer */
+	/* add to buffer
+	 *
+	 * 添加到缓冲区
+	 */
 	if (res >= 22)
 	{
 		mdcbuf_load_data(st, st->mdc_buf, st->mdc_avail);
@@ -586,6 +657,8 @@ static struct PullFilterOps mdcbuf_filter = {
 
 /*
  * Decrypt separate session key
+ *
+ * 解密单独的会话密钥
  */
 static int
 decrypt_key(PGP_Context *ctx, const uint8 *src, int len)
@@ -619,6 +692,8 @@ decrypt_key(PGP_Context *ctx, const uint8 *src, int len)
 
 /*
  * Handle key packet
+ *
+ * 处理密钥包
  */
 static int
 parse_symenc_sesskey(PGP_Context *ctx, PullFilter *src)
@@ -638,6 +713,8 @@ parse_symenc_sesskey(PGP_Context *ctx, PullFilter *src)
 
 	/*
 	 * read S2K info
+	 *
+	 * 读取S2K信息
 	 */
 	res = pgp_s2k_read(src, &ctx->s2k);
 	if (res < 0)
@@ -648,6 +725,8 @@ parse_symenc_sesskey(PGP_Context *ctx, PullFilter *src)
 
 	/*
 	 * generate key from password
+	 *
+	 * 从密码生成密钥
 	 */
 	res = pgp_s2k_process(&ctx->s2k, ctx->s2k_cipher_algo,
 						  ctx->sym_key, ctx->sym_key_len);
@@ -656,6 +735,8 @@ parse_symenc_sesskey(PGP_Context *ctx, PullFilter *src)
 
 	/*
 	 * do we have separate session key?
+	 *
+	 * 我们有单独的会话密钥吗？
 	 */
 	res = pullf_read_max(src, PGP_MAX_KEY + 2, &p, tmpbuf);
 	if (res < 0)
@@ -665,6 +746,8 @@ parse_symenc_sesskey(PGP_Context *ctx, PullFilter *src)
 	{
 		/*
 		 * no, s2k key is session key
+		 *
+		 * 不，s2k 密钥是会话密钥
 		 */
 		memcpy(ctx->sess_key, ctx->s2k.key, ctx->s2k.key_len);
 		ctx->sess_key_len = ctx->s2k.key_len;
@@ -676,6 +759,8 @@ parse_symenc_sesskey(PGP_Context *ctx, PullFilter *src)
 	{
 		/*
 		 * yes, decrypt it
+		 *
+		 * 是的，解密它
 		 */
 		if (res < 17 || res > PGP_MAX_KEY + 1)
 		{
@@ -753,7 +838,10 @@ parse_literal_data(PGP_Context *ctx, MBuf *dst, PullFilter *pkt)
 	GETBYTE(pkt, type);
 	GETBYTE(pkt, name_len);
 
-	/* skip name */
+	/* skip name
+	 *
+	 * 跳过名称
+	 */
 	while (name_len > 0)
 	{
 		res = pullf_read(pkt, name_len, &buf);
@@ -769,7 +857,10 @@ parse_literal_data(PGP_Context *ctx, MBuf *dst, PullFilter *pkt)
 		return PXE_PGP_CORRUPT_DATA;
 	}
 
-	/* skip date */
+	/* skip date
+	 *
+	 * 跳过日期
+	 */
 	res = pullf_read_max(pkt, 4, &buf, tmpbuf);
 	if (res != 4)
 	{
@@ -781,6 +872,8 @@ parse_literal_data(PGP_Context *ctx, MBuf *dst, PullFilter *pkt)
 	/*
 	 * If called from an SQL function that returns text, pgp_decrypt() rejects
 	 * inputs not self-identifying as text.
+	 *
+	 * 如果从返回文本的 SQL 函数调用，pgp_decrypt() 会拒绝不自我识别为文本的输入。
 	 */
 	if (ctx->text_mode)
 		if (type != 't' && type != 'u')
@@ -791,7 +884,10 @@ parse_literal_data(PGP_Context *ctx, MBuf *dst, PullFilter *pkt)
 
 	ctx->unicode_mode = (type == 'u') ? 1 : 0;
 
-	/* read data */
+	/* read data
+	 *
+	 * 读取数据
+	 */
 	while (1)
 	{
 		res = pullf_read(pkt, 32 * 1024, &buf);
@@ -810,7 +906,10 @@ parse_literal_data(PGP_Context *ctx, MBuf *dst, PullFilter *pkt)
 	return res;
 }
 
-/* process_data_packets and parse_compressed_data call each other */
+/* process_data_packets and parse_compressed_data call each other
+ *
+ * process_data_packets 和 parse_compressed_data 互相调用
+ */
 static int	process_data_packets(PGP_Context *ctx, MBuf *dst,
 								 PullFilter *src, int allow_compr, int need_mdc);
 
@@ -844,12 +943,17 @@ parse_compressed_data(PGP_Context *ctx, MBuf *dst, PullFilter *pkt)
 
 		case PGP_COMPR_BZIP2:
 			px_debug("parse_compressed_data: bzip2 unsupported");
-			/* report error in pgp_decrypt() */
+			/* report error in pgp_decrypt()
+			 *
+			 * 报告 pgp_decrypt() 错误
+			 */
 			ctx->unsupported_compr = 1;
 
 			/*
 			 * Discard the compressed data, allowing it to first affect any
 			 * MDC digest computation.
+			 *
+			 * 丢弃压缩数据，使其首先影响任何 MDC 摘要计算。
 			 */
 			while (1)
 			{
@@ -886,7 +990,10 @@ process_data_packets(PGP_Context *ctx, MBuf *dst, PullFilter *src,
 			break;
 
 
-		/* mdc packet should be last */
+		/* mdc packet should be last
+		 *
+		 * mdc 数据包应该放在最后
+		 */
 		if (got_mdc)
 		{
 			px_debug("process_data_packets: data after mdc");
@@ -897,6 +1004,8 @@ process_data_packets(PGP_Context *ctx, MBuf *dst, PullFilter *src,
 		/*
 		 * Context length inside SYMENCRYPTED_DATA_MDC packet needs special
 		 * handling.
+		 *
+		 * SYMENCRYPTED_DATA_MDC 数据包内的上下文长度需要特殊处理。
 		 */
 		if (need_mdc && res == PKT_CONTEXT)
 			res = pullf_create(&pkt, &mdcbuf_filter, ctx, src);
@@ -921,6 +1030,8 @@ process_data_packets(PGP_Context *ctx, MBuf *dst, PullFilter *src,
 				{
 					/*
 					 * compr data must be alone
+					 *
+					 * compr 数据必须是单独的
 					 */
 					px_debug("process_data_packets: only one cmpr pkt allowed");
 					res = PXE_PGP_CORRUPT_DATA;
@@ -1059,6 +1170,8 @@ out:
 
 /*
  * skip over packet contents
+ *
+ * 跳过数据包内容
  */
 int
 pgp_skip_packet(PullFilter *pkt)
@@ -1073,6 +1186,8 @@ pgp_skip_packet(PullFilter *pkt)
 
 /*
  * expect to be at packet end, any data is error
+ *
+ * 预期位于数据包末尾，任何数据都是错误的
  */
 int
 pgp_expect_packet_end(PullFilter *pkt)
@@ -1119,7 +1234,10 @@ pgp_decrypt(PGP_Context *ctx, MBuf *msrc, MBuf *mdst)
 				res = pgp_skip_packet(pkt);
 				break;
 			case PGP_PKT_PUBENCRYPTED_SESSKEY:
-				/* fixme: skip those */
+				/* fixme: skip those
+				 *
+				 * 修复我：跳过那些
+				 */
 				res = pgp_parse_pubenc_sesskey(ctx, pkt);
 				got_key = 1;
 				break;
@@ -1130,6 +1248,8 @@ pgp_decrypt(PGP_Context *ctx, MBuf *msrc, MBuf *mdst)
 					 * Theoretically, there could be several keys, both public
 					 * and symmetric, all of which encrypt same session key.
 					 * Decrypt should try with each one, before failing.
+					 *
+					 * 理论上，可能有多个密钥，包括公共密钥和对称密钥，所有这些密钥都加密相同的会话密钥。解密应该在失败之前尝试每一个。
 					 */
 					px_debug("pgp_decrypt: using first of several keys");
 				else
@@ -1182,6 +1302,8 @@ pgp_decrypt(PGP_Context *ctx, MBuf *msrc, MBuf *mdst)
 	 * Report a failure of the prefix_init() "quick check" now, rather than
 	 * upon detection, to hinder timing attacks.  pgcrypto is not generally
 	 * secure against timing attacks, but this helps.
+	 *
+	 * 现在报告 prefix_init()“快速检查”失败，而不是在检测到时报告，以阻止定时攻击。  pgcrypto 通常不能抵御定时攻击，但这会有所帮助。
 	 */
 	if (!got_data || ctx->corrupt_prefix)
 		return PXE_PGP_CORRUPT_DATA;
@@ -1195,6 +1317,8 @@ pgp_decrypt(PGP_Context *ctx, MBuf *msrc, MBuf *mdst)
 	 * key.  See "An Attack on CFB Mode Encryption As Used By OpenPGP" by
 	 * Serge Mister and Robert Zuccherato.
 	 *
+	 * 在此阶段之前解释据称已解密数据的代码不应报告除 PXE_PGP_CORRUPT_DATA 之外的任何错误。  （PXE_BUG 只要保持无法访问就可以。）这确保能够选择密文并接收相应解密错误消息的攻击者无法使用该预言机来收集有关解密密钥的线索。  请参阅 Serge Mister 和 Robert Zuccherato 撰写的“对 OpenPGP 使用的 CFB 模式加密的攻击”。
+	 *
 	 * A problematic value in the first octet of a Literal Data or Compressed
 	 * Data packet may indicate a simple user error, such as the need to call
 	 * pgp_sym_decrypt_bytea instead of pgp_sym_decrypt.  Occasionally,
@@ -1203,6 +1327,8 @@ pgp_decrypt(PGP_Context *ctx, MBuf *msrc, MBuf *mdst)
 	 * specific error to guide the user; otherwise, we will have reported
 	 * PXE_PGP_CORRUPT_DATA before now.  A key mismatch makes the other errors
 	 * into red herrings, and this avoids leaking clues to attackers.
+	 *
+	 * 文字数据或压缩数据包的第一个八位字节中的有问题的值可能指示简单的用户错误，例如需要调用 pgp_sym_decrypt_bytea 而不是 pgp_sym_decrypt。  但有时，这是加密密钥与解密密钥不匹配的第一个症状。  当这是遇到的唯一问题时，报告特定错误以指导用户；否则，我们之前就会报告 PXE_PGP_CORRUPT_DATA。  密钥不匹配会使其他错误成为转移注意力的错误，这可以避免向攻击者泄露线索。
 	 */
 	if (ctx->unsupported_compr)
 		return PXE_PGP_UNSUPPORTED_COMPR;

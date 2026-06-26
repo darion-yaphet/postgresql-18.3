@@ -51,8 +51,12 @@ PG_FUNCTION_INFO_V1(pgstattuplebyid_v1_5);
 /*
  * struct pgstattuple_type
  *
+ * struct pgstattuple_type
+ *
  * tuple_percent, dead_tuple_percent and free_percent are computable,
  * so not defined here.
+ *
+ * tuple_percent、dead_tuple_percent 和 free_percent 是可计算的，因此此处未定义。
  */
 typedef struct pgstattuple_type
 {
@@ -87,6 +91,8 @@ static void pgstat_index_page(pgstattuple_type *stat, Page page,
 
 /*
  * build_pgstattuple_type -- build a pgstattuple_type tuple
+ *
+ * build_pgstattuple_type -- 构建一个 pgstattuple_type 元组
  */
 static Datum
 build_pgstattuple_type(pgstattuple_type *stat, FunctionCallInfo fcinfo)
@@ -104,13 +110,18 @@ build_pgstattuple_type(pgstattuple_type *stat, FunctionCallInfo fcinfo)
 	TupleDesc	tupdesc;
 	AttInMetadata *attinmeta;
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
 	/*
 	 * Generate attribute metadata needed later to produce tuples from raw C
 	 * strings
+	 *
+	 * 生成稍后需要的属性元数据，以从原始 C 字符串生成元组
 	 */
 	attinmeta = TupleDescGetAttInMetadata(tupdesc);
 
@@ -131,6 +142,8 @@ build_pgstattuple_type(pgstattuple_type *stat, FunctionCallInfo fcinfo)
 	 * Prepare a values array for constructing the tuple. This should be an
 	 * array of C strings which will be processed later by the appropriate
 	 * "in" functions.
+	 *
+	 * 准备一个用于构造元组的值数组。这应该是一个 C 字符串数组，稍后将由适当的“in”函数进行处理。
 	 */
 	for (i = 0; i < NCOLUMNS; i++)
 		values[i] = values_buf[i];
@@ -145,10 +158,16 @@ build_pgstattuple_type(pgstattuple_type *stat, FunctionCallInfo fcinfo)
 	snprintf(values[i++], NCHARS, INT64_FORMAT, stat->free_space);
 	snprintf(values[i++], NCHARS, "%.2f", free_percent);
 
-	/* build a tuple */
+	/* build a tuple
+	 *
+	 * 构建一个元组
+	 */
 	tuple = BuildTupleFromCStrings(attinmeta, values);
 
-	/* make the tuple into a datum */
+	/* make the tuple into a datum
+	 *
+	 * 使元组成为数据
+	 */
 	return HeapTupleGetDatum(tuple);
 }
 
@@ -156,12 +175,18 @@ build_pgstattuple_type(pgstattuple_type *stat, FunctionCallInfo fcinfo)
  * pgstattuple:
  * returns live/dead tuples info
  *
+ * pgstattuple：返回活/死元组信息
+ *
  * C FUNCTION definition
  * pgstattuple(text) returns pgstattuple_type
+ *
+ * C FUNCTION 定义 pgstattuple(text) 返回 pgstattuple_type
  *
  * The superuser() check here must be kept as the library might be upgraded
  * without the extension being upgraded, meaning that in pre-1.5 installations
  * these functions could be called by any user.
+ *
+ * 必须保留此处的 superuser() 检查，因为库可能会在扩展未升级的情况下升级，这意味着在 1.5 之前的安装中，任何用户都可以调用这些函数。
  * ----------
  */
 
@@ -177,7 +202,10 @@ pgstattuple(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 errmsg("must be superuser to use pgstattuple functions")));
 
-	/* open relation */
+	/* open relation
+	 *
+	 * 开放关系
+	 */
 	relrv = makeRangeVarFromNameList(textToQualifiedNameList(relname));
 	rel = relation_openrv(relrv, AccessShareLock);
 
@@ -189,7 +217,11 @@ pgstattuple(PG_FUNCTION_ARGS)
  * is a superuser because we REVOKE EXECUTE on the function from PUBLIC.
  * Users can then grant access to it based on their policies.
  *
+ * 从 pgstattuple 版本 1.5 开始，我们不再需要检查用户是否是超级用户，因为我们从 PUBLIC 中撤销了函数上的 EXECUTE。然后，用户可以根据自己的策略授予对其的访问权限。
+ *
  * Otherwise identical to pgstattuple (above).
+ *
+ * 其他方面与 pgstattuple （上面）相同。
  */
 Datum
 pgstattuple_v1_5(PG_FUNCTION_ARGS)
@@ -198,14 +230,20 @@ pgstattuple_v1_5(PG_FUNCTION_ARGS)
 	RangeVar   *relrv;
 	Relation	rel;
 
-	/* open relation */
+	/* open relation
+	 *
+	 * 开放关系
+	 */
 	relrv = makeRangeVarFromNameList(textToQualifiedNameList(relname));
 	rel = relation_openrv(relrv, AccessShareLock);
 
 	PG_RETURN_DATUM(pgstat_relation(rel, fcinfo));
 }
 
-/* Must keep superuser() check, see above. */
+/* Must keep superuser() check, see above.
+ *
+ * 必须保持 superuser() 检查，见上文。
+ */
 Datum
 pgstattuplebyid(PG_FUNCTION_ARGS)
 {
@@ -217,20 +255,29 @@ pgstattuplebyid(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 errmsg("must be superuser to use pgstattuple functions")));
 
-	/* open relation */
+	/* open relation
+	 *
+	 * 开放关系
+	 */
 	rel = relation_open(relid, AccessShareLock);
 
 	PG_RETURN_DATUM(pgstat_relation(rel, fcinfo));
 }
 
-/* Remove superuser() check for 1.5 version, see above */
+/* Remove superuser() check for 1.5 version, see above
+ *
+ * 删除 1.5 版本的 superuser() 检查，见上文
+ */
 Datum
 pgstattuplebyid_v1_5(PG_FUNCTION_ARGS)
 {
 	Oid			relid = PG_GETARG_OID(0);
 	Relation	rel;
 
-	/* open relation */
+	/* open relation
+	 *
+	 * 开放关系
+	 */
 	rel = relation_open(relid, AccessShareLock);
 
 	PG_RETURN_DATUM(pgstat_relation(rel, fcinfo));
@@ -248,6 +295,8 @@ pgstat_relation(Relation rel, FunctionCallInfo fcinfo)
 	 * Reject attempts to read non-local temporary relations; we would be
 	 * likely to get wrong data since we have no visibility into the owning
 	 * session's local buffers.
+	 *
+	 * 拒绝读取非本地临时关系的尝试；我们可能会得到错误的数据，因为我们看不到拥有会话的本地缓冲区。
 	 */
 	if (RELATION_IS_OTHER_TEMP(rel))
 		ereport(ERROR,
@@ -261,7 +310,10 @@ pgstat_relation(Relation rel, FunctionCallInfo fcinfo)
 	}
 	else if (rel->rd_rel->relkind == RELKIND_INDEX)
 	{
-		/* see pgstatindex_impl */
+		/* see pgstatindex_impl
+		 *
+		 * 参见 pgstatindex_impl
+		 */
 		if (!rel->rd_index->indisvalid)
 			ereport(ERROR,
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -311,6 +363,8 @@ pgstat_relation(Relation rel, FunctionCallInfo fcinfo)
 
 /*
  * pgstat_heap -- returns live/dead tuples info in a heap
+ *
+ * pgstat_heap -- 返回堆中的活/死元组信息
  */
 static Datum
 pgstat_heap(Relation rel, FunctionCallInfo fcinfo)
@@ -327,6 +381,8 @@ pgstat_heap(Relation rel, FunctionCallInfo fcinfo)
 
 	/*
 	 * Sequences always use heap AM, but they don't show that in the catalogs.
+	 *
+	 * 序列始终使用堆 AM，但它们不会在目录中显示。
 	 */
 	if (rel->rd_rel->relkind != RELKIND_SEQUENCE &&
 		rel->rd_rel->relam != HEAP_TABLE_AM_OID)
@@ -334,7 +390,10 @@ pgstat_heap(Relation rel, FunctionCallInfo fcinfo)
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("only heap AM is supported")));
 
-	/* Disable syncscan because we assume we scan from block zero upwards */
+	/* Disable syncscan because we assume we scan from block zero upwards
+	 *
+	 * 禁用同步扫描，因为我们假设我们从块零向上扫描
+	 */
 	scan = table_beginscan_strat(rel, SnapshotAny, 0, NULL, true, false);
 	hscan = (HeapScanDesc) scan;
 
@@ -342,12 +401,18 @@ pgstat_heap(Relation rel, FunctionCallInfo fcinfo)
 
 	nblocks = hscan->rs_nblocks;	/* # blocks to be scanned */
 
-	/* scan the relation */
+	/* scan the relation
+	 *
+	 * 扫描关系
+	 */
 	while ((tuple = heap_getnext(scan, ForwardScanDirection)) != NULL)
 	{
 		CHECK_FOR_INTERRUPTS();
 
-		/* must hold a buffer lock to call HeapTupleSatisfiesVisibility */
+		/* must hold a buffer lock to call HeapTupleSatisfiesVisibility
+		 *
+		 * 必须持有缓冲区锁才能调用 HeapTupleSatisfiesVisibility
+		 */
 		LockBuffer(hscan->rs_cbuf, BUFFER_LOCK_SHARE);
 
 		if (HeapTupleSatisfiesVisibility(tuple, &SnapshotDirty, hscan->rs_cbuf))
@@ -368,6 +433,8 @@ pgstat_heap(Relation rel, FunctionCallInfo fcinfo)
 		 * free-space scan in parallel with the heap scan.  However,
 		 * heap_getnext may find no tuples on a given page, so we cannot
 		 * simply examine the pages returned by the heap scan.
+		 *
+		 * 为了避免对表进行两次物理读取，请尝试与堆扫描并行地进行可用空间扫描。  但是，heap_getnext 可能在给定页面上找不到元组，因此我们不能简单地检查堆扫描返回的页面。
 		 */
 		tupblock = ItemPointerGetBlockNumber(&tuple->t_self);
 
@@ -406,6 +473,8 @@ pgstat_heap(Relation rel, FunctionCallInfo fcinfo)
 
 /*
  * pgstat_btree_page -- check tuples in a btree page
+ *
+ * pgstat_btree_page -- 检查 btree 页面中的元组
  */
 static void
 pgstat_btree_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
@@ -418,10 +487,16 @@ pgstat_btree_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
 	LockBuffer(buf, BT_READ);
 	page = BufferGetPage(buf);
 
-	/* Page is valid, see what to do with it */
+	/* Page is valid, see what to do with it
+	 *
+	 * 页面有效，看看如何处理它
+	 */
 	if (PageIsNew(page))
 	{
-		/* fully empty page */
+		/* fully empty page
+		 *
+		 * 完全空白的页面
+		 */
 		stat->free_space += BLCKSZ;
 	}
 	else if (PageGetSpecialSize(page) == MAXALIGN(sizeof(BTPageOpaqueData)))
@@ -431,7 +506,10 @@ pgstat_btree_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
 		opaque = BTPageGetOpaque(page);
 		if (P_IGNORE(opaque))
 		{
-			/* deleted or half-dead page */
+			/* deleted or half-dead page
+			 *
+			 * 已删除或半死页
+			 */
 			stat->free_space += BLCKSZ;
 		}
 		else if (P_ISLEAF(opaque))
@@ -441,7 +519,10 @@ pgstat_btree_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
 		}
 		else
 		{
-			/* internal page */
+			/* internal page
+			 *
+			 * 内部页面
+			 */
 		}
 	}
 
@@ -450,6 +531,8 @@ pgstat_btree_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
 
 /*
  * pgstat_hash_page -- check tuples in a hash page
+ *
+ * pgstat_hash_page -- 检查哈希页中的元组
  */
 static void
 pgstat_hash_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
@@ -464,7 +547,10 @@ pgstat_hash_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
 
 	if (PageIsNew(page))
 	{
-		/* fully empty page */
+		/* fully empty page
+		 *
+		 * 完全空白的页面
+		 */
 		stat->free_space += BLCKSZ;
 	}
 	else if (PageGetSpecialSize(page) == MAXALIGN(sizeof(HashPageOpaqueData)))
@@ -490,7 +576,10 @@ pgstat_hash_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
 	}
 	else
 	{
-		/* maybe corrupted */
+		/* maybe corrupted
+		 *
+		 * 可能已损坏
+		 */
 	}
 
 	_hash_relbuf(rel, buf);
@@ -498,6 +587,8 @@ pgstat_hash_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
 
 /*
  * pgstat_gist_page -- check tuples in a gist page
+ *
+ * pgstat_gist_page -- 检查要点页面中的元组
  */
 static void
 pgstat_gist_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
@@ -511,7 +602,10 @@ pgstat_gist_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
 	page = BufferGetPage(buf);
 	if (PageIsNew(page))
 	{
-		/* fully empty page */
+		/* fully empty page
+		 *
+		 * 完全空白的页面
+		 */
 		stat->free_space += BLCKSZ;
 	}
 	else if (PageGetSpecialSize(page) == MAXALIGN(sizeof(GISTPageOpaqueData)))
@@ -523,7 +617,10 @@ pgstat_gist_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
 		}
 		else
 		{
-			/* root or node */
+			/* root or node
+			 *
+			 * 根或节点
+			 */
 		}
 	}
 
@@ -532,6 +629,8 @@ pgstat_gist_page(pgstattuple_type *stat, Relation rel, BlockNumber blkno,
 
 /*
  * pgstat_index -- returns live/dead tuples info in a generic index
+ *
+ * pgstat_index -- 返回通用索引中的活/死元组信息
  */
 static Datum
 pgstat_index(Relation rel, BlockNumber start, pgstat_page pagefn,
@@ -542,18 +641,27 @@ pgstat_index(Relation rel, BlockNumber start, pgstat_page pagefn,
 	BufferAccessStrategy bstrategy;
 	pgstattuple_type stat = {0};
 
-	/* prepare access strategy for this index */
+	/* prepare access strategy for this index
+	 *
+	 * 准备该索引的访问策略
+	 */
 	bstrategy = GetAccessStrategy(BAS_BULKREAD);
 
 	blkno = start;
 	for (;;)
 	{
-		/* Get the current relation length */
+		/* Get the current relation length
+		 *
+		 * 获取当前关系长度
+		 */
 		LockRelationForExtension(rel, ExclusiveLock);
 		nblocks = RelationGetNumberOfBlocks(rel);
 		UnlockRelationForExtension(rel, ExclusiveLock);
 
-		/* Quit if we've scanned the whole relation */
+		/* Quit if we've scanned the whole relation
+		 *
+		 * 如果我们扫描了整个关系就退出
+		 */
 		if (blkno >= nblocks)
 		{
 			stat.table_len = (uint64) nblocks * BLCKSZ;
@@ -576,6 +684,8 @@ pgstat_index(Relation rel, BlockNumber start, pgstat_page pagefn,
 
 /*
  * pgstat_index_page -- for generic index page
+ *
+ * pgstat_index_page -- 用于通用索引页
  */
 static void
 pgstat_index_page(pgstattuple_type *stat, Page page,

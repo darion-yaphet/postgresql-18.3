@@ -4,6 +4,8 @@
   This file contains routines that can be bound to a Postgres backend and
   called by the backend in the process of processing queries.  The calling
   format for these routines is dictated by Postgres architecture.
+ *
+ * 该文件包含可以绑定到 Postgres 后端并由后端在处理查询过程中调用的例程。  这些例程的调用格式由 Postgres 体系结构决定。
 ******************************************************************************/
 
 #include "postgres.h"
@@ -24,12 +26,16 @@ PG_MODULE_MAGIC_EXT(
 
 /*
  * Taken from the intarray contrib header
+ *
+ * 取自 intarray contrib 标头
  */
 #define ARRPTR(x)  ( (double *) ARR_DATA_PTR(x) )
 #define ARRNELEMS(x)  ArrayGetNItems( ARR_NDIM(x), ARR_DIMS(x))
 
 /*
 ** Input/Output routines
+*
+* * 输入/输出例程
 */
 PG_FUNCTION_INFO_V1(cube_in);
 PG_FUNCTION_INFO_V1(cube_a_f8_f8);
@@ -50,6 +56,8 @@ PG_FUNCTION_INFO_V1(cube_subset);
 
 /*
 ** GiST support methods
+*
+* * GiST支持方法
 */
 
 PG_FUNCTION_INFO_V1(g_cube_consistent);
@@ -63,6 +71,8 @@ PG_FUNCTION_INFO_V1(g_cube_distance);
 
 /*
 ** B-tree support functions
+*
+* * B树支持函数
 */
 PG_FUNCTION_INFO_V1(cube_eq);
 PG_FUNCTION_INFO_V1(cube_ne);
@@ -74,6 +84,8 @@ PG_FUNCTION_INFO_V1(cube_cmp);
 
 /*
 ** R-tree support functions
+*
+* * R树支持函数
 */
 
 PG_FUNCTION_INFO_V1(cube_contains);
@@ -85,6 +97,8 @@ PG_FUNCTION_INFO_V1(cube_size);
 
 /*
 ** miscellaneous
+*
+* * 各种各样的
 */
 PG_FUNCTION_INFO_V1(distance_taxicab);
 PG_FUNCTION_INFO_V1(cube_distance);
@@ -94,6 +108,8 @@ PG_FUNCTION_INFO_V1(cube_enlarge);
 
 /*
 ** For internal use only
+*
+* * 仅供内部使用
 */
 int32		cube_cmp_v0(NDBOX *a, NDBOX *b);
 bool		cube_contains_v0(NDBOX *a, NDBOX *b);
@@ -106,6 +122,8 @@ bool		g_cube_internal_consistent(NDBOX *key, NDBOX *query, StrategyNumber strate
 
 /*
 ** Auxiliary functions
+*
+* * 辅助功能
 */
 static double distance_1D(double a1, double a2, double b1, double b2);
 static bool cube_is_point_internal(NDBOX *cube);
@@ -113,10 +131,20 @@ static bool cube_is_point_internal(NDBOX *cube);
 
 /*****************************************************************************
  * Input/Output functions
+ *
+ * 输入/输出功能
  *****************************************************************************/
 
-/* NdBox = [(lowerleft),(upperright)] */
-/* [(xLL(1)...xLL(N)),(xUR(1)...xUR(n))] */
+/* NdBox = [(lowerleft),(upperright)]
+ *
+ * NdBox = [(左下),(右上角)]
+ */
+/* [(xLL(1)...xLL(N)),(xUR(1)...xUR(n))]
+ *
+ * [(xLL(1)...xLL(N)),(xUR(1)...xUR(n))]
+ *
+ * [(xLL(1)...xLL(N)),(xUR(1)...xUR(n))]
+ */
 Datum
 cube_in(PG_FUNCTION_ARGS)
 {
@@ -129,7 +157,10 @@ cube_in(PG_FUNCTION_ARGS)
 
 	cube_yyparse(&result, scanbuflen, fcinfo->context, scanner);
 
-	/* We might as well run this even on failure. */
+	/* We might as well run this even on failure.
+	 *
+	 * 即使失败我们也可以运行它。
+	 */
 	cube_scanner_finish(scanner);
 
 	PG_RETURN_NDBOX_P(result);
@@ -138,6 +169,8 @@ cube_in(PG_FUNCTION_ARGS)
 
 /*
 ** Allows the construction of a cube from 2 float[]'s
+*
+* * 允许用 2 个 float[] 构造一个立方体
 */
 Datum
 cube_a_f8_f8(PG_FUNCTION_ARGS)
@@ -173,7 +206,10 @@ cube_a_f8_f8(PG_FUNCTION_ARGS)
 	dur = ARRPTR(ur);
 	dll = ARRPTR(ll);
 
-	/* Check if it's a point */
+	/* Check if it's a point
+	 *
+	 * 检查是否是一个点
+	 */
 	point = true;
 	for (i = 0; i < dim; i++)
 	{
@@ -205,6 +241,8 @@ cube_a_f8_f8(PG_FUNCTION_ARGS)
 
 /*
 ** Allows the construction of a zero-volume cube from a float[]
+*
+* * 允许从 float[] 构造零体积立方体
 */
 Datum
 cube_a_f8(PG_FUNCTION_ARGS)
@@ -329,6 +367,8 @@ cube_out(PG_FUNCTION_ARGS)
 
 /*
  * cube_send - a binary output handler for cube type
+ *
+ * cube_send - 立方体类型的二进制输出处理程序
  */
 Datum
 cube_send(PG_FUNCTION_ARGS)
@@ -342,7 +382,10 @@ cube_send(PG_FUNCTION_ARGS)
 	pq_sendint32(&buf, cube->header);
 	if (!IS_POINT(cube))
 		nitems += nitems;
-	/* for symmetry with cube_recv, we don't use LL_COORD/UR_COORD here */
+	/* for symmetry with cube_recv, we don't use LL_COORD/UR_COORD here
+	 *
+	 * 为了与cube_recv对称，我们在这里不使用LL_COORD/UR_COORD
+	 */
 	for (i = 0; i < nitems; i++)
 		pq_sendfloat8(&buf, cube->x[i]);
 
@@ -351,6 +394,8 @@ cube_send(PG_FUNCTION_ARGS)
 
 /*
  * cube_recv - a binary input handler for cube type
+ *
+ * cube_recv - 立方体类型的二进制输入处理程序
  */
 Datum
 cube_recv(PG_FUNCTION_ARGS)
@@ -383,6 +428,8 @@ cube_recv(PG_FUNCTION_ARGS)
 
 /*****************************************************************************
  *						   GiST functions
+ *
+ * GiST 函数
  *****************************************************************************/
 
 /*
@@ -390,6 +437,8 @@ cube_recv(PG_FUNCTION_ARGS)
 ** Should return false if for all data items x below entry,
 ** the predicate x op query == false, where op is the oper
 ** corresponding to strategy in the pg_amop table.
+*
+* * 框的 GiST 一致性方法 * 如果对于条目下面的所有数据项 x，则应返回 false， * 谓词 x op 查询 == false，其中 op 是与 pg_amop 表中的策略相对应的操作。
 */
 Datum
 g_cube_consistent(PG_FUNCTION_ARGS)
@@ -398,16 +447,24 @@ g_cube_consistent(PG_FUNCTION_ARGS)
 	NDBOX	   *query = PG_GETARG_NDBOX_P(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	bool		res;
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	/*
 	 * if entry is not leaf, use g_cube_internal_consistent, else use
 	 * g_cube_leaf_consistent
+	 *
+	 * 如果条目不是叶子，则使用 g_cube_internal_concient，否则使用 g_cube_leaf_concient
 	 */
 	if (GIST_LEAF(entry))
 		res = g_cube_leaf_consistent(DatumGetNDBOXP(entry->key),
@@ -424,6 +481,8 @@ g_cube_consistent(PG_FUNCTION_ARGS)
 /*
 ** The GiST Union method for boxes
 ** returns the minimal bounding box that encloses all the entries in entryvec
+*
+* * 框的 GiST Union 方法 * 返回包含 Entryvec 中所有条目的最小边界框
 */
 Datum
 g_cube_union(PG_FUNCTION_ARGS)
@@ -438,6 +497,8 @@ g_cube_union(PG_FUNCTION_ARGS)
 
 	/*
 	 * sizep = sizeof(NDBOX); -- NDBOX has variable size
+	 *
+	 * sizep = sizeof(NDBOX); -- NDBOX 具有可变大小
 	 */
 	*sizep = VARSIZE(tmp);
 
@@ -455,6 +516,8 @@ g_cube_union(PG_FUNCTION_ARGS)
 /*
 ** GiST Compress and Decompress methods for boxes
 ** do not do anything.
+*
+* * 盒子的 GiST 压缩和解压缩方法 * 不执行任何操作。
 */
 
 Datum
@@ -485,6 +548,8 @@ g_cube_decompress(PG_FUNCTION_ARGS)
 /*
 ** The GiST Penalty method for boxes
 ** As in the R-tree paper, we use change in area as our penalty metric
+*
+* * 盒子的 GiST 惩罚方法 * 与 R 树论文中一样，我们使用面积变化作为惩罚指标
 */
 Datum
 g_cube_penalty(PG_FUNCTION_ARGS)
@@ -510,6 +575,8 @@ g_cube_penalty(PG_FUNCTION_ARGS)
 /*
 ** The GiST PickSplit method for boxes
 ** We use Guttman's poly time split algorithm
+*
+* * 盒子的 GiST PickSplit 方法 * 我们使用 Guttman 的多时间分割算法
 */
 Datum
 g_cube_picksplit(PG_FUNCTION_ARGS)
@@ -557,8 +624,16 @@ g_cube_picksplit(PG_FUNCTION_ARGS)
 		{
 			datum_beta = DatumGetNDBOXP(entryvec->vector[j].key);
 
-			/* compute the wasted space by unioning these guys */
-			/* size_waste = size_union - size_inter; */
+			/* compute the wasted space by unioning these guys
+			 *
+			 * 通过联合这些人来计算浪费的空间
+			 */
+			/* size_waste = size_union - size_inter;
+			 *
+			 * size_waste = size_union - size_inter；
+			 *
+			 * size_waste = size_union - size_inter；
+			 */
 			union_d = cube_union_v0(datum_alpha, datum_beta);
 			rt_cube_size(union_d, &size_union);
 			inter_d = DatumGetNDBOXP(DirectFunctionCall2(cube_inter,
@@ -569,6 +644,8 @@ g_cube_picksplit(PG_FUNCTION_ARGS)
 
 			/*
 			 * are these a more promising split than what we've already seen?
+			 *
+			 * 这些分裂是否比我们已经看到的更有希望？
 			 */
 
 			if (size_waste > waste || firsttime)
@@ -600,9 +677,13 @@ g_cube_picksplit(PG_FUNCTION_ARGS)
 	 * this property by doing a merge in the code that actually splits the
 	 * page.
 	 *
+	 * 现在分割两个种子之间的区域。  该分割算法的一个重要属性是分割向量 v 在其左向量和右向量中具有要按顺序分割的项目的索引。  我们通过在实际拆分页面的代码中进行合并来利用此属性。
+	 *
 	 * For efficiency, we also place the new index tuple in this loop. This is
 	 * handled at the very end, when we have placed all the existing tuples
 	 * and i == maxoff + 1.
+	 *
+	 * 为了提高效率，我们还将新的索引元组放入此循环中。这是在最后处理的，当我们放置了所有现有的元组并且 i == maxoff + 1 时。
 	 */
 
 	maxoff = OffsetNumberNext(maxoff);
@@ -612,6 +693,8 @@ g_cube_picksplit(PG_FUNCTION_ARGS)
 		 * If we've already decided where to place this item, just put it on
 		 * the right list.  Otherwise, we need to figure out which page needs
 		 * the least enlargement in order to store the item.
+		 *
+		 * 如果我们已经决定放置此项目的位置，只需将其放在正确的列表中即可。  否则，我们需要找出哪一页需要最小的放大才能存储该项目。
 		 */
 
 		if (i == seed_1)
@@ -627,14 +710,20 @@ g_cube_picksplit(PG_FUNCTION_ARGS)
 			continue;
 		}
 
-		/* okay, which page needs least enlargement? */
+		/* okay, which page needs least enlargement?
+		 *
+		 * 好的，哪一页需要最小放大？
+		 */
 		datum_alpha = DatumGetNDBOXP(entryvec->vector[i].key);
 		union_dl = cube_union_v0(datum_l, datum_alpha);
 		union_dr = cube_union_v0(datum_r, datum_alpha);
 		rt_cube_size(union_dl, &size_alpha);
 		rt_cube_size(union_dr, &size_beta);
 
-		/* pick which page to add it to */
+		/* pick which page to add it to
+		 *
+		 * 选择要将其添加到哪个页面
+		 */
 		if (size_alpha - size_l < size_beta - size_r)
 		{
 			datum_l = union_dl;
@@ -660,6 +749,8 @@ g_cube_picksplit(PG_FUNCTION_ARGS)
 
 /*
 ** Equality method
+*
+* * 平等法
 */
 Datum
 g_cube_same(PG_FUNCTION_ARGS)
@@ -678,6 +769,8 @@ g_cube_same(PG_FUNCTION_ARGS)
 
 /*
 ** SUPPORT ROUTINES
+*
+* * 支持例程
 */
 bool
 g_cube_leaf_consistent(NDBOX *key,
@@ -756,11 +849,17 @@ cube_union_v0(NDBOX *a, NDBOX *b)
 	int			dim;
 	int			size;
 
-	/* trivial case */
+	/* trivial case
+	 *
+	 * 小事
+	 */
 	if (a == b)
 		return a;
 
-	/* swap the arguments if needed, so that 'a' is always larger than 'b' */
+	/* swap the arguments if needed, so that 'a' is always larger than 'b'
+	 *
+	 * 如果需要，交换参数，以便“a”始终大于“b”
+	 */
 	if (DIM(a) < DIM(b))
 	{
 		NDBOX	   *tmp = b;
@@ -775,7 +874,10 @@ cube_union_v0(NDBOX *a, NDBOX *b)
 	SET_VARSIZE(result, size);
 	SET_DIM(result, dim);
 
-	/* First compute the union of the dimensions present in both args */
+	/* First compute the union of the dimensions present in both args
+	 *
+	 * 首先计算两个参数中存在的维度的并集
+	 */
 	for (i = 0; i < DIM(b); i++)
 	{
 		result->x[i] = Min(Min(LL_COORD(a, i), UR_COORD(a, i)),
@@ -783,7 +885,10 @@ cube_union_v0(NDBOX *a, NDBOX *b)
 		result->x[i + DIM(a)] = Max(Max(LL_COORD(a, i), UR_COORD(a, i)),
 									Max(LL_COORD(b, i), UR_COORD(b, i)));
 	}
-	/* continue on the higher dimensions only present in 'a' */
+	/* continue on the higher dimensions only present in 'a'
+	 *
+	 * 继续仅存在于“a”中的更高维度
+	 */
 	for (; i < DIM(a); i++)
 	{
 		result->x[i] = Min(0,
@@ -797,6 +902,8 @@ cube_union_v0(NDBOX *a, NDBOX *b)
 	/*
 	 * Check if the result was in fact a point, and set the flag in the datum
 	 * accordingly. (we don't bother to repalloc it smaller)
+	 *
+	 * 检查结果是否确实是一个点，并相应地在数据中设置标志。 （我们不费心将其重新分配得更小）
 	 */
 	if (cube_is_point_internal(result))
 	{
@@ -834,7 +941,10 @@ cube_inter(PG_FUNCTION_ARGS)
 	int			dim;
 	int			size;
 
-	/* swap the arguments if needed, so that 'a' is always larger than 'b' */
+	/* swap the arguments if needed, so that 'a' is always larger than 'b'
+	 *
+	 * 如果需要，交换参数，以便“a”始终大于“b”
+	 */
 	if (DIM(a) < DIM(b))
 	{
 		NDBOX	   *tmp = b;
@@ -850,7 +960,10 @@ cube_inter(PG_FUNCTION_ARGS)
 	SET_VARSIZE(result, size);
 	SET_DIM(result, dim);
 
-	/* First compute intersection of the dimensions present in both args */
+	/* First compute intersection of the dimensions present in both args
+	 *
+	 * 首先计算两个参数中存在的维度的交集
+	 */
 	for (i = 0; i < DIM(b); i++)
 	{
 		result->x[i] = Max(Min(LL_COORD(a, i), UR_COORD(a, i)),
@@ -858,7 +971,10 @@ cube_inter(PG_FUNCTION_ARGS)
 		result->x[i + DIM(a)] = Min(Max(LL_COORD(a, i), UR_COORD(a, i)),
 									Max(LL_COORD(b, i), UR_COORD(b, i)));
 	}
-	/* continue on the higher dimensions only present in 'a' */
+	/* continue on the higher dimensions only present in 'a'
+	 *
+	 * 继续仅存在于“a”中的更高维度
+	 */
 	for (; i < DIM(a); i++)
 	{
 		result->x[i] = Max(0,
@@ -872,6 +988,8 @@ cube_inter(PG_FUNCTION_ARGS)
 	/*
 	 * Check if the result was in fact a point, and set the flag in the datum
 	 * accordingly. (we don't bother to repalloc it smaller)
+	 *
+	 * 检查结果是否确实是一个点，并相应地在数据中设置标志。 （我们不费心将其重新分配得更小）
 	 */
 	if (cube_is_point_internal(result))
 	{
@@ -894,6 +1012,8 @@ cube_inter(PG_FUNCTION_ARGS)
 
 	/*
 	 * Is it OK to return a non-null intersection for non-overlapping boxes?
+	 *
+	 * 是否可以为非重叠框返回非空交集？
 	 */
 	PG_RETURN_NDBOX_P(result);
 }
@@ -918,12 +1038,18 @@ rt_cube_size(NDBOX *a, double *size)
 
 	if (a == (NDBOX *) NULL)
 	{
-		/* special case for GiST */
+		/* special case for GiST
+		 *
+		 * GiST 的特殊情况
+		 */
 		result = 0.0;
 	}
 	else if (IS_POINT(a) || DIM(a) == 0)
 	{
-		/* necessarily has zero size */
+		/* necessarily has zero size
+		 *
+		 * 大小必然为零
+		 */
 		result = 0.0;
 	}
 	else
@@ -945,7 +1071,10 @@ cube_cmp_v0(NDBOX *a, NDBOX *b)
 
 	dim = Min(DIM(a), DIM(b));
 
-	/* compare the common dimensions */
+	/* compare the common dimensions
+	 *
+	 * 比较常用尺寸
+	 */
 	for (i = 0; i < dim; i++)
 	{
 		if (Min(LL_COORD(a, i), UR_COORD(a, i)) >
@@ -965,7 +1094,10 @@ cube_cmp_v0(NDBOX *a, NDBOX *b)
 			return -1;
 	}
 
-	/* compare extra dimensions to zero */
+	/* compare extra dimensions to zero
+	 *
+	 * 将额外维度与零进行比较
+	 */
 	if (DIM(a) > DIM(b))
 	{
 		for (i = dim; i < DIM(a); i++)
@@ -986,6 +1118,8 @@ cube_cmp_v0(NDBOX *a, NDBOX *b)
 		/*
 		 * if all common dimensions are equal, the cube with more dimensions
 		 * wins
+		 *
+		 * 如果所有公共维度都相等，则维度更多的立方体获胜
 		 */
 		return 1;
 	}
@@ -1009,11 +1143,16 @@ cube_cmp_v0(NDBOX *a, NDBOX *b)
 		/*
 		 * if all common dimensions are equal, the cube with more dimensions
 		 * wins
+		 *
+		 * 如果所有公共维度都相等，则维度更多的立方体获胜
 		 */
 		return -1;
 	}
 
-	/* They're really equal */
+	/* They're really equal
+	 *
+	 * 他们真的是平等的
+	 */
 	return 0;
 }
 
@@ -1123,7 +1262,10 @@ cube_ge(PG_FUNCTION_ARGS)
 
 
 /* Contains */
-/* Box(A) CONTAINS Box(B) IFF pt(A) < pt(B) */
+/* Box(A) CONTAINS Box(B) IFF pt(A) < pt(B)
+ *
+ * 方框(A)包含方框(B) IFF pt(A) < pt(B)
+ */
 bool
 cube_contains_v0(NDBOX *a, NDBOX *b)
 {
@@ -1138,6 +1280,8 @@ cube_contains_v0(NDBOX *a, NDBOX *b)
 		 * the further comparisons will make sense if the excess dimensions of
 		 * (b) were zeroes Since both UL and UR coordinates must be zero, we
 		 * can check them all without worrying about which is which.
+		 *
+		 * 如果 (b) 的多余尺寸为零，则进一步的比较将有意义。由于 UL 和 UR 坐标都必须为零，因此我们可以检查它们，而不必担心哪个是哪个。
 		 */
 		for (i = DIM(a); i < DIM(b); i++)
 		{
@@ -1148,7 +1292,10 @@ cube_contains_v0(NDBOX *a, NDBOX *b)
 		}
 	}
 
-	/* Can't care less about the excess dimensions of (a), if any */
+	/* Can't care less about the excess dimensions of (a), if any
+	 *
+	 * 不在乎（a）的多余尺寸（如果有的话）
+	 */
 	for (i = 0; i < Min(DIM(a), DIM(b)); i++)
 	{
 		if (Min(LL_COORD(a, i), UR_COORD(a, i)) >
@@ -1177,7 +1324,10 @@ cube_contains(PG_FUNCTION_ARGS)
 }
 
 /* Contained */
-/* Box(A) Contained by Box(B) IFF Box(B) Contains Box(A) */
+/* Box(A) Contained by Box(B) IFF Box(B) Contains Box(A)
+ *
+ * 框(A) 包含框(B) IFF 框(B) 包含框(A)
+ */
 Datum
 cube_contained(PG_FUNCTION_ARGS)
 {
@@ -1193,7 +1343,10 @@ cube_contained(PG_FUNCTION_ARGS)
 }
 
 /* Overlap */
-/* Box(A) Overlap Box(B) IFF (pt(a)LL < pt(B)UR) && (pt(b)LL < pt(a)UR) */
+/* Box(A) Overlap Box(B) IFF (pt(a)LL < pt(B)UR) && (pt(b)LL < pt(a)UR)
+ *
+ * 框(A) 重叠框(B) IFF (pt(a)LL < pt(B)UR) && (pt(b)LL < pt(a)UR)
+ */
 bool
 cube_overlap_v0(NDBOX *a, NDBOX *b)
 {
@@ -1202,7 +1355,10 @@ cube_overlap_v0(NDBOX *a, NDBOX *b)
 	if ((a == NULL) || (b == NULL))
 		return false;
 
-	/* swap the box pointers if needed */
+	/* swap the box pointers if needed
+	 *
+	 * 如果需要，交换框指针
+	 */
 	if (DIM(a) < DIM(b))
 	{
 		NDBOX	   *tmp = b;
@@ -1211,7 +1367,10 @@ cube_overlap_v0(NDBOX *a, NDBOX *b)
 		a = tmp;
 	}
 
-	/* compare within the dimensions of (b) */
+	/* compare within the dimensions of (b)
+	 *
+	 * 在 (b) 的范围内进行比较
+	 */
 	for (i = 0; i < DIM(b); i++)
 	{
 		if (Min(LL_COORD(a, i), UR_COORD(a, i)) > Max(LL_COORD(b, i), UR_COORD(b, i)))
@@ -1220,7 +1379,10 @@ cube_overlap_v0(NDBOX *a, NDBOX *b)
 			return false;
 	}
 
-	/* compare to zero those dimensions in (a) absent in (b) */
+	/* compare to zero those dimensions in (a) absent in (b)
+	 *
+	 * 将 (a) 中 (b) 中不存在的那些维度与零进行比较
+	 */
 	for (i = DIM(b); i < DIM(a); i++)
 	{
 		if (Min(LL_COORD(a, i), UR_COORD(a, i)) > 0)
@@ -1252,6 +1414,8 @@ cube_overlap(PG_FUNCTION_ARGS)
 /* The distance is computed as a per axis sum of the squared distances
    between 1D projections of the boxes onto Cartesian axes. Assuming zero
    distance between overlapping projections, this metric coincides with the
+ *
+ * 盒子在笛卡尔轴上的一维投影之间。假设重叠投影之间的距离为零，该度量与
    "common sense" geometric distance */
 Datum
 cube_distance(PG_FUNCTION_ARGS)
@@ -1263,7 +1427,10 @@ cube_distance(PG_FUNCTION_ARGS)
 				distance;
 	int			i;
 
-	/* swap the box pointers if needed */
+	/* swap the box pointers if needed
+	 *
+	 * 如果需要，交换框指针
+	 */
 	if (DIM(a) < DIM(b))
 	{
 		NDBOX	   *tmp = b;
@@ -1274,14 +1441,20 @@ cube_distance(PG_FUNCTION_ARGS)
 	}
 
 	distance = 0.0;
-	/* compute within the dimensions of (b) */
+	/* compute within the dimensions of (b)
+	 *
+	 * 在 (b) 的维度内计算
+	 */
 	for (i = 0; i < DIM(b); i++)
 	{
 		d = distance_1D(LL_COORD(a, i), UR_COORD(a, i), LL_COORD(b, i), UR_COORD(b, i));
 		distance += d * d;
 	}
 
-	/* compute distance to zero for those dimensions in (a) absent in (b) */
+	/* compute distance to zero for those dimensions in (a) absent in (b)
+	 *
+	 * 计算 (a) 中 (b) 中不存在的维度到零的距离
+	 */
 	for (i = DIM(b); i < DIM(a); i++)
 	{
 		d = distance_1D(LL_COORD(a, i), UR_COORD(a, i), 0.0, 0.0);
@@ -1311,7 +1484,10 @@ distance_taxicab(PG_FUNCTION_ARGS)
 	double		distance;
 	int			i;
 
-	/* swap the box pointers if needed */
+	/* swap the box pointers if needed
+	 *
+	 * 如果需要，交换框指针
+	 */
 	if (DIM(a) < DIM(b))
 	{
 		NDBOX	   *tmp = b;
@@ -1322,12 +1498,18 @@ distance_taxicab(PG_FUNCTION_ARGS)
 	}
 
 	distance = 0.0;
-	/* compute within the dimensions of (b) */
+	/* compute within the dimensions of (b)
+	 *
+	 * 在 (b) 的维度内计算
+	 */
 	for (i = 0; i < DIM(b); i++)
 		distance += fabs(distance_1D(LL_COORD(a, i), UR_COORD(a, i),
 									 LL_COORD(b, i), UR_COORD(b, i)));
 
-	/* compute distance to zero for those dimensions in (a) absent in (b) */
+	/* compute distance to zero for those dimensions in (a) absent in (b)
+	 *
+	 * 计算 (a) 中 (b) 中不存在的维度到零的距离
+	 */
 	for (i = DIM(b); i < DIM(a); i++)
 		distance += fabs(distance_1D(LL_COORD(a, i), UR_COORD(a, i),
 									 0.0, 0.0));
@@ -1356,7 +1538,10 @@ distance_chebyshev(PG_FUNCTION_ARGS)
 				distance;
 	int			i;
 
-	/* swap the box pointers if needed */
+	/* swap the box pointers if needed
+	 *
+	 * 如果需要，交换框指针
+	 */
 	if (DIM(a) < DIM(b))
 	{
 		NDBOX	   *tmp = b;
@@ -1367,7 +1552,10 @@ distance_chebyshev(PG_FUNCTION_ARGS)
 	}
 
 	distance = 0.0;
-	/* compute within the dimensions of (b) */
+	/* compute within the dimensions of (b)
+	 *
+	 * 在 (b) 的维度内计算
+	 */
 	for (i = 0; i < DIM(b); i++)
 	{
 		d = fabs(distance_1D(LL_COORD(a, i), UR_COORD(a, i),
@@ -1376,7 +1564,10 @@ distance_chebyshev(PG_FUNCTION_ARGS)
 			distance = d;
 	}
 
-	/* compute distance to zero for those dimensions in (a) absent in (b) */
+	/* compute distance to zero for those dimensions in (a) absent in (b)
+	 *
+	 * 计算 (a) 中 (b) 中不存在的维度到零的距离
+	 */
 	for (i = DIM(b); i < DIM(a); i++)
 	{
 		d = fabs(distance_1D(LL_COORD(a, i), UR_COORD(a, i), 0.0, 0.0));
@@ -1411,18 +1602,26 @@ g_cube_distance(PG_FUNCTION_ARGS)
 		/*
 		 * Handle ordering by ~> operator.  See comments of cube_coord_llur()
 		 * for details
+		 *
+		 * 通过 ~> 操作符处理排序。  详细信息请参见cube_coord_llur()的注释
 		 */
 		int			coord = PG_GETARG_INT32(1);
 		bool		isLeaf = GistPageIsLeaf(entry->page);
 		bool		inverse = false;
 
-		/* 0 is the only unsupported coordinate value */
+		/* 0 is the only unsupported coordinate value
+		 *
+		 * 0 是唯一不受支持的坐标值
+		 */
 		if (coord == 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_ARRAY_ELEMENT_ERROR),
 					 errmsg("zero cube index is not defined")));
 
-		/* Return inversed value for negative coordinate */
+		/* Return inversed value for negative coordinate
+		 *
+		 * 返回负坐标的反转值
+		 */
 		if (coord < 0)
 		{
 			coord = -coord;
@@ -1431,10 +1630,16 @@ g_cube_distance(PG_FUNCTION_ARGS)
 
 		if (coord <= 2 * DIM(cube))
 		{
-			/* dimension index */
+			/* dimension index
+			 *
+			 * 维度索引
+			 */
 			int			index = (coord - 1) / 2;
 
-			/* whether this is upper bound (lower bound otherwise) */
+			/* whether this is upper bound (lower bound otherwise)
+			 *
+			 * 这是否是上限（否则是下限）
+			 */
 			bool		upper = ((coord - 1) % 2 == 1);
 
 			if (IS_POINT(cube))
@@ -1445,7 +1650,10 @@ g_cube_distance(PG_FUNCTION_ARGS)
 			{
 				if (isLeaf)
 				{
-					/* For leaf just return required upper/lower bound */
+					/* For leaf just return required upper/lower bound
+					 *
+					 * 对于叶子，只需返回所需的上限/下限
+					 */
 					if (upper)
 						retval = Max(cube->x[index], cube->x[index + DIM(cube)]);
 					else
@@ -1459,6 +1667,8 @@ g_cube_distance(PG_FUNCTION_ARGS)
 					 * be as small as our lower bound.  For inversed case we
 					 * return upper bound because it becomes lower bound for
 					 * inversed value.
+					 *
+					 * 对于非叶子，我们应该始终返回下界，因为即使子树中子树的上界也可以与下界一样小。  对于反转的情况，我们返回上限，因为它成为反转值的下界。
 					 */
 					if (!inverse)
 						retval = Min(cube->x[index], cube->x[index + DIM(cube)]);
@@ -1472,7 +1682,10 @@ g_cube_distance(PG_FUNCTION_ARGS)
 			retval = 0.0;
 		}
 
-		/* Inverse return value if needed */
+		/* Inverse return value if needed
+		 *
+		 * 如果需要则返回相反值
+		 */
 		if (inverse)
 			retval = -retval;
 	}
@@ -1506,19 +1719,31 @@ g_cube_distance(PG_FUNCTION_ARGS)
 static double
 distance_1D(double a1, double a2, double b1, double b2)
 {
-	/* interval (a) is entirely on the left of (b) */
+	/* interval (a) is entirely on the left of (b)
+	 *
+	 * 区间 (a) 完全位于 (b) 的左侧
+	 */
 	if ((a1 <= b1) && (a2 <= b1) && (a1 <= b2) && (a2 <= b2))
 		return (Min(b1, b2) - Max(a1, a2));
 
-	/* interval (a) is entirely on the right of (b) */
+	/* interval (a) is entirely on the right of (b)
+	 *
+	 * 区间 (a) 完全位于 (b) 的右侧
+	 */
 	if ((a1 > b1) && (a2 > b1) && (a1 > b2) && (a2 > b2))
 		return (Min(a1, a2) - Max(b1, b2));
 
-	/* the rest are all sorts of intersections */
+	/* the rest are all sorts of intersections
+	 *
+	 * 剩下的都是各种路口
+	 */
 	return 0.0;
 }
 
-/* Test if a box is also a point */
+/* Test if a box is also a point
+ *
+ * 测试一个盒子是否也是一个点
+ */
 Datum
 cube_is_point(PG_FUNCTION_ARGS)
 {
@@ -1544,6 +1769,8 @@ cube_is_point_internal(NDBOX *cube)
 	 * point. Such values don't arise with current code - the point flag is
 	 * always set if appropriate - but they might be present on-disk in
 	 * clusters upgraded from pre-9.4 versions.
+	 *
+	 * 即使未设置点标志，所有左下坐标也可能与右上角坐标匹配，因此该值实际上是一个点。当前代码不会出现此类值 - 如果合适，点标志始终会被设置 - 但它们可能存在于从 9.4 之前版本升级的集群中的磁盘上。
 	 */
 	for (i = 0; i < DIM(cube); i++)
 	{
@@ -1553,7 +1780,10 @@ cube_is_point_internal(NDBOX *cube)
 	return true;
 }
 
-/* Return dimensions in use in the data structure */
+/* Return dimensions in use in the data structure
+ *
+ * 返回数据结构中使用的维度
+ */
 Datum
 cube_dim(PG_FUNCTION_ARGS)
 {
@@ -1564,7 +1794,10 @@ cube_dim(PG_FUNCTION_ARGS)
 	PG_RETURN_INT32(dim);
 }
 
-/* Return a specific normalized LL coordinate */
+/* Return a specific normalized LL coordinate
+ *
+ * 返回特定的归一化 LL 坐标
+ */
 Datum
 cube_ll_coord(PG_FUNCTION_ARGS)
 {
@@ -1581,7 +1814,10 @@ cube_ll_coord(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8(result);
 }
 
-/* Return a specific normalized UR coordinate */
+/* Return a specific normalized UR coordinate
+ *
+ * 返回特定的标准化 UR 坐标
+ */
 Datum
 cube_ur_coord(PG_FUNCTION_ARGS)
 {
@@ -1602,6 +1838,8 @@ cube_ur_coord(PG_FUNCTION_ARGS)
  * Function returns cube coordinate.
  * Numbers from 1 to DIM denotes first corner coordinates.
  * Numbers from DIM+1 to 2*DIM denotes second corner coordinates.
+ *
+ * 函数返回立方体坐标。从 1 到 DIM 的数字表示第一个角坐标。从 DIM+1 到 2*DIM 的数字表示第二个角坐标。
  */
 Datum
 cube_coord(PG_FUNCTION_ARGS)
@@ -1635,14 +1873,20 @@ cube_coord(PG_FUNCTION_ARGS)
  * support descending sorting, this function returns inverse of value when
  * negative coordinate is given.
  *
+ * 该函数的工作方式类似于cube_coord()，但以适合使用 KNN-GiST 支持坐标排序的方式重新排列坐标。  由于历史原因，此扩展允许我们以 ((2,1),(1,2)) 形式创建多维数据集，而不是将此类多维数据集标准化为 ((1,1),(2,2))，而是以原始方式存储多维数据集。  但是，为了在没有显式排序步骤的情况下从索引中获取按维度之一排序的立方体，我们需要这种与表示无关的坐标获取器。  此外，索引数据集可能包含不同维度的立方体数量。  因此，该坐标获取器应该能够独立于立方体维度的数量返回特定维度的下限/上限。  此外，KNN-GiST 仅支持升序排序。  为了支持降序排序，当给定负坐标时，该函数返回值的倒数。
+ *
  * Long story short, this function uses following meaning of coordinates:
  * # (2 * N - 1) -- lower bound of Nth dimension,
  * # (2 * N) -- upper bound of Nth dimension,
  * # - (2 * N - 1) -- negative of lower bound of Nth dimension,
  * # - (2 * N) -- negative of upper bound of Nth dimension.
  *
+ * 长话短说，该函数使用的坐标含义如下： # (2 * N - 1) -- 第 N 维下界， # (2 * N) -- 第 N 维上界， # - (2 * N - 1) -- 第 N 维下界负值， # - (2 * N) -- 第 N 维上界负值。
+ *
  * When given coordinate exceeds number of cube dimensions, then 0 returned
  * (reproducing logic of GiST indexing of variable-length cubes).
+ *
+ * 当给定的坐标超过立方体维度数时，则返回 0（再现可变长度立方体的 GiST 索引逻辑）。
  */
 Datum
 cube_coord_llur(PG_FUNCTION_ARGS)
@@ -1652,13 +1896,19 @@ cube_coord_llur(PG_FUNCTION_ARGS)
 	bool		inverse = false;
 	float8		result;
 
-	/* 0 is the only unsupported coordinate value */
+	/* 0 is the only unsupported coordinate value
+	 *
+	 * 0 是唯一不受支持的坐标值
+	 */
 	if (coord == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_ARRAY_ELEMENT_ERROR),
 				 errmsg("zero cube index is not defined")));
 
-	/* Return inversed value for negative coordinate */
+	/* Return inversed value for negative coordinate
+	 *
+	 * 返回负坐标的反转值
+	 */
 	if (coord < 0)
 	{
 		coord = -coord;
@@ -1667,10 +1917,16 @@ cube_coord_llur(PG_FUNCTION_ARGS)
 
 	if (coord <= 2 * DIM(cube))
 	{
-		/* dimension index */
+		/* dimension index
+		 *
+		 * 维度索引
+		 */
 		int			index = (coord - 1) / 2;
 
-		/* whether this is upper bound (lower bound otherwise) */
+		/* whether this is upper bound (lower bound otherwise)
+		 *
+		 * 这是否是上限（否则是下限）
+		 */
 		bool		upper = ((coord - 1) % 2 == 1);
 
 		if (IS_POINT(cube))
@@ -1691,18 +1947,26 @@ cube_coord_llur(PG_FUNCTION_ARGS)
 		 * Return zero if coordinate is out of bound.  That reproduces logic
 		 * of how cubes with low dimension number are expanded during GiST
 		 * indexing.
+		 *
+		 * 如果坐标超出范围，则返回零。  这再现了在 GiST 索引期间如何扩展低维度多维数据集的逻辑。
 		 */
 		result = 0.0;
 	}
 
-	/* Inverse value if needed */
+	/* Inverse value if needed
+	 *
+	 * 如果需要则取反值
+	 */
 	if (inverse)
 		result = -result;
 
 	PG_RETURN_FLOAT8(result);
 }
 
-/* Increase or decrease box size by a radius in at least n dimensions. */
+/* Increase or decrease box size by a radius in at least n dimensions.
+ *
+ * 在至少 n 维中按半径增加或减少长方体尺寸。
+ */
 Datum
 cube_enlarge(PG_FUNCTION_ARGS)
 {
@@ -1745,7 +2009,10 @@ cube_enlarge(PG_FUNCTION_ARGS)
 			result->x[j] = result->x[i];
 		}
 	}
-	/* dim > a->dim only if r > 0 */
+	/* dim > a->dim only if r > 0
+	 *
+	 * 仅当 r > 0 时暗淡 > a->dim
+	 */
 	for (; i < dim; i++, j++)
 	{
 		result->x[i] = -r;
@@ -1755,6 +2022,8 @@ cube_enlarge(PG_FUNCTION_ARGS)
 	/*
 	 * Check if the result was in fact a point, and set the flag in the datum
 	 * accordingly. (we don't bother to repalloc it smaller)
+	 *
+	 * 检查结果是否确实是一个点，并相应地在数据中设置标志。 （我们不费心将其重新分配得更小）
 	 */
 	if (cube_is_point_internal(result))
 	{
@@ -1767,7 +2036,10 @@ cube_enlarge(PG_FUNCTION_ARGS)
 	PG_RETURN_NDBOX_P(result);
 }
 
-/* Create a one dimensional box with identical upper and lower coordinates */
+/* Create a one dimensional box with identical upper and lower coordinates
+ *
+ * 创建一个具有相同上下坐标的一维盒子
+ */
 Datum
 cube_f8(PG_FUNCTION_ARGS)
 {
@@ -1785,7 +2057,10 @@ cube_f8(PG_FUNCTION_ARGS)
 	PG_RETURN_NDBOX_P(result);
 }
 
-/* Create a one dimensional box */
+/* Create a one dimensional box
+ *
+ * 创建一个一维盒子
+ */
 Datum
 cube_f8_f8(PG_FUNCTION_ARGS)
 {
@@ -1864,7 +2139,10 @@ cube_c_f8(PG_FUNCTION_ARGS)
 	PG_RETURN_NDBOX_P(result);
 }
 
-/* Add a dimension to an existing cube */
+/* Add a dimension to an existing cube
+ *
+ * 向现有多维数据集添加维度
+ */
 Datum
 cube_c_f8_f8(PG_FUNCTION_ARGS)
 {

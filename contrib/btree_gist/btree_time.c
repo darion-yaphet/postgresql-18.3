@@ -16,7 +16,10 @@ typedef struct
 	TimeADT		upper;
 } timeKEY;
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_time_compress);
 PG_FUNCTION_INFO_V1(gbt_timetz_compress);
 PG_FUNCTION_INFO_V1(gbt_time_fetch);
@@ -150,6 +153,8 @@ time_dist(PG_FUNCTION_ARGS)
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 Datum
@@ -174,7 +179,10 @@ gbt_timetz_compress(PG_FUNCTION_ARGS)
 
 		retval = palloc(sizeof(GISTENTRY));
 
-		/* We are using the time + zone only to compress */
+		/* We are using the time + zone only to compress
+		 *
+		 * 我们仅使用时间+区域来压缩
+		 */
 		tmp = tz->time + (tz->zone * INT64CONST(1000000));
 		r->lower = r->upper = tmp;
 		gistentryinit(*retval, PointerGetDatum(r),
@@ -201,12 +209,18 @@ gbt_time_consistent(PG_FUNCTION_ARGS)
 	TimeADT		query = PG_GETARG_TIMEADT(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	timeKEY    *kkk = (timeKEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	key.lower = (GBT_NUMKEY *) &kkk->lower;
@@ -222,7 +236,10 @@ gbt_time_distance(PG_FUNCTION_ARGS)
 	GISTENTRY  *entry = (GISTENTRY *) PG_GETARG_POINTER(0);
 	TimeADT		query = PG_GETARG_TIMEADT(1);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	timeKEY    *kkk = (timeKEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
@@ -240,13 +257,19 @@ gbt_timetz_consistent(PG_FUNCTION_ARGS)
 	TimeTzADT  *query = PG_GETARG_TIMETZADT_P(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	timeKEY    *kkk = (timeKEY *) DatumGetPointer(entry->key);
 	TimeADT		qqq;
 	GBT_NUMKEY_R key;
 
-	/* All cases served by this function are inexact */
+	/* All cases served by this function are inexact
+	 *
+	 * 该函数提供的所有案例都是不准确的
+	 */
 	*recheck = true;
 
 	qqq = query->time + (query->zone * INT64CONST(1000000));
@@ -332,7 +355,10 @@ gbt_timekey_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	timeKEY    *arg1 = (timeKEY *) DatumGetPointer(x);
 	timeKEY    *arg2 = (timeKEY *) DatumGetPointer(y);
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	return DatumGetInt32(DirectFunctionCall2(time_cmp,
 											 TimeADTGetDatumFast(arg1->lower),
 											 TimeADTGetDatumFast(arg2->lower)));

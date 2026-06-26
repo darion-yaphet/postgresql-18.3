@@ -34,32 +34,55 @@
 
 #include <sys/param.h>
 
-/* keep debug messages? */
+/* keep debug messages?
+ *
+ * 保留调试消息？
+ */
 #define PX_DEBUG
 
-/* max salt returned */
+/* max salt returned
+ *
+ * 最大盐返回量
+ */
 #define PX_MAX_SALT_LEN		128
 
 /*
  * PX error codes
+ *
+ * PX 错误代码
  */
 #define PXE_OK						0
-/* -1 is unused */
+/* -1 is unused
+ *
+ * -1 未使用
+ */
 #define PXE_NO_HASH					-2
 #define PXE_NO_CIPHER				-3
-/* -4 is unused */
+/* -4 is unused
+ *
+ * -4 未使用
+ */
 #define PXE_BAD_OPTION				-5
 #define PXE_BAD_FORMAT				-6
 #define PXE_KEY_TOO_BIG				-7
 #define PXE_CIPHER_INIT				-8
 #define PXE_HASH_UNUSABLE_FOR_HMAC	-9
-/* -10 is unused */
-/* -11 is unused */
+/* -10 is unused
+ *
+ * -10 未使用
+ */
+/* -11 is unused
+ *
+ * -11 未使用
+ */
 #define PXE_BUG						-12
 #define PXE_ARGUMENT_ERROR			-13
 #define PXE_UNKNOWN_SALT_ALGO		-14
 #define PXE_BAD_SALT_ROUNDS			-15
-/* -16 is unused */
+/* -16 is unused
+ *
+ * -16 未使用
+ */
 #define PXE_NO_RANDOM				-17
 #define PXE_DECRYPT_FAILED			-18
 #define PXE_ENCRYPT_FAILED			-19
@@ -72,7 +95,10 @@
 #define PXE_PGP_COMPRESSION_ERROR	-105
 #define PXE_PGP_NOT_TEXT			-106
 #define PXE_PGP_UNEXPECTED_PKT		-107
-/* -108 is unused */
+/* -108 is unused
+ *
+ * -108 未使用
+ */
 #define PXE_PGP_MATH_FAILED			-109
 #define PXE_PGP_SHORT_ELGAMAL_KEY	-110
 #define PXE_PGP_KEY_TOO_BIG			-111

@@ -3,6 +3,8 @@ DROP INDEX trgm_idx2;
 \copy test_trgm3 from 'data/trgm2.data'
 
 -- reduce noise
+--
+-- 减少噪音
 set extra_float_digits = 0;
 
 select t,strict_word_similarity('Baykal',t) as sml from test_trgm2 where 'Baykal' <<% t order by sml desc, t;

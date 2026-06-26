@@ -1,17 +1,25 @@
 --
 --  Test citext datatype
 --
+-- 测试 citext 数据类型
+--
 
 CREATE EXTENSION citext;
 
 -- Check whether any of our opclasses fail amvalidate
+--
+-- 检查我们的任何 opclass 是否未通过 amvalidate
 SELECT amname, opcname
 FROM pg_opclass opc LEFT JOIN pg_am am ON am.oid = opcmethod
 WHERE opc.oid >= 16384 AND NOT amvalidate(opc.oid);
 
 -- Test the operators and indexing functions
+--
+-- 测试运算符和索引函数
 
 -- Test = and <>.
+--
+-- 测试 = 和 <>。
 SELECT 'a'::citext = 'a'::citext AS t;
 SELECT 'a'::citext = 'A'::citext AS t;
 SELECT 'a'::citext = 'A'::text AS f;        -- text wins the discussion
@@ -20,16 +28,22 @@ SELECT 'a'::citext = 'ab'::citext AS f;
 SELECT 'a'::citext <> 'ab'::citext AS t;
 
 -- Test > and >=
+--
+-- 测试 > 和 >=
 SELECT 'B'::citext > 'a'::citext AS t;
 SELECT 'b'::citext >  'A'::citext AS t;
 SELECT 'B'::citext >  'b'::citext AS f;
 SELECT 'B'::citext >= 'b'::citext AS t;
 
 -- Test < and <=
+--
+-- 测试 < 和 <=
 SELECT 'a'::citext <  'B'::citext AS t;
 SELECT 'a'::citext <= 'B'::citext AS t;
 
 -- Test implicit casting. citext casts to text, but not vice-versa.
+--
+-- 测试隐式转换。 citext 转换为文本，但反之则不然。
 SELECT 'a'::citext = 'a'::text   AS t;
 SELECT 'A'::text  <> 'a'::citext AS t;
 
@@ -40,6 +54,8 @@ SELECT 'a'::citext >  'B'::text AS t;  -- text wins.
 SELECT 'a'::citext >= 'B'::text AS t;  -- text wins.
 
 -- Test implicit casting. citext casts to varchar, but not vice-versa.
+--
+-- 测试隐式转换。 citext 转换为 varchar，但反之则不然。
 SELECT 'a'::citext = 'a'::varchar   AS t;
 SELECT 'A'::varchar  <> 'a'::citext AS t;
 
@@ -50,18 +66,26 @@ SELECT 'a'::citext >  'B'::varchar AS t;  -- varchar wins.
 SELECT 'a'::citext >= 'B'::varchar AS t;  -- varchar wins.
 
 -- A couple of longer examples to ensure that we don't get any issues with bad
+--
+-- 几个更长的例子来确保我们不会遇到任何不好的问题
 -- conversions to char[] in the c code. Yes, I did do this.
+--
+-- c 代码中到 char[] 的转换。是的，我确实这样做了。
 
 SELECT 'aardvark'::citext = 'aardvark'::citext AS t;
 SELECT 'aardvark'::citext = 'aardVark'::citext AS t;
 
 -- Check the citext_cmp() function explicitly.
+--
+-- 显式检查 citext_cmp() 函数。
 SELECT citext_cmp('aardvark'::citext, 'aardvark'::citext) AS zero;
 SELECT citext_cmp('aardvark'::citext, 'aardVark'::citext) AS zero;
 SELECT citext_cmp('AARDVARK'::citext, 'AARDVARK'::citext) AS zero;
 SELECT citext_cmp('B'::citext, 'a'::citext) > 0 AS true;
 
 -- Check the citext_hash() and citext_hash_extended() function explicitly.
+--
+-- 显式检查 citext_hash() 和 citext_hash_extended() 函数。
 SELECT v as value, citext_hash(v)::bit(32) as standard,
        citext_hash_extended(v, 0)::bit(32) as extended0,
        citext_hash_extended(v, 1)::bit(32) as extended1
@@ -71,6 +95,8 @@ WHERE  citext_hash(v)::bit(32) != citext_hash_extended(v, 0)::bit(32)
        OR citext_hash(v)::bit(32) = citext_hash_extended(v, 1)::bit(32);
 
 -- Do some tests using a table and index.
+--
+-- 使用表和索引进行一些测试。
 
 CREATE TEMP TABLE try (
    name citext PRIMARY KEY
@@ -86,11 +112,15 @@ SELECT name, 'A' = name AS t      FROM try where name = 'A';
 SELECT name, 'A' = name AS t      FROM try where name = 'A';
 
 -- expected failures on duplicate key
+--
+-- 重复键的预期失败
 INSERT INTO try (name) VALUES ('a');
 INSERT INTO try (name) VALUES ('A');
 INSERT INTO try (name) VALUES ('aB');
 
 -- Make sure that citext_smaller() and citext_larger() work properly.
+--
+-- 确保 citext_smaller() 和 citext_larger() 正常工作。
 SELECT citext_smaller( 'ab'::citext, 'ac'::citext ) = 'ab' AS t;
 SELECT citext_smaller( 'ABC'::citext, 'bbbb'::citext ) = 'ABC' AS t;
 SELECT citext_smaller( 'aardvark'::citext, 'Aaba'::citext ) = 'Aaba' AS t;
@@ -101,6 +131,8 @@ SELECT citext_larger( 'ABC'::citext, 'bbbb'::citext ) = 'bbbb' AS t;
 SELECT citext_larger( 'aardvark'::citext, 'Aaba'::citext ) = 'aardvark' AS t;
 
 -- Test aggregate functions and sort ordering
+--
+-- 测试聚合函数和排序顺序
 
 CREATE TEMP TABLE srt (
    name CITEXT
@@ -115,6 +147,8 @@ VALUES ('abb'),
 CREATE INDEX srt_name ON srt (name);
 
 -- Check the min() and max() aggregates, with and without index.
+--
+-- 检查 min() 和 max() 聚合，带索引和不带索引。
 set enable_seqscan = off;
 SELECT MIN(name) AS "ABA" FROM srt;
 SELECT MAX(name) AS abd FROM srt;
@@ -125,6 +159,8 @@ SELECT MAX(name) AS abd FROM srt;
 reset enable_indexscan;
 
 -- Check sorting likewise
+--
+-- 同样检查排序
 set enable_seqscan = off;
 SELECT name FROM srt ORDER BY name;
 reset enable_seqscan;
@@ -133,6 +169,8 @@ SELECT name FROM srt ORDER BY name;
 reset enable_indexscan;
 
 -- Test assignment casts.
+--
+-- 测试作业强制转换。
 SELECT LOWER(name) as aba FROM srt WHERE name = 'ABA'::text;
 SELECT LOWER(name) as aba FROM srt WHERE name = 'ABA'::varchar;
 SELECT LOWER(name) as aba FROM srt WHERE name = 'ABA'::bpchar;
@@ -140,28 +178,38 @@ SELECT LOWER(name) as aba FROM srt WHERE name = 'ABA';
 SELECT LOWER(name) as aba FROM srt WHERE name = 'ABA'::citext;
 
 -- LIKE should be case-insensitive
+--
+-- LIKE 应该不区分大小写
 SELECT name FROM srt WHERE name     LIKE '%a%' ORDER BY name;
 SELECT name FROM srt WHERE name NOT LIKE '%b%' ORDER BY name;
 SELECT name FROM srt WHERE name     LIKE '%A%' ORDER BY name;
 SELECT name FROM srt WHERE name NOT LIKE '%B%' ORDER BY name;
 
 -- ~~ should be case-insensitive
+--
+-- ~~ 不区分大小写
 SELECT name FROM srt WHERE name ~~  '%a%' ORDER BY name;
 SELECT name FROM srt WHERE name !~~ '%b%' ORDER BY name;
 SELECT name FROM srt WHERE name ~~  '%A%' ORDER BY name;
 SELECT name FROM srt WHERE name !~~ '%B%' ORDER BY name;
 
 -- ~ should be case-insensitive
+--
+-- ~ 应该不区分大小写
 SELECT name FROM srt WHERE name ~  '^a' ORDER BY name;
 SELECT name FROM srt WHERE name !~ 'a$' ORDER BY name;
 SELECT name FROM srt WHERE name ~  '^A' ORDER BY name;
 SELECT name FROM srt WHERE name !~ 'A$' ORDER BY name;
 
 -- SIMILAR TO should be case-insensitive.
+--
+-- SIMILAR TO 应不区分大小写。
 SELECT name FROM srt WHERE name SIMILAR TO '%a.*';
 SELECT name FROM srt WHERE name SIMILAR TO '%A.*';
 
 -- Explicit casts.
+--
+-- 显式强制转换。
 SELECT true::citext = 'true' AS t;
 SELECT 'true'::citext::boolean = true AS t;
 
@@ -274,6 +322,8 @@ SELECT 'sad'::mood::citext = 'sad' AS t;
 SELECT 'sad'::citext::mood = 'sad'::mood AS t;
 
 -- Assignment casts.
+--
+-- 分配演员。
 CREATE TABLE caster (
     citext      citext,
     text        text,
@@ -343,180 +393,240 @@ INSERT INTO caster (name)          VALUES ('foo'::citext);
 INSERT INTO caster (citext)        VALUES ('foo'::name);
 
 -- Cannot cast to bytea on assignment.
+--
+-- 无法在分配时转换为 bytea。
 INSERT INTO caster (bytea)         VALUES ('foo'::text);
 INSERT INTO caster (text)          VALUES ('foo'::bytea);
 INSERT INTO caster (bytea)         VALUES ('foo'::citext);
 INSERT INTO caster (citext)        VALUES ('foo'::bytea);
 
 -- Cannot cast to boolean on assignment.
+--
+-- 无法在赋值时转换为布尔值。
 INSERT INTO caster (boolean)       VALUES ('t'::text);
 INSERT INTO caster (text)          VALUES ('t'::boolean);
 INSERT INTO caster (boolean)       VALUES ('t'::citext);
 INSERT INTO caster (citext)        VALUES ('t'::boolean);
 
 -- Cannot cast to float8 on assignment.
+--
+-- 无法在赋值时转换为 float8。
 INSERT INTO caster (float8)        VALUES ('12.42'::text);
 INSERT INTO caster (text)          VALUES ('12.42'::float8);
 INSERT INTO caster (float8)        VALUES ('12.42'::citext);
 INSERT INTO caster (citext)        VALUES ('12.42'::float8);
 
 -- Cannot cast to float4 on assignment.
+--
+-- 无法在赋值时转换为 float4。
 INSERT INTO caster (float4)        VALUES ('12.42'::text);
 INSERT INTO caster (text)          VALUES ('12.42'::float4);
 INSERT INTO caster (float4)        VALUES ('12.42'::citext);
 INSERT INTO caster (citext)        VALUES ('12.42'::float4);
 
 -- Cannot cast to numeric on assignment.
+--
+-- 无法在赋值时转换为数字。
 INSERT INTO caster (numeric)       VALUES ('12.42'::text);
 INSERT INTO caster (text)          VALUES ('12.42'::numeric);
 INSERT INTO caster (numeric)       VALUES ('12.42'::citext);
 INSERT INTO caster (citext)        VALUES ('12.42'::numeric);
 
 -- Cannot cast to int8 on assignment.
+--
+-- 无法在赋值时转换为 int8。
 INSERT INTO caster (int8)          VALUES ('12'::text);
 INSERT INTO caster (text)          VALUES ('12'::int8);
 INSERT INTO caster (int8)          VALUES ('12'::citext);
 INSERT INTO caster (citext)        VALUES ('12'::int8);
 
 -- Cannot cast to int4 on assignment.
+--
+-- 无法在赋值时转换为 int4。
 INSERT INTO caster (int4)          VALUES ('12'::text);
 INSERT INTO caster (text)          VALUES ('12'::int4);
 INSERT INTO caster (int4)          VALUES ('12'::citext);
 INSERT INTO caster (citext)        VALUES ('12'::int4);
 
 -- Cannot cast to int2 on assignment.
+--
+-- 无法在赋值时转换为 int2。
 INSERT INTO caster (int2)          VALUES ('12'::text);
 INSERT INTO caster (text)          VALUES ('12'::int2);
 INSERT INTO caster (int2)          VALUES ('12'::citext);
 INSERT INTO caster (citext)        VALUES ('12'::int2);
 
 -- Cannot cast to cidr on assignment.
+--
+-- 无法在分配时转换为 cidr。
 INSERT INTO caster (cidr)          VALUES ('192.168.100.128/25'::text);
 INSERT INTO caster (text)          VALUES ('192.168.100.128/25'::cidr);
 INSERT INTO caster (cidr)          VALUES ('192.168.100.128/25'::citext);
 INSERT INTO caster (citext)        VALUES ('192.168.100.128/25'::cidr);
 
 -- Cannot cast to inet on assignment.
+--
+-- 无法在分配时转换为 inet。
 INSERT INTO caster (inet)          VALUES ('192.168.100.128'::text);
 INSERT INTO caster (text)          VALUES ('192.168.100.128'::inet);
 INSERT INTO caster (inet)          VALUES ('192.168.100.128'::citext);
 INSERT INTO caster (citext)        VALUES ('192.168.100.128'::inet);
 
 -- Cannot cast to macaddr on assignment.
+--
+-- 无法在分配时转换为 macaddr。
 INSERT INTO caster (macaddr)       VALUES ('08:00:2b:01:02:03'::text);
 INSERT INTO caster (text)          VALUES ('08:00:2b:01:02:03'::macaddr);
 INSERT INTO caster (macaddr)       VALUES ('08:00:2b:01:02:03'::citext);
 INSERT INTO caster (citext)        VALUES ('08:00:2b:01:02:03'::macaddr);
 
 -- Cannot cast to money on assignment.
+--
+-- 无法通过分配来赚钱。
 INSERT INTO caster (money)         VALUES ('12'::text);
 INSERT INTO caster (text)          VALUES ('12'::money);
 INSERT INTO caster (money)         VALUES ('12'::citext);
 INSERT INTO caster (citext)        VALUES ('12'::money);
 
 -- Cannot cast to timestamp on assignment.
+--
+-- 无法在分配时转换为时间戳。
 INSERT INTO caster (timestamp)     VALUES ('1999-01-08 04:05:06'::text);
 INSERT INTO caster (text)          VALUES ('1999-01-08 04:05:06'::timestamp);
 INSERT INTO caster (timestamp)     VALUES ('1999-01-08 04:05:06'::citext);
 INSERT INTO caster (citext)        VALUES ('1999-01-08 04:05:06'::timestamp);
 
 -- Cannot cast to timestamptz on assignment.
+--
+-- 无法在分配时转换为 timestamptz。
 INSERT INTO caster (timestamptz)   VALUES ('1999-01-08 04:05:06'::text);
 INSERT INTO caster (text)          VALUES ('1999-01-08 04:05:06'::timestamptz);
 INSERT INTO caster (timestamptz)   VALUES ('1999-01-08 04:05:06'::citext);
 INSERT INTO caster (citext)        VALUES ('1999-01-08 04:05:06'::timestamptz);
 
 -- Cannot cast to interval on assignment.
+--
+-- 无法在分配时转换为间隔。
 INSERT INTO caster (interval)      VALUES ('1 hour'::text);
 INSERT INTO caster (text)          VALUES ('1 hour'::interval);
 INSERT INTO caster (interval)      VALUES ('1 hour'::citext);
 INSERT INTO caster (citext)        VALUES ('1 hour'::interval);
 
 -- Cannot cast to date on assignment.
+--
+-- 无法根据任务投射日期。
 INSERT INTO caster (date)          VALUES ('1999-01-08'::text);
 INSERT INTO caster (text)          VALUES ('1999-01-08'::date);
 INSERT INTO caster (date)          VALUES ('1999-01-08'::citext);
 INSERT INTO caster (citext)        VALUES ('1999-01-08'::date);
 
 -- Cannot cast to time on assignment.
+--
+-- 无法按分配时间施放。
 INSERT INTO caster (time)          VALUES ('04:05:06'::text);
 INSERT INTO caster (text)          VALUES ('04:05:06'::time);
 INSERT INTO caster (time)          VALUES ('04:05:06'::citext);
 INSERT INTO caster (citext)        VALUES ('04:05:06'::time);
 
 -- Cannot cast to timetz on assignment.
+--
+-- 无法在分配时转换为 timetz。
 INSERT INTO caster (timetz)        VALUES ('04:05:06'::text);
 INSERT INTO caster (text)          VALUES ('04:05:06'::timetz);
 INSERT INTO caster (timetz)        VALUES ('04:05:06'::citext);
 INSERT INTO caster (citext)        VALUES ('04:05:06'::timetz);
 
 -- Cannot cast to point on assignment.
+--
+-- 无法在分配时投射到点。
 INSERT INTO caster (point)         VALUES ('( 1 , 1)'::text);
 INSERT INTO caster (text)          VALUES ('( 1 , 1)'::point);
 INSERT INTO caster (point)         VALUES ('( 1 , 1)'::citext);
 INSERT INTO caster (citext)        VALUES ('( 1 , 1)'::point);
 
 -- Cannot cast to lseg on assignment.
+--
+-- 无法在分配时转换为 lseg。
 INSERT INTO caster (lseg)          VALUES ('( 1 , 1 ) , ( 2 , 2 )'::text);
 INSERT INTO caster (text)          VALUES ('( 1 , 1 ) , ( 2 , 2 )'::lseg);
 INSERT INTO caster (lseg)          VALUES ('( 1 , 1 ) , ( 2 , 2 )'::citext);
 INSERT INTO caster (citext)        VALUES ('( 1 , 1 ) , ( 2 , 2 )'::lseg);
 
 -- Cannot cast to box on assignment.
+--
+-- 无法在分配时投射到框。
 INSERT INTO caster (box)           VALUES ('(0,0),(1,1)'::text);
 INSERT INTO caster (text)          VALUES ('(0,0),(1,1)'::box);
 INSERT INTO caster (box)           VALUES ('(0,0),(1,1)'::citext);
 INSERT INTO caster (citext)        VALUES ('(0,0),(1,1)'::box);
 
 -- Cannot cast to path on assignment.
+--
+-- 无法在分配时转换为路径。
 INSERT INTO caster (path)          VALUES ('((0,0),(1,1),(2,0))'::text);
 INSERT INTO caster (text)          VALUES ('((0,0),(1,1),(2,0))'::path);
 INSERT INTO caster (path)          VALUES ('((0,0),(1,1),(2,0))'::citext);
 INSERT INTO caster (citext)        VALUES ('((0,0),(1,1),(2,0))'::path);
 
 -- Cannot cast to polygon on assignment.
+--
+-- 无法在分配时转换为多边形。
 INSERT INTO caster (polygon)       VALUES ('((0,0),(1,1))'::text);
 INSERT INTO caster (text)          VALUES ('((0,0),(1,1))'::polygon);
 INSERT INTO caster (polygon)       VALUES ('((0,0),(1,1))'::citext);
 INSERT INTO caster (citext)        VALUES ('((0,0),(1,1))'::polygon);
 
 -- Cannot cast to circle on assignment.
+--
+-- 无法在分配时投射到圆圈。
 INSERT INTO caster (circle)        VALUES ('((0,0),2)'::text);
 INSERT INTO caster (text)          VALUES ('((0,0),2)'::circle);
 INSERT INTO caster (circle)        VALUES ('((0,0),2)'::citext);
 INSERT INTO caster (citext)        VALUES ('((0,0),2)'::circle);
 
 -- Cannot cast to bit on assignment.
+--
+-- 无法在分配时转换为位。
 INSERT INTO caster (bit)           VALUES ('101'::text);
 INSERT INTO caster (text)          VALUES ('101'::bit);
 INSERT INTO caster (bit)           VALUES ('101'::citext);
 INSERT INTO caster (citext)        VALUES ('101'::bit);
 
 -- Cannot cast to bit varying on assignment.
+--
+-- 无法根据分配转换为位变化。
 INSERT INTO caster (bitv)          VALUES ('101'::text);
 INSERT INTO caster (text)          VALUES ('101'::bit varying);
 INSERT INTO caster (bitv)          VALUES ('101'::citext);
 INSERT INTO caster (citext)        VALUES ('101'::bit varying);
 
 -- Cannot cast to tsvector on assignment.
+--
+-- 无法在分配时转换为 tsvector。
 INSERT INTO caster (tsvector)      VALUES ('the fat cat'::text);
 INSERT INTO caster (text)          VALUES ('the fat cat'::tsvector);
 INSERT INTO caster (tsvector)      VALUES ('the fat cat'::citext);
 INSERT INTO caster (citext)        VALUES ('the fat cat'::tsvector);
 
 -- Cannot cast to tsquery on assignment.
+--
+-- 无法在分配时转换为 tsquery。
 INSERT INTO caster (tsquery)       VALUES ('fat & rat'::text);
 INSERT INTO caster (text)          VALUES ('fat & rat'::tsquery);
 INSERT INTO caster (tsquery)       VALUES ('fat & rat'::citext);
 INSERT INTO caster (citext)        VALUES ('fat & rat'::tsquery);
 
 -- Cannot cast to uuid on assignment.
+--
+-- 无法在分配时转换为 uuid。
 INSERT INTO caster (uuid)          VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::text);
 INSERT INTO caster (text)          VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid);
 INSERT INTO caster (uuid)          VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::citext);
 INSERT INTO caster (citext)        VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid);
 
 -- Table 9-5. SQL String Functions and Operators
+--
+-- 表 9-5。 SQL 字符串函数和运算符
 SELECT 'D'::citext || 'avid'::citext = 'David'::citext AS citext_concat;
 SELECT 'Value: '::citext || 42 = 'Value: 42' AS text_concat;
 SELECT  42 || ': value'::citext ='42: value' AS int_concat;
@@ -547,6 +657,8 @@ SELECT trim('xxxxxtrimxxxx'::text,   'x'::citext) = 'trim' AS t;
 SELECT upper( name ) = upper( name::text ) AS t FROM srt;
 
 -- Table 9-6. Other String Functions.
+--
+-- 表 9-6。其他字符串函数。
 SELECT ascii( name ) = ascii( name::text ) AS t FROM srt;
 
 SELECT btrim('    trim'::citext                   ) = 'trim' AS t;
@@ -556,11 +668,17 @@ SELECT btrim('xyxtrimyyx'::text,      'xy'::citext) = 'trim' AS t;
 SELECT btrim('xyxtrimyyx'::citext,    'xy'::text  ) = 'trim' AS t;
 
 -- chr() takes an int and returns text.
+--
+-- chr() 接受一个 int 并返回文本。
 -- convert() and convert_from take bytea and return text.
+--
+-- Convert() 和 Convert_from 接受 bytea 并返回文本。
 
 SELECT convert_from( name::bytea, 'SQL_ASCII' ) = convert_from( name::text::bytea, 'SQL_ASCII' ) AS t FROM srt;
 SELECT decode('MTIzAAE='::citext, 'base64') = decode('MTIzAAE='::text, 'base64') AS t;
 -- encode() takes bytea and returns text.
+--
+-- encode() 接受 bytea 并返回文本。
 SELECT initcap('hi THOMAS'::citext) = initcap('hi THOMAS'::text) AS t;
 SELECT length( name ) = length( name::text ) AS t FROM srt;
 
@@ -575,6 +693,8 @@ SELECT ltrim('zzzytrim'::text,   'xyz'::citext) = 'trim' AS t;
 SELECT ltrim('zzzytrim'::citext, 'xyz'::text  ) = 'trim' AS t;
 
 -- pg_client_encoding() takes no args and returns name.
+--
+-- pg_client_encoding() 不带参数并返回名称。
 SELECT quote_ident( name ) = quote_ident( name::text ) AS t FROM srt;
 SELECT quote_literal( name ) = quote_literal( name::text ) AS t FROM srt;
 
@@ -586,8 +706,12 @@ SELECT regexp_match('foobarbequebaz'::citext, '(BAR)(BEQUE)', '') = ARRAY[ 'bar'
 SELECT regexp_match('foobarbequebaz', '(BAR)(BEQUE)'::citext, '') = ARRAY[ 'bar', 'beque' ] AS t;
 SELECT regexp_match('foobarbequebaz'::citext, '(BAR)(BEQUE)'::citext, ''::citext) = ARRAY[ 'bar', 'beque' ] AS t;
 -- c forces case-sensitive
+--
+-- c 强制区分大小写
 SELECT regexp_match('foobarbequebaz'::citext, '(BAR)(BEQUE)'::citext, 'c'::citext) = ARRAY[ 'bar', 'beque' ] AS "no result";
 -- g is not allowed
+--
+-- g 不允许
 SELECT regexp_match('foobarbequebazmorebarbequetoo'::citext, '(BAR)(BEQUE)'::citext, 'g') AS "error";
 
 SELECT regexp_matches('foobarbequebaz'::citext, '(bar)(beque)') = ARRAY[ 'bar', 'beque' ] AS t;
@@ -598,8 +722,12 @@ SELECT regexp_matches('foobarbequebaz'::citext, '(BAR)(BEQUE)', '') = ARRAY[ 'ba
 SELECT regexp_matches('foobarbequebaz', '(BAR)(BEQUE)'::citext, '') = ARRAY[ 'bar', 'beque' ] AS t;
 SELECT regexp_matches('foobarbequebaz'::citext, '(BAR)(BEQUE)'::citext, ''::citext) = ARRAY[ 'bar', 'beque' ] AS t;
 -- c forces case-sensitive
+--
+-- c 强制区分大小写
 SELECT regexp_matches('foobarbequebaz'::citext, '(BAR)(BEQUE)'::citext, 'c'::citext) = ARRAY[ 'bar', 'beque' ] AS "no rows";
 -- g allows multiple output rows
+--
+-- g 允许多个输出行
 SELECT regexp_matches('foobarbequebazmorebarbequetoo'::citext, '(BAR)(BEQUE)'::citext, 'g'::citext) AS "two rows";
 
 SELECT regexp_replace('Thomas'::citext, '.[mN]a.',         'M') = 'ThM' AS t;
@@ -607,6 +735,8 @@ SELECT regexp_replace('Thomas'::citext, '.[MN]A.',         'M') = 'ThM' AS t;
 SELECT regexp_replace('Thomas',         '.[MN]A.'::citext, 'M') = 'ThM' AS t;
 SELECT regexp_replace('Thomas'::citext, '.[MN]A.'::citext, 'M') = 'ThM' AS t;
 -- c forces case-sensitive
+--
+-- c 强制区分大小写
 SELECT regexp_replace('Thomas'::citext, '.[MN]A.'::citext, 'M', 'c') = 'Thomas' AS t;
 
 SELECT regexp_split_to_array('hello world'::citext, E'\\s+') = ARRAY[ 'hello', 'world' ] AS t;
@@ -618,6 +748,8 @@ SELECT regexp_split_to_array('helloTworld', 't'::citext, 's') = ARRAY[ 'hello', 
 SELECT regexp_split_to_array('helloTworld'::citext, 't'::citext, 's') = ARRAY[ 'hello', 'world' ] AS t;
 
 -- c forces case-sensitive
+--
+-- c 强制区分大小写
 SELECT regexp_split_to_array('helloTworld'::citext, 't'::citext, 'c') = ARRAY[ 'helloTworld' ] AS t;
 
 SELECT regexp_split_to_table('hello world'::citext, E'\\s+') AS words;
@@ -625,6 +757,8 @@ SELECT regexp_split_to_table('helloTworld'::citext, 't') AS words;
 SELECT regexp_split_to_table('helloTworld',         't'::citext) AS words;
 SELECT regexp_split_to_table('helloTworld'::citext, 't'::citext) AS words;
 -- c forces case-sensitive
+--
+-- c 强制区分大小写
 SELECT regexp_split_to_table('helloTworld'::citext, 't'::citext, 'c') AS word;
 
 SELECT repeat('Pg'::citext, 4) = 'PgPgPgPg' AS t;
@@ -662,7 +796,11 @@ SELECT strpos('high',         'GH'::citext) = 3 AS t;
 SELECT strpos('high'::citext, 'GH'::citext) = 3 AS t;
 
 -- to_ascii() does not support UTF-8.
+--
+-- to_ascii() 不支持 UTF-8。
 -- to_hex() takes a numeric argument.
+--
+-- to_hex() 采用数字参数。
 SELECT substr('alphabet', 3, 2) = 'ph' AS t;
 SELECT translate('abcdefabcdef'::citext, 'cd',         'XX') = 'abXXefabXXef' AS t;
 SELECT translate('abcdefabcdef'::citext, 'CD',         'XX') = 'abXXefabXXef' AS t;
@@ -670,6 +808,8 @@ SELECT translate('abcdefabcdef'::citext, 'CD'::citext, 'XX') = 'abXXefabXXef' AS
 SELECT translate('abcdefabcdef',         'CD'::citext, 'XX') = 'abXXefabXXef' AS t;
 
 -- Table 9-20. Formatting Functions
+--
+-- 表 9-20。格式化函数
 SELECT to_date('05 Dec 2000'::citext, 'DD Mon YYYY'::citext)
      = to_date('05 Dec 2000',         'DD Mon YYYY') AS t;
 SELECT to_date('05 Dec 2000'::citext, 'DD Mon YYYY')
@@ -692,6 +832,8 @@ SELECT to_timestamp('05 Dec 2000',         'DD Mon YYYY'::citext)
      = to_timestamp('05 Dec 2000',         'DD Mon YYYY') AS t;
 
 -- Try assigning function results to a column.
+--
+-- 尝试将函数结果分配给列。
 SELECT COUNT(*) = 8::bigint AS t FROM try;
 INSERT INTO try
 VALUES ( to_char(  now()::timestamp,          'HH12:MI:SS') ),
@@ -712,6 +854,8 @@ SELECT like_escape( name, '' ) = like_escape( name::text, '' ) AS t FROM srt;
 SELECT like_escape( name::text, ''::citext ) = like_escape( name::text, '' ) AS t FROM srt;
 
 -- Ensure correct behavior for citext with materialized views.
+--
+-- 确保 citext 具有物化视图的正确行为。
 CREATE TABLE citext_table (
   id serial primary key,
   name citext
@@ -735,6 +879,8 @@ REFRESH MATERIALIZED VIEW CONCURRENTLY citext_matview;
 SELECT * FROM citext_matview ORDER BY id;
 
 -- test citext_pattern_cmp() function explicitly.
+--
+-- 显式测试 citext_pattern_cmp() 函数。
 SELECT citext_pattern_cmp('aardvark'::citext, 'aardvark'::citext) AS zero;
 SELECT citext_pattern_cmp('aardvark'::citext, 'aardVark'::citext) AS zero;
 SELECT citext_pattern_cmp('AARDVARK'::citext, 'AARDVARK'::citext) AS zero;
@@ -745,6 +891,8 @@ SELECT citext_pattern_cmp('ABCD'::citext, 'abc'::citext) > 0 AS true;
 SELECT citext_pattern_cmp('ABC'::citext, 'abcd'::citext) < 0 AS true;
 
 -- test operator functions
+--
+-- 测试操作员功能
 -- lt
 SELECT citext_pattern_lt('a'::citext, 'b'::citext) AS true;
 SELECT citext_pattern_lt('A'::citext, 'b'::citext) AS true;
@@ -783,18 +931,24 @@ SELECT citext_pattern_ge('B'::citext, 'a'::citext) AS true;
 SELECT citext_pattern_ge('b'::citext, 'A'::citext) AS true;
 
 -- Test ~<~ and ~<=~
+--
+-- 测试 ~<~ 和 ~<=~
 SELECT 'a'::citext ~<~  'B'::citext AS t;
 SELECT 'b'::citext ~<~  'A'::citext AS f;
 SELECT 'a'::citext ~<=~ 'B'::citext AS t;
 SELECT 'a'::citext ~<=~ 'A'::citext AS t;
 
 -- Test ~>~ and ~>=~
+--
+-- 测试 ~>~ 和 ~>=~
 SELECT 'B'::citext ~>~  'a'::citext AS t;
 SELECT 'b'::citext ~>~  'A'::citext AS t;
 SELECT 'B'::citext ~>~  'b'::citext AS f;
 SELECT 'B'::citext ~>=~ 'b'::citext AS t;
 
 -- Test implicit casting. citext casts to text, but not vice-versa.
+--
+-- 测试隐式转换。 citext 转换为文本，但反之则不然。
 SELECT 'B'::citext ~<~  'a'::text AS t;  -- text wins.
 SELECT 'B'::citext ~<=~ 'a'::text AS t;  -- text wins.
 
@@ -802,6 +956,8 @@ SELECT 'a'::citext ~>~  'B'::text AS t;  -- text wins.
 SELECT 'a'::citext ~>=~ 'B'::text AS t;  -- text wins.
 
 -- Test implicit casting. citext casts to varchar, but not vice-versa.
+--
+-- 测试隐式转换。 citext 转换为 varchar，但反之则不然。
 SELECT 'B'::citext ~<~  'a'::varchar AS t;  -- varchar wins.
 SELECT 'B'::citext ~<=~ 'a'::varchar AS t;  -- varchar wins.
 

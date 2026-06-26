@@ -27,8 +27,12 @@ include $(top_srcdir)/contrib/contrib-global.mk
 endif
 
 # We must link libpython explicitly
+#
+# 我们必须显式链接 libpython
 ifeq ($(PORTNAME), win32)
 # ... see silliness in plpython Makefile ...
+#
+# ...看看 plpython Makefile 中的愚蠢之处...
 SHLIB_LINK_INTERNAL += $(sort $(wildcard ../../src/pl/plpython/libpython*.a))
 else
 rpathdir = $(python_libdir)

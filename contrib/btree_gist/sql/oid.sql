@@ -1,4 +1,6 @@
 -- oid check
+--
+-- id检查
 
 SET enable_seqscan=on;
 

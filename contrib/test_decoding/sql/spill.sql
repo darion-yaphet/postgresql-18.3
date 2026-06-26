@@ -6,9 +6,13 @@ SELECT 'init' FROM pg_create_logical_replication_slot('regression_slot', 'test_d
 CREATE TABLE spill_test(data text);
 
 -- consume DDL
+--
+-- 消耗DDL
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 -- spilling main xact
+--
+-- 溢出主要 xact
 BEGIN;
 INSERT INTO spill_test SELECT 'serialize-topbig--1:'||g.i FROM generate_series(1, 5000) g(i);
 COMMIT;
@@ -17,6 +21,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- spilling subxact, nothing in main
+--
+-- 溢出 subxact，main 中什么都没有
 BEGIN;
 SAVEPOINT s;
 INSERT INTO spill_test SELECT 'serialize-subbig--1:'||g.i FROM generate_series(1, 5000) g(i);
@@ -27,6 +33,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- spilling subxact, spilling main xact
+--
+-- 溢出子xact，溢出主xact
 BEGIN;
 SAVEPOINT s;
 INSERT INTO spill_test SELECT 'serialize-subbig-topbig--1:'||g.i FROM generate_series(1, 5000) g(i);
@@ -38,6 +46,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- spilling subxact, non-spilling main xact
+--
+-- 溢出子xact，非溢出主xact
 BEGIN;
 SAVEPOINT s;
 INSERT INTO spill_test SELECT 'serialize-subbig-topsmall--1:'||g.i FROM generate_series(1, 5000) g(i);
@@ -49,6 +59,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- not-spilling subxact, spilling main xact
+--
+-- 不溢出子xact，溢出主xact
 BEGIN;
 SAVEPOINT s;
 INSERT INTO spill_test SELECT 'serialize-subbig-topbig--1:'||g.i FROM generate_series(1, 5000) g(i);
@@ -60,6 +72,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- spilling main xact, spilling subxact
+--
+-- 溢出主xact，溢出子xact
 BEGIN;
 INSERT INTO spill_test SELECT 'serialize-topbig-subbig--1:'||g.i FROM generate_series(1, 5000) g(i);
 SAVEPOINT s;
@@ -71,6 +85,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- spilling main xact, not spilling subxact
+--
+-- 溢出 main xact，不溢出 subxact
 BEGIN;
 INSERT INTO spill_test SELECT 'serialize-topbig-subsmall--1:'||g.i FROM generate_series(1, 5000) g(i);
 SAVEPOINT s;
@@ -82,6 +98,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- spilling subxact, followed by another spilling subxact
+--
+-- 溢出子xact，然后是另一个溢出子xact
 BEGIN;
 SAVEPOINT s1;
 INSERT INTO spill_test SELECT 'serialize-subbig-subbig--1:'||g.i FROM generate_series(1, 5000) g(i);
@@ -95,6 +113,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- spilling subxact, followed by not spilling subxact
+--
+-- 溢出 subxact，然后不溢出 subxact
 BEGIN;
 SAVEPOINT s1;
 INSERT INTO spill_test SELECT 'serialize-subbig-subsmall--1:'||g.i FROM generate_series(1, 5000) g(i);
@@ -108,6 +128,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- not spilling subxact, followed by spilling subxact
+--
+-- 不溢出 subxact，然后溢出 subxact
 BEGIN;
 SAVEPOINT s1;
 INSERT INTO spill_test SELECT 'serialize-subsmall-subbig--1:'||g.i FROM generate_series(1, 1) g(i);
@@ -121,6 +143,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- spilling subxact, containing another spilling subxact
+--
+-- 溢出子xact，包含另一个溢出子xact
 BEGIN;
 SAVEPOINT s1;
 INSERT INTO spill_test SELECT 'serialize-nested-subbig-subbig--1:'||g.i FROM generate_series(1, 5000) g(i);
@@ -134,6 +158,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- spilling subxact, containing a not spilling subxact
+--
+-- 溢出子xact，包含不溢出子xact
 BEGIN;
 SAVEPOINT s1;
 INSERT INTO spill_test SELECT 'serialize-nested-subbig-subsmall--1:'||g.i FROM generate_series(1, 5000) g(i);
@@ -147,6 +173,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- not spilling subxact, containing a spilling subxact
+--
+-- 不溢出 subxact，包含溢出 subxact
 BEGIN;
 SAVEPOINT s1;
 INSERT INTO spill_test SELECT 'serialize-nested-subsmall-subbig--1:'||g.i FROM generate_series(1, 1) g(i);
@@ -160,6 +188,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL,NULL) WHERE data ~ 'INS
 GROUP BY 1 ORDER BY 1;
 
 -- not spilling subxact, containing a spilling subxact that aborts and one that commits
+--
+-- 不溢出 subxact，包含一个中止的溢出 subxact 和一个提交的溢出 subxact
 BEGIN;
 SAVEPOINT s1;
 INSERT INTO spill_test SELECT 'serialize-nested-subbig-subbigabort--1:'||g.i FROM generate_series(1, 5000) g(i);

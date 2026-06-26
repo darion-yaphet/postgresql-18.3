@@ -11,17 +11,26 @@ typedef struct SEG
 	char		u_ext;
 } SEG;
 
-/* in seg.c */
+/* in seg.c
+ *
+ * 在c段中
+ */
 extern int	significant_digits(const char *s);
 
-/* for segscan.l and segparse.y */
+/* for segscan.l and segparse.y
+ *
+ * 对于 segscan.l 和 segparse.y
+ */
 union YYSTYPE;
 #ifndef YY_TYPEDEF_YY_SCANNER_T
 #define YY_TYPEDEF_YY_SCANNER_T
 typedef void *yyscan_t;
 #endif
 
-/* in segscan.l */
+/* in segscan.l
+ *
+ * 在 segscan.l 中
+ */
 extern int	seg_yylex(union YYSTYPE *yylval_param, yyscan_t yyscanner);
 extern void seg_yyerror(SEG *result, struct Node *escontext,
 						yyscan_t yyscanner,
@@ -29,5 +38,8 @@ extern void seg_yyerror(SEG *result, struct Node *escontext,
 extern void seg_scanner_init(const char *str, yyscan_t *yyscannerp);
 extern void seg_scanner_finish(yyscan_t yyscanner);
 
-/* in segparse.y */
+/* in segparse.y
+ *
+ * 在 segparse.y 中
+ */
 extern int	seg_yyparse(SEG *result, struct Node *escontext, yyscan_t yyscanner);

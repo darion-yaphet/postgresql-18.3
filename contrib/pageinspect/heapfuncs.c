@@ -41,6 +41,8 @@
  * It's not supported to create tuples with oids anymore, but when pg_upgrade
  * was used to upgrade from an older version, tuples might still have an
  * oid. Seems worthwhile to display that.
+ *
+ * 不再支持使用 oid 创建元组，但是当使用 pg_upgrade 从旧版本升级时，元组可能仍然有 oid。似乎值得展示这一点。
  */
 static inline Oid
 HeapTupleHeaderGetOidOld(const HeapTupleHeaderData *tup)
@@ -57,6 +59,8 @@ HeapTupleHeaderGetOidOld(const HeapTupleHeaderData *tup)
  *
  * Converts a bits8-array of 'len' bits to a human-readable
  * c-string representation.
+ *
+ * 将“len”位的 bits8 数组转换为人类可读的 C 字符串表示形式。
  */
 static char *
 bits_to_text(bits8 *bits, int len)
@@ -80,6 +84,8 @@ bits_to_text(bits8 *bits, int len)
  *
  * Converts a c-string representation of bits into a bits8-array. This is
  * the reverse operation of previous routine.
+ *
+ * 将位的 C 字符串表示形式转换为 bits8 数组。这是之前例程的逆操作。
  */
 static bits8 *
 text_to_bits(char *str, int len)
@@ -116,6 +122,8 @@ text_to_bits(char *str, int len)
  * heap_page_items
  *
  * Allows inspection of line pointers and tuple headers of a heap page.
+ *
+ * 允许检查堆页的行指针和元组标头。
  */
 PG_FUNCTION_INFO_V1(heap_page_items);
 
@@ -156,7 +164,10 @@ heap_page_items(PG_FUNCTION_ARGS)
 
 		inter_call_data = palloc(sizeof(heap_page_items_state));
 
-		/* Build a tuple descriptor for our result type */
+		/* Build a tuple descriptor for our result type
+		 *
+		 * 为我们的结果类型构建一个元组描述符
+		 */
 		if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 			elog(ERROR, "return type must be a row type");
 
@@ -188,7 +199,10 @@ heap_page_items(PG_FUNCTION_ARGS)
 
 		memset(nulls, 0, sizeof(nulls));
 
-		/* Extract information from the line pointer */
+		/* Extract information from the line pointer
+		 *
+		 * 从行指针中提取信息
+		 */
 
 		id = PageGetItemId(page, inter_call_data->offset);
 
@@ -205,6 +219,8 @@ heap_page_items(PG_FUNCTION_ARGS)
 		 * We do just enough validity checking to make sure we don't reference
 		 * data outside the page passed to us. The page could be corrupt in
 		 * many other ways, but at least we won't crash.
+		 *
+		 * 我们做了足够的有效性检查，以确保我们不会引用传递给我们的页面之外的数据。该页面可能会以许多其他方式损坏，但至少我们不会崩溃。
 		 */
 		if (ItemIdHasStorage(id) &&
 			lp_len >= MinHeapTupleSize &&
@@ -213,12 +229,18 @@ heap_page_items(PG_FUNCTION_ARGS)
 		{
 			HeapTupleHeader tuphdr;
 
-			/* Extract information from the tuple header */
+			/* Extract information from the tuple header
+			 *
+			 * 从元组头中提取信息
+			 */
 			tuphdr = (HeapTupleHeader) PageGetItem(page, id);
 
 			values[4] = UInt32GetDatum(HeapTupleHeaderGetRawXmin(tuphdr));
 			values[5] = UInt32GetDatum(HeapTupleHeaderGetRawXmax(tuphdr));
-			/* shared with xvac */
+			/* shared with xvac
+			 *
+			 * 与 xvac 共享
+			 */
 			values[6] = UInt32GetDatum(HeapTupleHeaderGetRawCommandId(tuphdr));
 			values[7] = PointerGetDatum(&tuphdr->t_ctid);
 			values[8] = UInt32GetDatum(tuphdr->t_infomask2);
@@ -230,6 +252,8 @@ heap_page_items(PG_FUNCTION_ARGS)
 			 * page passed to us, with the length given in the line pointer.
 			 * But t_hoff could be out of range, so check it before relying on
 			 * it to fetch additional info.
+			 *
+			 * 我们已经检查了该项目是否完全在传递给我们的原始页面内，其长度在行指针中给出。但 t_hoff 可能超出范围，因此在依赖它获取附加信息之前请检查它。
 			 */
 			if (tuphdr->t_hoff >= SizeofHeapTupleHeader &&
 				tuphdr->t_hoff <= lp_len &&
@@ -238,13 +262,19 @@ heap_page_items(PG_FUNCTION_ARGS)
 				int			tuple_data_len;
 				bytea	   *tuple_data_bytea;
 
-				/* Copy null bitmask and OID, if present */
+				/* Copy null bitmask and OID, if present
+				 *
+				 * 复制空位掩码和 OID（如果存在）
+				 */
 				if (tuphdr->t_infomask & HEAP_HASNULL)
 				{
 					int			bitmaplen;
 
 					bitmaplen = BITMAPLEN(HeapTupleHeaderGetNatts(tuphdr));
-					/* better range-check the attribute count, too */
+					/* better range-check the attribute count, too
+					 *
+					 * 更好的范围 - 检查属性计数
+					 */
 					if (bitmaplen <= tuphdr->t_hoff - SizeofHeapTupleHeader)
 						values[11] =
 							CStringGetTextDatum(bits_to_text(tuphdr->t_bits,
@@ -260,7 +290,10 @@ heap_page_items(PG_FUNCTION_ARGS)
 				else
 					nulls[12] = true;
 
-				/* Copy raw tuple data into bytea attribute */
+				/* Copy raw tuple data into bytea attribute
+				 *
+				 * 将原始元组数据复制到 bytea 属性中
+				 */
 				tuple_data_len = lp_len - tuphdr->t_hoff;
 				tuple_data_bytea = (bytea *) palloc(tuple_data_len + VARHDRSZ);
 				SET_VARSIZE(tuple_data_bytea, tuple_data_len + VARHDRSZ);
@@ -282,6 +315,8 @@ heap_page_items(PG_FUNCTION_ARGS)
 			/*
 			 * The line pointer is not used, or it's invalid. Set the rest of
 			 * the fields to NULL
+			 *
+			 * 行指针未使用，或者无效。将其余字段设置为 NULL
 			 */
 			int			i;
 
@@ -289,7 +324,10 @@ heap_page_items(PG_FUNCTION_ARGS)
 				nulls[i] = true;
 		}
 
-		/* Build and return the result tuple. */
+		/* Build and return the result tuple.
+		 *
+		 * 构建并返回结果元组。
+		 */
 		resultTuple = heap_form_tuple(inter_call_data->tupd, values, nulls);
 		result = HeapTupleGetDatum(resultTuple);
 
@@ -308,6 +346,8 @@ heap_page_items(PG_FUNCTION_ARGS)
  * elements. This routine does a lookup on NULL values and creates array
  * elements accordingly. This is a reimplementation of nocachegetattr()
  * in heaptuple.c simplified for educational purposes.
+ *
+ * 将直接从页面获取的原始元组数据拆分为 bytea 元素数组。该例程查找 NULL 值并相应地创建数组元素。这是 heaptuple.c 中 nocachegetattr() 的重新实现，出于教育目的而简化。
  */
 static Datum
 tuple_data_split_internal(Oid relid, char *tupdata,
@@ -322,7 +362,10 @@ tuple_data_split_internal(Oid relid, char *tupdata,
 	Relation	rel;
 	TupleDesc	tupdesc;
 
-	/* Get tuple descriptor from relation OID */
+	/* Get tuple descriptor from relation OID
+	 *
+	 * 从关系 OID 获取元组描述符
+	 */
 	rel = relation_open(relid, AccessShareLock);
 	tupdesc = RelationGetDescr(rel);
 
@@ -331,6 +374,8 @@ tuple_data_split_internal(Oid relid, char *tupdata,
 
 	/*
 	 * Sequences always use heap AM, but they don't show that in the catalogs.
+	 *
+	 * 序列始终使用堆 AM，但它们不会在目录中显示。
 	 */
 	if (rel->rd_rel->relkind != RELKIND_SEQUENCE &&
 		rel->rd_rel->relam != HEAP_TABLE_AM_OID)
@@ -355,6 +400,8 @@ tuple_data_split_internal(Oid relid, char *tupdata,
 		 * ALTER TABLE ADD COLUMN without DEFAULT keyword does not actually
 		 * change tuples in pages, so attributes with numbers greater than
 		 * (t_infomask2 & HEAP_NATTS_MASK) should be treated as NULL.
+		 *
+		 * 元组标头可以指定比元组描述符更少的属性，因为不带 DEFAULT 关键字的 ALTER TABLE ADD COLUMN 实际上不会更改页面中的元组，因此编号大于 (t_infomask2 & HEAP_NATTS_MASK) 的属性应被视为 NULL。
 		 */
 		if (i >= (t_infomask2 & HEAP_NATTS_MASK))
 			is_null = true;
@@ -374,6 +421,8 @@ tuple_data_split_internal(Oid relid, char *tupdata,
 				 * As VARSIZE_ANY throws an exception if it can't properly
 				 * detect the type of external storage in macros VARTAG_SIZE,
 				 * this check is repeated to have a nicer error handling.
+				 *
+				 * 由于 VARSIZE_ANY 如果无法正确检测宏 VARTAG_SIZE 中的外部存储类型，则会引发异常，因此会重复此检查以实现更好的错误处理。
 				 */
 				if (VARATT_IS_EXTERNAL(tupdata + off) &&
 					!VARATT_IS_EXTERNAL_ONDISK(tupdata + off) &&
@@ -429,6 +478,8 @@ tuple_data_split_internal(Oid relid, char *tupdata,
  *
  * Split raw tuple data taken directly from page into distinct elements
  * taking into account null values.
+ *
+ * 考虑空值，将直接从页面获取的原始元组数据拆分为不同的元素。
  */
 PG_FUNCTION_INFO_V1(tuple_data_split);
 
@@ -465,6 +516,8 @@ tuple_data_split(PG_FUNCTION_ARGS)
 	/*
 	 * Convert t_bits string back to the bits8 array as represented in the
 	 * tuple header.
+	 *
+	 * 将 t_bits 字符串转换回元组标头中表示的 Bits8 数组。
 	 */
 	if (t_infomask & HEAP_HASNULL)
 	{
@@ -484,7 +537,10 @@ tuple_data_split(PG_FUNCTION_ARGS)
 					 errmsg("unexpected length of t_bits string: %zu, expected %zu",
 							bits_str_len, bits_len)));
 
-		/* do the conversion */
+		/* do the conversion
+		 *
+		 * 进行转换
+		 */
 		t_bits = text_to_bits(t_bits_str, bits_str_len);
 	}
 	else
@@ -496,7 +552,10 @@ tuple_data_split(PG_FUNCTION_ARGS)
 							strlen(t_bits_str))));
 	}
 
-	/* Split tuple data */
+	/* Split tuple data
+	 *
+	 * 分割元组数据
+	 */
 	res = tuple_data_split_internal(relid, (char *) raw_data + VARHDRSZ,
 									VARSIZE(raw_data) - VARHDRSZ,
 									t_infomask, t_infomask2, t_bits,
@@ -513,6 +572,8 @@ tuple_data_split(PG_FUNCTION_ARGS)
  *
  * Decode into a human-readable format t_infomask and t_infomask2 associated
  * to a tuple.  All the flags are described in access/htup_details.h.
+ *
+ * 解码为与元组关联的人类可读格式 t_infomask 和 t_infomask2。  所有标志都在 access/htup_details.h 中描述。
  */
 PG_FUNCTION_INFO_V1(heap_tuple_infomask_flags);
 
@@ -536,14 +597,20 @@ heap_tuple_infomask_flags(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 errmsg("must be superuser to use raw page functions")));
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
 	bitcnt = pg_popcount((const char *) &t_infomask, sizeof(uint16)) +
 		pg_popcount((const char *) &t_infomask2, sizeof(uint16));
 
-	/* If no flags, return a set of empty arrays */
+	/* If no flags, return a set of empty arrays
+	 *
+	 * 如果没有标志，则返回一组空数组
+	 */
 	if (bitcnt <= 0)
 	{
 		values[0] = PointerGetDatum(construct_empty_array(TEXTOID));
@@ -552,10 +619,16 @@ heap_tuple_infomask_flags(PG_FUNCTION_ARGS)
 		PG_RETURN_DATUM(HeapTupleGetDatum(tuple));
 	}
 
-	/* build set of raw flags */
+	/* build set of raw flags
+	 *
+	 * 构建一组原始标志
+	 */
 	flags = (Datum *) palloc0(sizeof(Datum) * bitcnt);
 
-	/* decode t_infomask */
+	/* decode t_infomask
+	 *
+	 * 解码 t_infomask
+	 */
 	if ((t_infomask & HEAP_HASNULL) != 0)
 		flags[cnt++] = CStringGetTextDatum("HEAP_HASNULL");
 	if ((t_infomask & HEAP_HASVARWIDTH) != 0)
@@ -589,7 +662,10 @@ heap_tuple_infomask_flags(PG_FUNCTION_ARGS)
 	if ((t_infomask & HEAP_MOVED_IN) != 0)
 		flags[cnt++] = CStringGetTextDatum("HEAP_MOVED_IN");
 
-	/* decode t_infomask2 */
+	/* decode t_infomask2
+	 *
+	 * 解码 t_infomask2
+	 */
 	if ((t_infomask2 & HEAP_KEYS_UPDATED) != 0)
 		flags[cnt++] = CStringGetTextDatum("HEAP_KEYS_UPDATED");
 	if ((t_infomask2 & HEAP_HOT_UPDATED) != 0)
@@ -597,7 +673,10 @@ heap_tuple_infomask_flags(PG_FUNCTION_ARGS)
 	if ((t_infomask2 & HEAP_ONLY_TUPLE) != 0)
 		flags[cnt++] = CStringGetTextDatum("HEAP_ONLY_TUPLE");
 
-	/* build value */
+	/* build value
+	 *
+	 * 创造价值
+	 */
 	Assert(cnt <= bitcnt);
 	a = construct_array_builtin(flags, cnt, TEXTOID);
 	values[0] = PointerGetDatum(a);
@@ -605,11 +684,16 @@ heap_tuple_infomask_flags(PG_FUNCTION_ARGS)
 	/*
 	 * Build set of combined flags.  Use the same array as previously, this
 	 * keeps the code simple.
+	 *
+	 * 构建组合标志集。  使用与之前相同的数组，这使代码变得简单。
 	 */
 	cnt = 0;
 	MemSet(flags, 0, sizeof(Datum) * bitcnt);
 
-	/* decode combined masks of t_infomask */
+	/* decode combined masks of t_infomask
+	 *
+	 * 解码 t_infomask 的组合掩码
+	 */
 	if ((t_infomask & HEAP_XMAX_SHR_LOCK) == HEAP_XMAX_SHR_LOCK)
 		flags[cnt++] = CStringGetTextDatum("HEAP_XMAX_SHR_LOCK");
 	if ((t_infomask & HEAP_XMIN_FROZEN) == HEAP_XMIN_FROZEN)
@@ -617,7 +701,10 @@ heap_tuple_infomask_flags(PG_FUNCTION_ARGS)
 	if ((t_infomask & HEAP_MOVED) == HEAP_MOVED)
 		flags[cnt++] = CStringGetTextDatum("HEAP_MOVED");
 
-	/* Build an empty array if there are no combined flags */
+	/* Build an empty array if there are no combined flags
+	 *
+	 * 如果没有组合标志，则构建一个空数组
+	 */
 	if (cnt == 0)
 		a = construct_empty_array(TEXTOID);
 	else
@@ -625,7 +712,10 @@ heap_tuple_infomask_flags(PG_FUNCTION_ARGS)
 	pfree(flags);
 	values[1] = PointerGetDatum(a);
 
-	/* Returns the record as Datum */
+	/* Returns the record as Datum
+	 *
+	 * 以 Datum 形式返回记录
+	 */
 	tuple = heap_form_tuple(tupdesc, values, nulls);
 	PG_RETURN_DATUM(HeapTupleGetDatum(tuple));
 }

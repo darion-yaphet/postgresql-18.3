@@ -1,6 +1,8 @@
 --
 -- DMLs on test table
 --
+-- 测试表上的 DML
+--
 
 SET pg_stat_statements.track_utility = FALSE;
 
@@ -11,6 +13,8 @@ UPDATE pgss_dml_tab SET b = 'bbb' WHERE a > 7;
 DELETE FROM pgss_dml_tab WHERE a > 9;
 
 -- explicit transaction
+--
+-- 显式交易
 BEGIN;
 UPDATE pgss_dml_tab SET b = '111' WHERE a = 1 ;
 COMMIT;
@@ -28,9 +32,13 @@ UPDATE pgss_dml_tab SET b = '666' WHERE a = 6 \;
 COMMIT ;
 
 -- many INSERT values
+--
+-- 许多 INSERT 值
 INSERT INTO pgss_dml_tab (a, b) VALUES (1, 'a'), (2, 'b'), (3, 'c');
 
 -- SELECT with constants
+--
+-- 带有常量的 SELECT
 SELECT * FROM pgss_dml_tab WHERE a > 5 ORDER BY a ;
 
 SELECT *
@@ -39,10 +47,16 @@ SELECT *
   ORDER BY a ;
 
 -- these two need to be done on a different table
+--
+-- 这两个需要在不同的桌子上完成
 -- SELECT without constants
+--
+-- 不带常量的 SELECT
 SELECT * FROM pgss_dml_tab ORDER BY a;
 
 -- SELECT with IN clause
+--
+-- 带有 IN 子句的 SELECT
 SELECT * FROM pgss_dml_tab WHERE a IN (1, 2, 3, 4, 5);
 
 SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
@@ -75,6 +89,8 @@ DROP TABLE pgss_dml_tab;
 SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
 
 -- check that [temp] table relation extensions are tracked as writes
+--
+-- 检查 [temp] 表关系扩展是否被跟踪为写入
 CREATE TABLE pgss_extend_tab (a int, b text);
 CREATE TEMP TABLE pgss_extend_temp_tab (a int, b text);
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;

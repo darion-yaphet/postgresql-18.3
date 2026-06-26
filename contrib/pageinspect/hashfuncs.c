@@ -33,6 +33,8 @@ PG_FUNCTION_INFO_V1(hash_metapage_info);
 
 /* ------------------------------------------------
  * structure for single hash page statistics
+ *
+ * 单个哈希页统计的结构
  * ------------------------------------------------
  */
 typedef struct HashPageStat
@@ -42,7 +44,10 @@ typedef struct HashPageStat
 	int			page_size;
 	int			free_size;
 
-	/* opaque data */
+	/* opaque data
+	 *
+	 * 不透明的数据
+	 */
 	BlockNumber hasho_prevblkno;
 	BlockNumber hasho_nextblkno;
 	Bucket		hasho_bucket;
@@ -54,6 +59,8 @@ typedef struct HashPageStat
 /*
  * Verify that the given bytea contains a HASH page, or die in the attempt.
  * A pointer to a palloc'd, properly aligned copy of the page is returned.
+ *
+ * 验证给定的 bytea 是否包含 HASH 页，否则会失败。返回指向已分配的、正确对齐的页面副本的指针。
  */
 static Page
 verify_hash_page(bytea *raw_page, int flags)
@@ -61,7 +68,10 @@ verify_hash_page(bytea *raw_page, int flags)
 	Page		page = get_page_from_raw(raw_page);
 	int			pagetype = LH_UNUSED_PAGE;
 
-	/* Treat new pages as unused. */
+	/* Treat new pages as unused.
+	 *
+	 * 将新页面视为未使用。
+	 */
 	if (!PageIsNew(page))
 	{
 		HashPageOpaque pageopaque;
@@ -85,7 +95,10 @@ verify_hash_page(bytea *raw_page, int flags)
 		pagetype = pageopaque->hasho_flag & LH_PAGE_TYPE;
 	}
 
-	/* Check that page type is sane. */
+	/* Check that page type is sane.
+	 *
+	 * 检查页面类型是否正常。
+	 */
 	if (pagetype != LH_OVERFLOW_PAGE && pagetype != LH_BUCKET_PAGE &&
 		pagetype != LH_BITMAP_PAGE && pagetype != LH_META_PAGE &&
 		pagetype != LH_UNUSED_PAGE)
@@ -93,7 +106,10 @@ verify_hash_page(bytea *raw_page, int flags)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("invalid hash page type %08x", pagetype)));
 
-	/* If requested, verify page type. */
+	/* If requested, verify page type.
+	 *
+	 * 如果需要，请验证页面类型。
+	 */
 	if (flags != 0 && (pagetype & flags) == 0)
 	{
 		switch (flags)
@@ -123,6 +139,8 @@ verify_hash_page(bytea *raw_page, int flags)
 
 	/*
 	 * If it is the metapage, also verify magic number and version.
+	 *
+	 * 如果是元页面，还要验证幻数和版本。
 	 */
 	if (pagetype == LH_META_PAGE)
 	{
@@ -150,6 +168,8 @@ verify_hash_page(bytea *raw_page, int flags)
  * GetHashPageStatistics()
  *
  * Collect statistics of single hash page
+ *
+ * 统计单个hash页
  * -------------------------------------------------
  */
 static void
@@ -162,14 +182,20 @@ GetHashPageStatistics(Page page, HashPageStat *stat)
 	stat->dead_items = stat->live_items = 0;
 	stat->page_size = PageGetPageSize(page);
 
-	/* hash page opaque data */
+	/* hash page opaque data
+	 *
+	 * 哈希页不透明数据
+	 */
 	stat->hasho_prevblkno = opaque->hasho_prevblkno;
 	stat->hasho_nextblkno = opaque->hasho_nextblkno;
 	stat->hasho_bucket = opaque->hasho_bucket;
 	stat->hasho_flag = opaque->hasho_flag;
 	stat->hasho_page_id = opaque->hasho_page_id;
 
-	/* count live and dead tuples, and free space */
+	/* count live and dead tuples, and free space
+	 *
+	 * 计算活元组和死元组以及可用空间
+	 */
 	for (off = FirstOffsetNumber; off <= maxoff; off++)
 	{
 		ItemId		id = PageGetItemId(page, off);
@@ -186,6 +212,8 @@ GetHashPageStatistics(Page page, HashPageStat *stat)
  * hash_page_type()
  *
  * Usage: SELECT hash_page_type(get_raw_page('con_hash_index', 1));
+ *
+ * 用法： SELECT hash_page_type(get_raw_page('con_hash_index', 1));
  * ---------------------------------------------------
  */
 Datum
@@ -210,7 +238,10 @@ hash_page_type(PG_FUNCTION_ARGS)
 	{
 		opaque = HashPageGetOpaque(page);
 
-		/* page type (flags) */
+		/* page type (flags)
+		 *
+		 * 页面类型（标志）
+		 */
 		pagetype = opaque->hasho_flag & LH_PAGE_TYPE;
 		if (pagetype == LH_META_PAGE)
 			type = "metapage";
@@ -231,6 +262,8 @@ hash_page_type(PG_FUNCTION_ARGS)
  * hash_page_stats()
  *
  * Usage: SELECT * FROM hash_page_stats(get_raw_page('con_hash_index', 1));
+ *
+ * 用法： SELECT * FROM hash_page_stats(get_raw_page('con_hash_index', 1));
  * ---------------------------------------------------
  */
 Datum
@@ -252,13 +285,19 @@ hash_page_stats(PG_FUNCTION_ARGS)
 
 	page = verify_hash_page(raw_page, LH_BUCKET_PAGE | LH_OVERFLOW_PAGE);
 
-	/* keep compiler quiet */
+	/* keep compiler quiet
+	 *
+	 * 保持编译器安静
+	 */
 	stat.hasho_prevblkno = stat.hasho_nextblkno = InvalidBlockNumber;
 	stat.hasho_flag = stat.hasho_page_id = stat.free_size = 0;
 
 	GetHashPageStatistics(page, &stat);
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 	tupleDesc = BlessTupleDesc(tupleDesc);
@@ -281,6 +320,8 @@ hash_page_stats(PG_FUNCTION_ARGS)
 
 /*
  * cross-call data structure for SRF
+ *
+ * SRF的交叉调用数据结构
  */
 struct user_args
 {
@@ -293,7 +334,11 @@ struct user_args
  *
  * Get IndexTupleData set in a hash page
  *
+ * 获取哈希页中的IndexTupleData集
+ *
  * Usage: SELECT * FROM hash_page_items(get_raw_page('con_hash_index', 1));
+ *
+ * 用法： SELECT * FROM hash_page_items(get_raw_page('con_hash_index', 1));
  *-------------------------------------------------------
  */
 Datum
@@ -333,7 +378,10 @@ hash_page_items(PG_FUNCTION_ARGS)
 
 		fctx->max_calls = PageGetMaxOffsetNumber(uargs->page);
 
-		/* Build a tuple descriptor for our result type */
+		/* Build a tuple descriptor for our result type
+		 *
+		 * 为我们的结果类型构建一个元组描述符
+		 */
 		if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 			elog(ERROR, "return type must be a row type");
 		tupleDesc = BlessTupleDesc(tupleDesc);
@@ -384,7 +432,11 @@ hash_page_items(PG_FUNCTION_ARGS)
  *
  * Get bitmap information for a particular overflow page
  *
+ * 获取特定溢出页的位图信息
+ *
  * Usage: SELECT * FROM hash_bitmap_info('con_hash_index'::regclass, 5);
+ *
+ * 用法： SELECT * FROM hash_bitmap_info('con_hash_index'::regclass, 5);
  * ------------------------------------------------
  */
 Datum
@@ -439,13 +491,18 @@ hash_bitmap_info(PG_FUNCTION_ARGS)
 				 errmsg("block number %" PRId64 " is out of range for relation \"%s\"",
 						ovflblkno, RelationGetRelationName(indexRel))));
 
-	/* Read the metapage so we can determine which bitmap page to use */
+	/* Read the metapage so we can determine which bitmap page to use
+	 *
+	 * 读取元页面，以便我们可以确定要使用哪个位图页面
+	 */
 	metabuf = _hash_getbuf(indexRel, HASH_METAPAGE, HASH_READ, LH_META_PAGE);
 	metap = HashPageGetMeta(BufferGetPage(metabuf));
 
 	/*
 	 * Reject attempt to read the bit for a metapage or bitmap page; this is
 	 * only meaningful for overflow pages.
+	 *
+	 * 拒绝尝试读取元页或位图页的位；这仅对溢出页面有意义。
 	 */
 	if (ovflblkno == 0)
 		ereport(ERROR,
@@ -462,6 +519,8 @@ hash_bitmap_info(PG_FUNCTION_ARGS)
 	/*
 	 * Identify overflow bit number.  This will error out for primary bucket
 	 * pages, and we've already rejected the metapage and bitmap pages above.
+	 *
+	 * 识别溢出位数。  这将导致主存储桶页面出错，并且我们已经拒绝了上面的元页面和位图页面。
 	 */
 	ovflbitno = _hash_ovflblkno_to_bitno(metap, (BlockNumber) ovflblkno);
 
@@ -478,7 +537,10 @@ hash_bitmap_info(PG_FUNCTION_ARGS)
 
 	_hash_relbuf(indexRel, metabuf);
 
-	/* Check the status of bitmap bit for overflow page */
+	/* Check the status of bitmap bit for overflow page
+	 *
+	 * 检查溢出页位图位的状态
+	 */
 	mapbuf = _hash_getbuf(indexRel, bitmapblkno, HASH_READ, LH_BITMAP_PAGE);
 	mappage = BufferGetPage(mapbuf);
 	freep = HashPageGetBitmap(mappage);
@@ -488,7 +550,10 @@ hash_bitmap_info(PG_FUNCTION_ARGS)
 	_hash_relbuf(indexRel, mapbuf);
 	index_close(indexRel, AccessShareLock);
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 	tupleDesc = BlessTupleDesc(tupleDesc);
@@ -508,7 +573,11 @@ hash_bitmap_info(PG_FUNCTION_ARGS)
  *
  * Get the meta-page information for a hash index
  *
+ * 获取哈希索引的元页面信息
+ *
  * Usage: SELECT * FROM hash_metapage_info(get_raw_page('con_hash_index', 0))
+ *
+ * 用法： SELECT * FROM hash_metapage_info(get_raw_page('con_hash_index', 0))
  * ------------------------------------------------
  */
 Datum
@@ -533,7 +602,10 @@ hash_metapage_info(PG_FUNCTION_ARGS)
 
 	page = verify_hash_page(raw_page, LH_META_PAGE);
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 	tupleDesc = BlessTupleDesc(tupleDesc);

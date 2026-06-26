@@ -15,7 +15,10 @@ typedef struct
 	DateADT		upper;
 } dateKEY;
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_date_compress);
 PG_FUNCTION_INFO_V1(gbt_date_fetch);
 PG_FUNCTION_INFO_V1(gbt_date_union);
@@ -90,7 +93,10 @@ gbt_datekey_cmp(const void *a, const void *b, FmgrInfo *flinfo)
 static float8
 gdb_date_dist(const void *a, const void *b, FmgrInfo *flinfo)
 {
-	/* we assume the difference can't overflow */
+	/* we assume the difference can't overflow
+	 *
+	 * 我们假设差异不会溢出
+	 */
 	Datum		diff = DirectFunctionCall2(date_mi,
 										   DateADTGetDatum(*((const DateADT *) a)),
 										   DateADTGetDatum(*((const DateADT *) b)));
@@ -118,7 +124,10 @@ PG_FUNCTION_INFO_V1(date_dist);
 Datum
 date_dist(PG_FUNCTION_ARGS)
 {
-	/* we assume the difference can't overflow */
+	/* we assume the difference can't overflow
+	 *
+	 * 我们假设差异不会溢出
+	 */
 	Datum		diff = DirectFunctionCall2(date_mi,
 										   PG_GETARG_DATUM(0),
 										   PG_GETARG_DATUM(1));
@@ -129,6 +138,8 @@ date_dist(PG_FUNCTION_ARGS)
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 Datum
@@ -154,12 +165,18 @@ gbt_date_consistent(PG_FUNCTION_ARGS)
 	DateADT		query = PG_GETARG_DATEADT(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	dateKEY    *kkk = (dateKEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	key.lower = (GBT_NUMKEY *) &kkk->lower;
@@ -176,7 +193,10 @@ gbt_date_distance(PG_FUNCTION_ARGS)
 	GISTENTRY  *entry = (GISTENTRY *) PG_GETARG_POINTER(0);
 	DateADT		query = PG_GETARG_DATEADT(1);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	dateKEY    *kkk = (dateKEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
@@ -258,7 +278,10 @@ gbt_date_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	dateKEY    *akey = (dateKEY *) DatumGetPointer(x);
 	dateKEY    *bkey = (dateKEY *) DatumGetPointer(y);
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	return DatumGetInt32(DirectFunctionCall2(date_cmp,
 											 DateADTGetDatum(akey->lower),
 											 DateADTGetDatum(bkey->lower)));

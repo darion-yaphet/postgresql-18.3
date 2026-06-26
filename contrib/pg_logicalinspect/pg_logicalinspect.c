@@ -26,7 +26,10 @@ PG_MODULE_MAGIC_EXT(
 PG_FUNCTION_INFO_V1(pg_get_logical_snapshot_meta);
 PG_FUNCTION_INFO_V1(pg_get_logical_snapshot_info);
 
-/* Return the description of SnapBuildState */
+/* Return the description of SnapBuildState
+ *
+ * 返回 SnapBuildState 的描述
+ */
 static const char *
 get_snapbuild_state_desc(SnapBuildState state)
 {
@@ -53,6 +56,8 @@ get_snapbuild_state_desc(SnapBuildState state)
 
 /*
  * Extract the LSN from the given serialized snapshot file name.
+ *
+ * 从给定的序列化快照文件名中提取 LSN。
  */
 static XLogRecPtr
 parse_snapshot_filename(const char *filename)
@@ -65,9 +70,13 @@ parse_snapshot_filename(const char *filename)
 	/*
 	 * Extract the values to build the LSN.
 	 *
+	 * 提取值以构建 LSN。
+	 *
 	 * Note: Including ".snap" doesn't mean that sscanf() also does the format
 	 * check including the suffix. The subsequent check validates if the given
 	 * filename has the expected suffix.
+	 *
+	 * 注意：包含“.snap”并不意味着 sscanf() 也会进行包含后缀的格式检查。随后的检查将验证给定的文件名是否具有预期的后缀。
 	 */
 	if (sscanf(filename, "%X-%X.snap", &hi, &lo) != 2)
 		goto parse_error;
@@ -76,6 +85,8 @@ parse_snapshot_filename(const char *filename)
 	 * Bring back the extracted LSN to the snapshot file format and compare it
 	 * to the given filename. This check strictly checks if the given filename
 	 * follows the format of the snapshot filename.
+	 *
+	 * 将提取的 LSN 返回为快照文件格式，并将其与给定的文件名进行比较。此检查严格检查给定的文件名是否遵循快照文件名的格式。
 	 */
 	sprintf(tmpfname, "%X-%X.snap", hi, lo);
 	if (strcmp(tmpfname, filename) != 0)
@@ -94,6 +105,8 @@ parse_error:
 
 /*
  * Retrieve the logical snapshot file metadata.
+ *
+ * 检索逻辑快照文件元数据。
  */
 Datum
 pg_get_logical_snapshot_meta(PG_FUNCTION_ARGS)
@@ -108,13 +121,19 @@ pg_get_logical_snapshot_meta(PG_FUNCTION_ARGS)
 	int			i = 0;
 	text	   *filename_t = PG_GETARG_TEXT_PP(0);
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
 	lsn = parse_snapshot_filename(text_to_cstring(filename_t));
 
-	/* Validate and restore the snapshot to 'ondisk' */
+	/* Validate and restore the snapshot to 'ondisk'
+	 *
+	 * 验证快照并将其恢复到“磁盘上”
+	 */
 	SnapBuildRestoreSnapshot(&ondisk, lsn, CurrentMemoryContext, false);
 
 	values[i++] = UInt32GetDatum(ondisk.magic);
@@ -143,13 +162,19 @@ pg_get_logical_snapshot_info(PG_FUNCTION_ARGS)
 	int			i = 0;
 	text	   *filename_t = PG_GETARG_TEXT_PP(0);
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
 	lsn = parse_snapshot_filename(text_to_cstring(filename_t));
 
-	/* Validate and restore the snapshot to 'ondisk' */
+	/* Validate and restore the snapshot to 'ondisk'
+	 *
+	 * 验证快照并将其恢复到“磁盘上”
+	 */
 	SnapBuildRestoreSnapshot(&ondisk, lsn, CurrentMemoryContext, false);
 
 	values[i++] = CStringGetTextDatum(get_snapbuild_state_desc(ondisk.builder.state));

@@ -13,10 +13,16 @@ typedef struct
 {
 	macaddr8	lower;
 	macaddr8	upper;
-	/* make struct size = sizeof(gbtreekey16) */
+	/* make struct size = sizeof(gbtreekey16)
+	 *
+	 * 使结构大小 = sizeof(gbtreekey16)
+	 */
 } mac8KEY;
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_macad8_compress);
 PG_FUNCTION_INFO_V1(gbt_macad8_fetch);
 PG_FUNCTION_INFO_V1(gbt_macad8_union);
@@ -88,6 +94,8 @@ static const gbtree_ninfo tinfo =
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 static uint64
@@ -125,12 +133,18 @@ gbt_macad8_consistent(PG_FUNCTION_ARGS)
 	macaddr8   *query = (macaddr8 *) PG_GETARG_POINTER(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	mac8KEY    *kkk = (mac8KEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	key.lower = (GBT_NUMKEY *) &kkk->lower;
@@ -194,7 +208,10 @@ gbt_macaddr8_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	mac8KEY    *arg1 = (mac8KEY *) DatumGetPointer(x);
 	mac8KEY    *arg2 = (mac8KEY *) DatumGetPointer(y);
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	return DatumGetInt32(DirectFunctionCall2(macaddr8_cmp,
 											 Macaddr8PGetDatum(&arg1->lower),
 											 Macaddr8PGetDatum(&arg2->lower)));

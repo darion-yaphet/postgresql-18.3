@@ -1,6 +1,8 @@
 CREATE EXTENSION bool_plperl CASCADE;
 
 --- test transforming from perl
+--
+--- 测试从 perl 的转换
 
 CREATE FUNCTION perl2int(int) RETURNS bool
 LANGUAGE plperl
@@ -30,6 +32,8 @@ SELECT perl2text('');
 SELECT perl2undef() IS NULL AS p;
 
 --- test transforming to perl
+--
+--- 测试转换为perl
 
 CREATE FUNCTION bool2perl(bool, bool, bool) RETURNS void
 LANGUAGE plperl
@@ -47,10 +51,14 @@ $$;
 SELECT bool2perl (true, false, NULL);
 
 --- test ruleutils
+--
+--- 测试规则实用程序
 
 \sf bool2perl
 
 --- test selecting bool through SPI
+--
+--- 通过 SPI 测试选择 bool
 
 CREATE FUNCTION spi_test()  RETURNS void
 LANGUAGE plperl

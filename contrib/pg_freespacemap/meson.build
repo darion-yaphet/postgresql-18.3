@@ -37,7 +37,11 @@ tests += {
       '--temp-config', files('pg_freespacemap.conf')
     ],
     # Disabled because these tests require "autovacuum=off", which
+    #
+    # 禁用，因为这些测试需要“autovacuum=off”，这
     # typical runningcheck users do not have (e.g. buildfarm clients).
+    #
+    # 典型的 runningcheck 用户没有（例如 buildfarm 客户端）。
     'runningcheck': false,
   },
 }

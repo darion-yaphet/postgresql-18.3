@@ -33,7 +33,11 @@ tests += {
       'oldextversions',
     ],
     # Disabled because these tests require "wal_level=replica", which
+    #
+    # 禁用，因为这些测试需要“wal_level=replica”，这
     # some runningcheck users do not have (e.g. buildfarm clients).
+    #
+    # 一些 runningcheck 用户没有（例如 buildfarm 客户端）。
     'regress_args': ['--temp-config', files('walinspect.conf')],
     'runningcheck': false,
   },

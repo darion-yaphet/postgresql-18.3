@@ -1,4 +1,6 @@
 #!/usr/bin/perl
+#
+#!/usr/bin/perl
 
 # Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
@@ -6,6 +8,8 @@ use strict;
 use warnings FATAL => 'all';
 
 # make sure we are in a sane environment.
+#
+# 确保我们处于一个理智的环境中。
 use DBI();
 use DBD::Pg();
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval );

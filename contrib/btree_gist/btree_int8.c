@@ -14,7 +14,10 @@ typedef struct int64key
 	int64		upper;
 } int64KEY;
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_int8_compress);
 PG_FUNCTION_INFO_V1(gbt_int8_fetch);
 PG_FUNCTION_INFO_V1(gbt_int8_union);
@@ -114,6 +117,8 @@ int8_dist(PG_FUNCTION_ARGS)
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 Datum
@@ -139,12 +144,18 @@ gbt_int8_consistent(PG_FUNCTION_ARGS)
 	int64		query = PG_GETARG_INT64(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	int64KEY   *kkk = (int64KEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	key.lower = (GBT_NUMKEY *) &kkk->lower;
@@ -160,7 +171,10 @@ gbt_int8_distance(PG_FUNCTION_ARGS)
 	GISTENTRY  *entry = (GISTENTRY *) PG_GETARG_POINTER(0);
 	int64		query = PG_GETARG_INT64(1);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	int64KEY   *kkk = (int64KEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
@@ -218,7 +232,10 @@ gbt_int8_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	int64KEY   *arg1 = (int64KEY *) DatumGetPointer(x);
 	int64KEY   *arg2 = (int64KEY *) DatumGetPointer(y);
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	if (arg1->lower < arg2->lower)
 		return -1;
 	else if (arg1->lower > arg2->lower)

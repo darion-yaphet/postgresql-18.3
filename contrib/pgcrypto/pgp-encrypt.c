@@ -86,6 +86,8 @@ write_normal_header(PushFilter *dst, int tag, int len)
 
 /*
  * MAC writer
+ *
+ * MAC烧写器
  */
 
 static int
@@ -120,6 +122,8 @@ mdc_flush(PushFilter *dst, void *priv)
 
 	/*
 	 * create mdc pkt
+	 *
+	 * 创建 MDC 包
 	 */
 	pkt[0] = 0xD3;
 	pkt[1] = 0x14;				/* MDC_DIGEST_LEN */
@@ -146,6 +150,8 @@ static const PushFilterOps mdc_filter = {
 
 /*
  * Encrypted pkt writer
+ *
+ * 加密 pkt 编写器
  */
 #define ENCBUF 8192
 struct EncStat
@@ -163,7 +169,10 @@ encrypt_init(PushFilter *next, void *init_arg, void **priv_p)
 	int			resync = 1;
 	int			res;
 
-	/* should we use newer packet format? */
+	/* should we use newer packet format?
+	 *
+	 * 我们应该使用更新的数据包格式吗？
+	 */
 	if (ctx->disable_mdc == 0)
 	{
 		uint8		ver = 1;
@@ -227,6 +236,8 @@ static const PushFilterOps encrypt_filter = {
 
 /*
  * Write Streamable pkts
+ *
+ * 写入可流式传输的 pkt
  */
 
 struct PktStreamStat
@@ -282,7 +293,10 @@ pkt_stream_flush(PushFilter *next, void *priv)
 	uint8	   *h = hdr;
 	struct PktStreamStat *st = priv;
 
-	/* stream MUST end with normal packet. */
+	/* stream MUST end with normal packet.
+	 *
+	 * 流必须以正常数据包结束。
+	 */
 	if (!st->final_done)
 	{
 		h = render_newlen(h, 0);
@@ -321,6 +335,8 @@ pgp_create_pkt_writer(PushFilter *dst, int tag, PushFilter **res_p)
 
 /*
  * Text conversion filter
+ *
+ * 文本转换过滤器
  */
 
 static int
@@ -341,7 +357,10 @@ crlf_process(PushFilter *dst, void *priv, const uint8 *data, int len)
 
 		line_len = p2 - p1;
 
-		/* write data */
+		/* write data
+		 *
+		 * 写入数据
+		 */
 		res = 0;
 		if (line_len > 0)
 		{
@@ -351,7 +370,10 @@ crlf_process(PushFilter *dst, void *priv, const uint8 *data, int len)
 			p1 += line_len;
 		}
 
-		/* write crlf */
+		/* write crlf
+		 *
+		 * 写crlf
+		 */
 		while (p1 < data_end && *p1 == '\n')
 		{
 			res = pushf_write(dst, crlf, 2);
@@ -369,6 +391,8 @@ static const PushFilterOps crlf_filter = {
 
 /*
  * Initialize literal data packet
+ *
+ * 初始化文字数据包
  */
 static int
 init_litdata_packet(PushFilter **pf_res, PGP_Context *ctx, PushFilter *dst)
@@ -382,6 +406,8 @@ init_litdata_packet(PushFilter **pf_res, PGP_Context *ctx, PushFilter *dst)
 
 	/*
 	 * Create header
+	 *
+	 * 创建标题
 	 */
 
 	if (ctx->text_mode)
@@ -392,6 +418,8 @@ init_litdata_packet(PushFilter **pf_res, PGP_Context *ctx, PushFilter *dst)
 	/*
 	 * Store the creation time into packet. The goal is to have as few known
 	 * bytes as possible.
+	 *
+	 * 将创建时间存储到数据包中。目标是拥有尽可能少的已知字节。
 	 */
 	t = (uint32) time(NULL);
 
@@ -424,6 +452,8 @@ init_litdata_packet(PushFilter **pf_res, PGP_Context *ctx, PushFilter *dst)
 
 /*
  * Initialize compression filter
+ *
+ * 初始化压缩过滤器
  */
 static int
 init_compress(PushFilter **pf_res, PGP_Context *ctx, PushFilter *dst)
@@ -452,6 +482,8 @@ init_compress(PushFilter **pf_res, PGP_Context *ctx, PushFilter *dst)
 
 /*
  * Initialize encdata packet
+ *
+ * 初始化encda​​ta包
  */
 static int
 init_encdata_packet(PushFilter **pf_res, PGP_Context *ctx, PushFilter *dst)
@@ -473,6 +505,8 @@ init_encdata_packet(PushFilter **pf_res, PGP_Context *ctx, PushFilter *dst)
 
 /*
  * write prefix
+ *
+ * 写前缀
  */
 static int
 write_prefix(PGP_Context *ctx, PushFilter *dst)
@@ -495,6 +529,8 @@ write_prefix(PGP_Context *ctx, PushFilter *dst)
 
 /*
  * write symmetrically encrypted session key packet
+ *
+ * 写入对称加密的会话密钥包
  */
 
 static int
@@ -516,7 +552,10 @@ symencrypt_sesskey(PGP_Context *ctx, uint8 *dst)
 	return ctx->sess_key_len + 1;
 }
 
-/* 5.3: Symmetric-Key Encrypted Session-Key */
+/* 5.3: Symmetric-Key Encrypted Session-Key
+ *
+ * 5.3: 对称密钥加密会话密钥
+ */
 static int
 write_symenc_sesskey(PGP_Context *ctx, PushFilter *dst)
 {
@@ -557,6 +596,8 @@ write_symenc_sesskey(PGP_Context *ctx, PushFilter *dst)
 
 /*
  * key setup
+ *
+ * 按键设置
  */
 static int
 init_s2k_key(PGP_Context *ctx)
@@ -606,17 +647,24 @@ pgp_encrypt(PGP_Context *ctx, MBuf *src, MBuf *dst)
 
 	/*
 	 * do we have any key
+	 *
+	 * 我们有钥匙吗
 	 */
 	if (!ctx->sym_key && !ctx->pub_key)
 		return PXE_ARGUMENT_ERROR;
 
-	/* MBuf writer */
+	/* MBuf writer
+	 *
+	 * MBuf写入器
+	 */
 	res = pushf_create_mbuf_writer(&pf, dst);
 	if (res < 0)
 		goto out;
 
 	/*
 	 * initialize sym_key
+	 *
+	 * 初始化符号键
 	 */
 	if (ctx->sym_key)
 	{
@@ -631,6 +679,8 @@ pgp_encrypt(PGP_Context *ctx, MBuf *src, MBuf *dst)
 
 	/*
 	 * write keypkt
+	 *
+	 * 写入密钥
 	 */
 	if (ctx->pub_key)
 		res = pgp_write_pubenc_sesskey(ctx, pf);
@@ -639,7 +689,10 @@ pgp_encrypt(PGP_Context *ctx, MBuf *src, MBuf *dst)
 	if (res < 0)
 		goto out;
 
-	/* encrypted data pkt */
+	/* encrypted data pkt
+	 *
+	 * 加密数据包
+	 */
 	res = init_encdata_packet(&pf_tmp, ctx, pf);
 	if (res < 0)
 		goto out;
@@ -674,14 +727,20 @@ pgp_encrypt(PGP_Context *ctx, MBuf *src, MBuf *dst)
 		pf = pf_tmp;
 	}
 
-	/* data streamer */
+	/* data streamer
+	 *
+	 * 数据流传输器
+	 */
 	res = init_litdata_packet(&pf_tmp, ctx, pf);
 	if (res < 0)
 		goto out;
 	pf = pf_tmp;
 
 
-	/* text conversion? */
+	/* text conversion?
+	 *
+	 * 文本转换？
+	 */
 	if (ctx->text_mode && ctx->convert_crlf)
 	{
 		res = pushf_create(&pf_tmp, &crlf_filter, ctx, pf);
@@ -692,6 +751,8 @@ pgp_encrypt(PGP_Context *ctx, MBuf *src, MBuf *dst)
 
 	/*
 	 * chain complete
+	 *
+	 * 链条完整
 	 */
 
 	len = mbuf_grab(src, mbuf_avail(src), &buf);

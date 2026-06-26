@@ -1,6 +1,8 @@
 --
 -- Regression Tests for Label Management
 --
+-- 标签管理的回归测试
+--
 
 --
 -- Setup
@@ -83,18 +85,28 @@ SECURITY LABEL ON TABLE var_ptbl
 --
 -- Tests for default labeling behavior
 --
+-- 测试默认标签行为
+--
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_user_t:s0
+--
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_user_t:s0
 CREATE TABLE t3 (s int, t text);
 INSERT INTO t3 VALUES (1, 'sss'), (2, 'ttt'), (3, 'uuu');
 
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_dba_t:s0
+--
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_dba_t:s0
 CREATE TABLE t4 (m int, n text);
 INSERT INTO t4 VALUES (1,'mmm'), (2,'nnn'), (3,'ooo');
 
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_user_t:s0
+--
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_user_t:s0
 CREATE TABLE tpart (o int, p text) PARTITION BY RANGE (o);
 
 CREATE TABLE tpart_ones PARTITION OF tpart FOR VALUES FROM ('0') TO ('10');
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_dba_t:s0
+--
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_dba_t:s0
 CREATE TABLE tpart_tens PARTITION OF tpart FOR VALUES FROM ('10') TO ('100');
 
@@ -119,6 +131,10 @@ SELECT objtype, objname, label FROM pg_seclabels
 --
 -- Tests for SECURITY LABEL
 --
+-- 安全标签测试
+--
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_dba_t:s0
+--
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_dba_t:s0
 SECURITY LABEL ON TABLE t1
     IS 'system_u:object_r:sepgsql_ro_table_t:s0';	-- ok
@@ -140,6 +156,10 @@ SECURITY LABEL ON COLUMN tpart.o
 --
 -- Tests for Trusted Procedures
 --
+-- 可信程序测试
+--
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_user_t:s0
+--
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_user_t:s0
 SET sepgsql.debug_audit = true;
 SET client_min_messages = log;
@@ -152,8 +172,14 @@ SELECT sepgsql_getcon();	-- client's label must be restored
 --
 -- Test for Dynamic Domain Transition
 --
+-- 动态域转换测试
+--
 
 -- validation of transaction aware dynamic-transition
+--
+-- 事务感知动态转换的验证
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_superuser_t:s0:c0.c25
+--
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_superuser_t:s0:c0.c25
 SELECT sepgsql_setcon('unconfined_u:unconfined_r:sepgsql_regtest_superuser_t:s0:c0.c15');
 SELECT sepgsql_getcon();
@@ -202,14 +228,24 @@ COMMIT;
 SELECT sepgsql_getcon();		-- should be 's0:c0.c6'
 
 -- sepgsql_regtest_user_t is not available dynamic-transition,
+--
+-- sepgsql_regtest_user_t 不可用动态转换，
 -- unless sepgsql_setcon() is called inside of trusted-procedure
+--
+-- 除非在可信过程内部调用 sepgsql_setcon()
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_user_t:s0:c0.c15
+--
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_user_t:s0:c0.c15
 
 -- sepgsql_regtest_user_t has no permission to switch current label
+--
+-- sepgsql_regtest_user_t 无权切换当前标签
 SELECT sepgsql_setcon('unconfined_u:unconfined_r:sepgsql_regtest_user_t:s0');	-- failed
 SELECT sepgsql_getcon();
 
 -- trusted procedure allows to switch, but unavailable to override MCS rules
+--
+-- 可信过程允许切换，但无法覆盖 MCS 规则
 SELECT f5('unconfined_u:unconfined_r:sepgsql_regtest_user_t:s0:c0.c7');	-- OK
 SELECT sepgsql_getcon();
 
@@ -229,14 +265,22 @@ SELECT sepgsql_getcon();
 --
 -- Test for simulation of typical connection pooling server
 --
+-- 典型连接池服务器模拟测试
+--
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_pool_t:s0
+--
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_pool_t:s0
 
 -- we shouldn't allow to switch client label without trusted procedure
+--
+-- 我们不应该允许在没有可信程序的情况下切换客户标签
 SELECT sepgsql_setcon('unconfined_u:unconfined_r:sepgsql_regtest_foo_t:s0');
 
 SELECT * FROM auth_tbl;	-- failed, no permission to reference
 
 -- switch to "foo"
+--
+-- 切换到“foo”
 SELECT auth_func('foo', 'acbd18db4cc2f85cedef654fccc4a4d8');
 
 SELECT sepgsql_getcon();
@@ -253,6 +297,8 @@ SELECT sepgsql_setcon(NULL);	-- end of session
 SELECT sepgsql_getcon();
 
 -- the pooler cannot touch these tables directly
+--
+-- 池化器无法直接接触这些表
 SELECT * FROM foo_tbl;	-- failed
 SELECT * FROM foo_ptbl;	-- failed
 
@@ -260,6 +306,8 @@ SELECT * FROM var_tbl;	-- failed
 SELECT * FROM var_ptbl;	-- failed
 
 -- switch to "var"
+--
+-- 切换到“var”
 SELECT auth_func('var', 'b2145aac704ce76dbe1ac7adac535b23');
 
 SELECT sepgsql_getcon();
@@ -275,11 +323,17 @@ SELECT * FROM auth_tbl;	-- failed
 SELECT sepgsql_setcon(NULL);    -- end of session
 
 -- misc checks
+--
+-- 杂项检查
 SELECT auth_func('var', 'invalid credential');	-- not works
 SELECT sepgsql_getcon();
 
 --
 -- Clean up
+--
+-- 清理
+--
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_superuser_t:s0-s0:c0.c255
 --
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_superuser_t:s0-s0:c0.c255
 DROP TABLE IF EXISTS t1 CASCADE;

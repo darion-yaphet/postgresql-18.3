@@ -10,13 +10,19 @@ PG_MODULE_MAGIC_EXT(
 					.version = PG_VERSION
 );
 
-/* Linkage to functions in plpython module */
+/* Linkage to functions in plpython module
+ *
+ * 与 plpython 模块中函数的链接
+ */
 typedef char *(*PLyObject_AsString_t) (PyObject *plrv);
 static PLyObject_AsString_t PLyObject_AsString_p;
 typedef PyObject *(*PLyUnicode_FromStringAndSize_t) (const char *s, Py_ssize_t size);
 static PLyUnicode_FromStringAndSize_t PLyUnicode_FromStringAndSize_p;
 
-/* Linkage to functions in hstore module */
+/* Linkage to functions in hstore module
+ *
+ * 与 hstore 模块中函数的链接
+ */
 typedef HStore *(*hstoreUpgrade_t) (Datum orig);
 static hstoreUpgrade_t hstoreUpgrade_p;
 typedef int (*hstoreUniquePairs_t) (Pairs *a, int32 l, int32 *buflen);
@@ -31,11 +37,16 @@ static hstoreCheckValLen_t hstoreCheckValLen_p;
 
 /*
  * Module initialize function: fetch function pointers for cross-module calls.
+ *
+ * 模块初始化函数：获取跨模块调用的函数指针。
  */
 void
 _PG_init(void)
 {
-	/* Asserts verify that typedefs above match original declarations */
+	/* Asserts verify that typedefs above match original declarations
+	 *
+	 * 断言验证上面的 typedef 是否与原始声明匹配
+	 */
 	AssertVariableIsOfType(&PLyObject_AsString, PLyObject_AsString_t);
 	PLyObject_AsString_p = (PLyObject_AsString_t)
 		load_external_function("$libdir/" PLPYTHON_LIBNAME, "PLyObject_AsString",
@@ -67,7 +78,10 @@ _PG_init(void)
 }
 
 
-/* These defines must be after the module init function */
+/* These defines must be after the module init function
+ *
+ * 这些定义必须位于模块初始化函数之后
+ */
 #define PLyObject_AsString PLyObject_AsString_p
 #define PLyUnicode_FromStringAndSize PLyUnicode_FromStringAndSize_p
 #define hstoreUpgrade hstoreUpgrade_p
@@ -135,6 +149,8 @@ plpython_to_hstore(PG_FUNCTION_ARGS)
 	 * As of Python 3, PyMapping_Check() is unreliable unless one first checks
 	 * that the object isn't a sequence.  (Cleaner solutions exist, but not
 	 * before Python 3.10, which we're not prepared to require yet.)
+	 *
+	 * 从 Python 3 开始，PyMapping_Check() 不可靠，除非首先检查对象不是序列。  （更简洁的解决方案是存在的，但在 Python 3.10 之前不存在，我们还不准备需要它。）
 	 */
 	if (PySequence_Check(dict) || !PyMapping_Check(dict))
 		ereport(ERROR,

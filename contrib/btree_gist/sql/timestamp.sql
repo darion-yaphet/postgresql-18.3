@@ -1,4 +1,6 @@
 -- timestamp check
+--
+-- 时间戳检查
 
 CREATE TABLE timestamptmp (a timestamp);
 

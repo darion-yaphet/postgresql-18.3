@@ -1,6 +1,8 @@
 /* contrib/pageinspect/pageinspect--1.7--1.8.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION pageinspect UPDATE TO '1.8'" to load this file. \quit
 
 --
@@ -34,6 +36,8 @@ LANGUAGE C STRICT PARALLEL SAFE;
 
 --
 -- bt_page_items(text, int4)
+--
+-- bt_page_items（文本，int4）
 --
 DROP FUNCTION bt_page_items(text, int4);
 CREATE FUNCTION bt_page_items(IN relname text, IN blkno int4,

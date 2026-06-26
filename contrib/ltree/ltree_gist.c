@@ -2,6 +2,8 @@
  * GiST support for ltree
  * Teodor Sigaev <teodor@stack.net>
  * contrib/ltree/ltree_gist.c
+ *
+ * GiST 对 ltree Teodor Sigaev <teodor@stack.net> contrib/ltree/ltree_gist.c 的支持
  */
 #include "postgres.h"
 
@@ -275,7 +277,10 @@ ltree_penalty(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(penalty);
 }
 
-/* used for sorting */
+/* used for sorting
+ *
+ * 用于排序
+ */
 typedef struct rix
 {
 	int			index;
@@ -320,7 +325,10 @@ ltree_picksplit(PG_FUNCTION_ARGS)
 	v->spl_nright = 0;
 	array = (RIX *) palloc(sizeof(RIX) * (maxoff + 1));
 
-	/* copy the data into RIXes, and sort the RIXes */
+	/* copy the data into RIXes, and sort the RIXes
+	 *
+	 * 将数据复制到 RIX 中，并对 RIX 进行排序
+	 */
 	for (j = FirstOffsetNumber; j <= maxoff; j = OffsetNumberNext(j))
 	{
 		array[j].index = j;
@@ -619,14 +627,20 @@ ltree_consistent(PG_FUNCTION_ARGS)
 	GISTENTRY  *entry = (GISTENTRY *) PG_GETARG_POINTER(0);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	int			siglen = LTREE_GET_SIGLEN();
 	ltree_gist *key = (ltree_gist *) DatumGetPointer(entry->key);
 	void	   *query = NULL;
 	bool		res = false;
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	switch (strategy)
@@ -711,7 +725,10 @@ ltree_consistent(PG_FUNCTION_ARGS)
 				res = arrq_cons(key, (ArrayType *) query, siglen);
 			break;
 		default:
-			/* internal error */
+			/* internal error
+			 *
+			 * 内部错误
+			 */
 			elog(ERROR, "unrecognized StrategyNumber: %d", strategy);
 	}
 

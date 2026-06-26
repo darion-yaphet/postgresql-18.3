@@ -34,6 +34,8 @@ tests += {
       '--temp-config', files('logicalinspect.conf'),
     ],
     # see above
+    #
+    # 见上文
     'runningcheck': false,
   },
 }

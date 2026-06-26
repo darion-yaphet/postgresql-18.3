@@ -18,7 +18,10 @@ typedef struct
 	Timestamp	upper;
 } tsKEY;
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_ts_compress);
 PG_FUNCTION_INFO_V1(gbt_tstz_compress);
 PG_FUNCTION_INFO_V1(gbt_ts_fetch);
@@ -40,7 +43,10 @@ PG_FUNCTION_INFO_V1(gbt_ts_sortsupport);
 #endif
 
 
-/* define for comparison */
+/* define for comparison
+ *
+ * 定义用于比较
+ */
 
 static bool
 gbt_tsgt(const void *a, const void *b, FmgrInfo *flinfo)
@@ -192,12 +198,17 @@ tstz_dist(PG_FUNCTION_ARGS)
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 static inline Timestamp
 tstz_to_ts_gmt(TimestampTz ts)
 {
-	/* No timezone correction is needed, since GMT is offset 0 by definition */
+	/* No timezone correction is needed, since GMT is offset 0 by definition
+	 *
+	 * 不需要时区校正，因为 GMT 根据定义偏移 0
+	 */
 	return (Timestamp) ts;
 }
 
@@ -251,12 +262,18 @@ gbt_ts_consistent(PG_FUNCTION_ARGS)
 	Timestamp	query = PG_GETARG_TIMESTAMP(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	tsKEY	   *kkk = (tsKEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	key.lower = (GBT_NUMKEY *) &kkk->lower;
@@ -272,7 +289,10 @@ gbt_ts_distance(PG_FUNCTION_ARGS)
 	GISTENTRY  *entry = (GISTENTRY *) PG_GETARG_POINTER(0);
 	Timestamp	query = PG_GETARG_TIMESTAMP(1);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	tsKEY	   *kkk = (tsKEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
@@ -290,13 +310,19 @@ gbt_tstz_consistent(PG_FUNCTION_ARGS)
 	TimestampTz query = PG_GETARG_TIMESTAMPTZ(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	char	   *kkk = (char *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 	Timestamp	qqq;
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	key.lower = (GBT_NUMKEY *) &kkk[0];
@@ -313,7 +339,10 @@ gbt_tstz_distance(PG_FUNCTION_ARGS)
 	GISTENTRY  *entry = (GISTENTRY *) PG_GETARG_POINTER(0);
 	TimestampTz query = PG_GETARG_TIMESTAMPTZ(1);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	char	   *kkk = (char *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 	Timestamp	qqq;
@@ -360,6 +389,8 @@ gbt_ts_penalty(PG_FUNCTION_ARGS)
 	/*
 	 * We are always using "double" timestamps here. Precision should be good
 	 * enough.
+	 *
+	 * 我们在这里总是使用“双”时间戳。精度应该足够好。
 	 */
 	orgdbl[0] = ((double) origentry->lower);
 	orgdbl[1] = ((double) origentry->upper);
@@ -402,7 +433,10 @@ gbt_ts_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	tsKEY	   *arg1 = (tsKEY *) DatumGetPointer(x);
 	tsKEY	   *arg2 = (tsKEY *) DatumGetPointer(y);
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	return DatumGetInt32(DirectFunctionCall2(timestamp_cmp,
 											 TimestampGetDatumFast(arg1->lower),
 											 TimestampGetDatumFast(arg2->lower)));

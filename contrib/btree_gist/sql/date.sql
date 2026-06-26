@@ -1,4 +1,6 @@
 -- date check
+--
+-- 日期检查
 
 CREATE TABLE datetmp (a date);
 

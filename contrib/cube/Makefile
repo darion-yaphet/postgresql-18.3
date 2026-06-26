@@ -32,10 +32,14 @@ include $(top_srcdir)/contrib/contrib-global.mk
 endif
 
 # See notes in src/backend/parser/Makefile about the following two rules
+#
+# 请参阅 src/backend/parser/Makefile 中关于以下两条规则的注释
 cubeparse.h: cubeparse.c
 	touch $@
 
 cubeparse.c: BISONFLAGS += -d
 
 # Force these dependencies to be known even without dependency info built:
+#
+# 即使没有构建依赖信息，也强制了解这些依赖关系：
 cubeparse.o cubescan.o: cubeparse.h

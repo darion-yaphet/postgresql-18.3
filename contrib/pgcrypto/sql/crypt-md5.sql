@@ -1,6 +1,8 @@
 --
 -- crypt() and gen_salt(): md5
 --
+-- crypt() 和 gen_salt(): md5
+--
 
 SELECT crypt('', '$1$Szzz0yzz');
 

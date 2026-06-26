@@ -1,11 +1,17 @@
 /* contrib/btree_gist/btree_gist--1.5--1.6.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "ALTER EXTENSION btree_gist UPDATE TO '1.6'" to load this file. \quit
 
 -- This upgrade script marks all btree_gist functions as parallel safe.
+--
+-- 此升级脚本将所有 btree_gist 函数标记为并行安全。
 
 -- Input/output functions for GiST key types (gbtreekey*)
+--
+-- GiST 密钥类型的输入/输出函数 (gbtreekey*)
 ALTER FUNCTION gbtreekey4_in(cstring) PARALLEL SAFE;
 ALTER FUNCTION gbtreekey4_out(gbtreekey4) PARALLEL SAFE;
 ALTER FUNCTION gbtreekey8_in(cstring) PARALLEL SAFE;
@@ -18,6 +24,8 @@ ALTER FUNCTION gbtreekey_var_in(cstring) PARALLEL SAFE;
 ALTER FUNCTION gbtreekey_var_out(gbtreekey_var) PARALLEL SAFE;
 
 -- Functions, which implement distance operators (<->)
+--
+-- 实现距离运算符 (<->) 的函数
 ALTER FUNCTION cash_dist(money, money) PARALLEL SAFE;
 ALTER FUNCTION date_dist(date, date) PARALLEL SAFE;
 ALTER FUNCTION float4_dist(real, real) PARALLEL SAFE;
@@ -32,6 +40,8 @@ ALTER FUNCTION ts_dist(timestamp without time zone, timestamp without time zone)
 ALTER FUNCTION tstz_dist(timestamp with time zone, timestamp with time zone) PARALLEL SAFE;
 
 -- GiST support methods
+--
+-- GiST 支持方法
 ALTER FUNCTION gbt_oid_consistent(internal, oid, smallint, oid, internal) PARALLEL SAFE;
 ALTER FUNCTION gbt_oid_distance(internal, oid, smallint, oid, internal) PARALLEL SAFE;
 ALTER FUNCTION gbt_oid_fetch(internal) PARALLEL SAFE;

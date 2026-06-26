@@ -1,9 +1,13 @@
 /* contrib/seg/seg--1.1.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION seg" to load this file. \quit
 
 -- Create the user-defined type for 1-D floating point intervals (seg)
+--
+-- 为一维浮点间隔 (seg) 创建用户定义类型
 
 CREATE FUNCTION seg_in(cstring)
 RETURNS seg
@@ -27,8 +31,12 @@ COMMENT ON TYPE seg IS
 --
 -- External C-functions for R-tree methods
 --
+-- R 树方法的外部 C 函数
+--
 
 -- Left/Right methods
+--
+-- 左/右方法
 
 CREATE FUNCTION seg_over_left(seg, seg)
 RETURNS bool
@@ -64,6 +72,8 @@ COMMENT ON FUNCTION seg_right(seg, seg) IS
 
 
 -- Scalar comparison methods
+--
+-- 标量比较方法
 
 CREATE FUNCTION seg_lt(seg, seg)
 RETURNS bool
@@ -138,6 +148,8 @@ COMMENT ON FUNCTION seg_different(seg, seg) IS
 'different';
 
 -- support routines for indexing
+--
+-- 支持索引例程
 
 CREATE FUNCTION seg_cmp(seg, seg)
 RETURNS int4
@@ -326,6 +338,8 @@ CREATE OPERATOR ~ (
 
 
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gseg_consistent(internal,seg,smallint,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -363,6 +377,8 @@ LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 
 -- Create the operator classes for indexing
+--
+-- 创建用于索引的运算符类
 
 CREATE OPERATOR CLASS seg_ops
     DEFAULT FOR TYPE seg USING btree AS

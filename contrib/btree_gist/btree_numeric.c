@@ -13,7 +13,10 @@
 #include "utils/rel.h"
 #include "utils/sortsupport.h"
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_numeric_compress);
 PG_FUNCTION_INFO_V1(gbt_numeric_union);
 PG_FUNCTION_INFO_V1(gbt_numeric_picksplit);
@@ -23,7 +26,10 @@ PG_FUNCTION_INFO_V1(gbt_numeric_same);
 PG_FUNCTION_INFO_V1(gbt_numeric_sortsupport);
 
 
-/* define for comparison */
+/* define for comparison
+ *
+ * 定义用于比较
+ */
 
 static bool
 gbt_numeric_gt(const void *a, const void *b, Oid collation, FmgrInfo *flinfo)
@@ -91,6 +97,8 @@ static const gbtree_vinfo tinfo =
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 Datum
@@ -108,13 +116,19 @@ gbt_numeric_consistent(PG_FUNCTION_ARGS)
 	void	   *query = DatumGetNumeric(PG_GETARG_DATUM(1));
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	bool		retval;
 	GBT_VARKEY *key = (GBT_VARKEY *) DatumGetPointer(entry->key);
 	GBT_VARKEY_R r = gbt_var_key_readable(key);
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	retval = gbt_var_consistent(&r, query, strategy, PG_GET_COLLATION(),
@@ -229,7 +243,10 @@ gbt_numeric_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	GBT_VARKEY_R arg2 = gbt_var_key_readable(key2);
 	Datum		result;
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	result = DirectFunctionCall2(numeric_cmp,
 								 PointerGetDatum(arg1.lower),
 								 PointerGetDatum(arg2.lower));

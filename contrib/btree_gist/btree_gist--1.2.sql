@@ -1,6 +1,8 @@
 /* contrib/btree_gist/btree_gist--1.2.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION btree_gist" to load this file. \quit
 
 CREATE FUNCTION gbtreekey4_in(cstring)
@@ -85,6 +87,8 @@ CREATE TYPE gbtreekey_var (
 );
 
 --distance operators
+--
+--距离算子
 
 CREATE FUNCTION cash_dist(money, money)
 RETURNS money
@@ -236,9 +240,13 @@ CREATE OPERATOR <-> (
 --
 -- oid ops
 --
+-- 类操作
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_oid_consistent(internal,oid,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -295,6 +303,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_oid_ops
 DEFAULT FOR TYPE oid USING gist
 AS
@@ -313,13 +323,21 @@ AS
 	STORAGE		gbtreekey8;
 
 -- Add operators that are new in 9.1.  We do it like this, leaving them
+--
+-- 添加 9.1 中新增的运算符。  我们这样做，留下他们
 -- "loose" in the operator family rather than bound into the opclass, because
+--
+-- 在操作符族中“松散”而不是绑定到操作类中，因为
 -- that's the only state that can be reproduced during an upgrade from 9.0.
+--
+-- 这是从 9.0 升级期间可以重现的唯一状态。
 ALTER OPERATOR FAMILY gist_oid_ops USING gist ADD
 	OPERATOR	6	<> (oid, oid) ,
 	OPERATOR	15	<-> (oid, oid) FOR ORDER BY pg_catalog.oid_ops ,
 	FUNCTION	8 (oid, oid) gbt_oid_distance (internal, oid, int2, oid, internal) ,
 	-- Also add support function for index-only-scans, added in 9.5.
+	--
+	-- 还添加了 9.5 中添加的仅索引扫描的支持功能。
 	FUNCTION	9 (oid, oid) gbt_oid_fetch (internal) ;
 
 
@@ -328,9 +346,13 @@ ALTER OPERATOR FAMILY gist_oid_ops USING gist ADD
 --
 -- int2 ops
 --
+-- int2 操作
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_int2_consistent(internal,int2,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -372,6 +394,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_int2_ops
 DEFAULT FOR TYPE int2 USING gist
 AS
@@ -400,9 +424,13 @@ ALTER OPERATOR FAMILY gist_int2_ops USING gist ADD
 --
 -- int4 ops
 --
+-- int4 操作
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_int4_consistent(internal,int4,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -444,6 +472,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_int4_ops
 DEFAULT FOR TYPE int4 USING gist
 AS
@@ -473,9 +503,13 @@ ALTER OPERATOR FAMILY gist_int4_ops USING gist ADD
 --
 -- int8 ops
 --
+-- int8 操作
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_int8_consistent(internal,int8,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -517,6 +551,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_int8_ops
 DEFAULT FOR TYPE int8 USING gist
 AS
@@ -545,9 +581,13 @@ ALTER OPERATOR FAMILY gist_int8_ops USING gist ADD
 --
 -- float4 ops
 --
+-- float4 操作
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_float4_consistent(internal,float4,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -589,6 +629,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_float4_ops
 DEFAULT FOR TYPE float4 USING gist
 AS
@@ -617,9 +659,13 @@ ALTER OPERATOR FAMILY gist_float4_ops USING gist ADD
 --
 -- float8 ops
 --
+-- float8 操作
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_float8_consistent(internal,float8,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -661,6 +707,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_float8_ops
 DEFAULT FOR TYPE float8 USING gist
 AS
@@ -688,6 +736,8 @@ ALTER OPERATOR FAMILY gist_float8_ops USING gist ADD
 --
 --
 -- timestamp ops
+--
+-- 时间戳操作
 --
 --
 --
@@ -748,6 +798,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_timestamp_ops
 DEFAULT FOR TYPE timestamp USING gist
 AS
@@ -772,6 +824,8 @@ ALTER OPERATOR FAMILY gist_timestamp_ops USING gist ADD
 	FUNCTION	9 (timestamp, timestamp) gbt_ts_fetch (internal) ;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_timestamptz_ops
 DEFAULT FOR TYPE timestamptz USING gist
 AS
@@ -799,6 +853,8 @@ ALTER OPERATOR FAMILY gist_timestamptz_ops USING gist ADD
 --
 --
 -- time ops
+--
+-- 时间操作
 --
 --
 --
@@ -854,6 +910,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_time_ops
 DEFAULT FOR TYPE time USING gist
 AS
@@ -898,12 +956,16 @@ AS
 ALTER OPERATOR FAMILY gist_timetz_ops USING gist ADD
 	OPERATOR	6	<> (timetz, timetz) ;
 	-- no 'fetch' function, as the compress function is lossy.
+	--
+	-- 没有“获取”功能，因为压缩功能是有损的。
 
 
 --
 --
 --
 -- date ops
+--
+-- 日期操作
 --
 --
 --
@@ -949,6 +1011,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_date_ops
 DEFAULT FOR TYPE date USING gist
 AS
@@ -977,6 +1041,8 @@ ALTER OPERATOR FAMILY gist_date_ops USING gist ADD
 --
 --
 -- interval ops
+--
+-- 间隔操作
 --
 --
 --
@@ -1027,6 +1093,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_interval_ops
 DEFAULT FOR TYPE interval USING gist
 AS
@@ -1056,9 +1124,13 @@ ALTER OPERATOR FAMILY gist_interval_ops USING gist ADD
 --
 -- cash ops
 --
+-- 现金行动
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_cash_consistent(internal,money,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -1100,6 +1172,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_cash_ops
 DEFAULT FOR TYPE money USING gist
 AS
@@ -1129,9 +1203,13 @@ ALTER OPERATOR FAMILY gist_cash_ops USING gist ADD
 --
 -- macaddr ops
 --
+-- macaddr操作
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_macad_consistent(internal,macaddr,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -1168,6 +1246,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_macaddr_ops
 DEFAULT FOR TYPE macaddr USING gist
 AS
@@ -1195,9 +1275,13 @@ ALTER OPERATOR FAMILY gist_macaddr_ops USING gist ADD
 --
 -- text/ bpchar ops
 --
+-- 文本/ bpchar 操作
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_text_consistent(internal,text,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -1239,6 +1323,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_text_ops
 DEFAULT FOR TYPE text USING gist
 AS
@@ -1262,6 +1348,8 @@ ALTER OPERATOR FAMILY gist_text_ops USING gist ADD
 
 
 ---- Create the operator class
+--
+---- 创建操作符类
 CREATE OPERATOR CLASS gist_bpchar_ops
 DEFAULT FOR TYPE bpchar USING gist
 AS
@@ -1287,9 +1375,13 @@ ALTER OPERATOR FAMILY gist_bpchar_ops USING gist ADD
 --
 -- bytea ops
 --
+-- 字节操作
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_bytea_consistent(internal,bytea,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -1321,6 +1413,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_bytea_ops
 DEFAULT FOR TYPE bytea USING gist
 AS
@@ -1348,9 +1442,13 @@ ALTER OPERATOR FAMILY gist_bytea_ops USING gist ADD
 --
 -- numeric ops
 --
+-- 数字运算
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_numeric_consistent(internal,numeric,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -1382,6 +1480,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_numeric_ops
 DEFAULT FOR TYPE numeric USING gist
 AS
@@ -1408,9 +1508,13 @@ ALTER OPERATOR FAMILY gist_numeric_ops USING gist ADD
 --
 -- bit ops
 --
+-- 位操作
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_bit_consistent(internal,bit,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -1442,6 +1546,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_bit_ops
 DEFAULT FOR TYPE bit USING gist
 AS
@@ -1465,6 +1571,8 @@ ALTER OPERATOR FAMILY gist_bit_ops USING gist ADD
 
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_vbit_ops
 DEFAULT FOR TYPE varbit USING gist
 AS
@@ -1492,9 +1600,13 @@ ALTER OPERATOR FAMILY gist_vbit_ops USING gist ADD
 --
 -- inet/cidr ops
 --
+-- inet/cidr 操作
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_inet_consistent(internal,inet,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -1526,6 +1638,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_inet_ops
 DEFAULT FOR TYPE inet USING gist
 AS
@@ -1546,8 +1660,12 @@ AS
 ALTER OPERATOR FAMILY gist_inet_ops USING gist ADD
 	OPERATOR	6	<>  (inet, inet) ;
 	-- no fetch support, the compress function is lossy
+	--
+	-- 不支持提取，压缩功能有损
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_cidr_ops
 DEFAULT FOR TYPE cidr USING gist
 AS
@@ -1568,3 +1686,5 @@ AS
 ALTER OPERATOR FAMILY gist_cidr_ops USING gist ADD
 	OPERATOR	6	<> (inet, inet) ;
 	-- no fetch support, the compress function is lossy
+	--
+	-- 不支持提取，压缩功能有损

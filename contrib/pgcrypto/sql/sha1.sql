@@ -1,6 +1,8 @@
 --
 -- SHA1 message digest
 --
+-- SHA1消息摘要
+--
 
 SELECT digest('', 'sha1');
 SELECT digest('a', 'sha1');

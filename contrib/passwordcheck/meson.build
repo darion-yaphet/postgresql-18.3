@@ -8,7 +8,21 @@ passwordcheck_c_args = []
 passwordcheck_deps = []
 
 # uncomment the following two lines to enable cracklib support
+#
+# 取消注释以下两行以启用racklib支持
 # passwordcheck_c_args += ['-DUSE_CRACKLIB', '-DCRACKLIB_DICTPATH="/usr/lib/cracklib_dict"']
+#
+# passwordcheck_c_args += ['-DUSE_CRACKLIB', '-DCRACKLIB_DICTPATH="/usr/lib/cracklib_dict"']
+#
+# passwordcheck_c_args += ['-DUSE_CRACKLIB', '-DCRACKLIB_DICTPATH="/usr/lib/cracklib_dict"']
+#
+# passwordcheck_c_args += ['-DUSE_CRACKLIB', '-DCRACKLIB_DICTPATH="/usr/lib/cracklib_dict"']
+# passwordcheck_deps += [cc.find_library('crack')]
+#
+# passwordcheck_deps += [cc.find_library('crack')]
+#
+# passwordcheck_deps += [cc.find_library('crack')]
+#
 # passwordcheck_deps += [cc.find_library('crack')]
 
 if host_system == 'windows'

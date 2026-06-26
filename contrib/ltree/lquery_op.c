@@ -2,6 +2,8 @@
  * op function for ltree and lquery
  * Teodor Sigaev <teodor@stack.net>
  * contrib/ltree/lquery_op.c
+ *
+ * ltree 和 lquery 的 op 函数 Teodor Sigaev <teodor@stack.net> contrib/ltree/lquery_op.c
  */
 #include "postgres.h"
 
@@ -77,6 +79,8 @@ compare_subnode(ltree_level *t, char *qn, int len,
 
 /*
  * Check if 'a' is a prefix of 'b'.
+ *
+ * 检查“a”是否是“b”的前缀。
  */
 bool
 ltree_prefix_eq(const char *a, size_t a_sz, const char *b, size_t b_sz)
@@ -89,6 +93,8 @@ ltree_prefix_eq(const char *a, size_t a_sz, const char *b, size_t b_sz)
 
 /*
  * Case-insensitive check if 'a' is a prefix of 'b'.
+ *
+ * 不区分大小写检查“a”是否是“b”的前缀。
  */
 bool
 ltree_prefix_eq_ci(const char *a, size_t a_sz, const char *b, size_t b_sz)
@@ -122,12 +128,18 @@ ltree_prefix_eq_ci(const char *a, size_t a_sz, const char *b, size_t b_sz)
 	al = palloc(al_sz);
 	bl = palloc(bl_sz);
 
-	/* casefold both a and b */
+	/* casefold both a and b
+	 *
+	 * a 和 b 均折叠
+	 */
 
 	al_len = pg_strfold(al, al_sz, a, a_sz, locale);
 	if (al_len + 1 > al_sz)
 	{
-		/* grow buffer if needed and retry */
+		/* grow buffer if needed and retry
+		 *
+		 * 如果需要的话增加缓冲区并重试
+		 */
 		al_sz = al_len + 1;
 		al = repalloc(al, al_sz);
 		al_len = pg_strfold(al, al_sz, a, a_sz, locale);
@@ -137,7 +149,10 @@ ltree_prefix_eq_ci(const char *a, size_t a_sz, const char *b, size_t b_sz)
 	bl_len = pg_strfold(bl, bl_sz, b, b_sz, locale);
 	if (bl_len + 1 > bl_sz)
 	{
-		/* grow buffer if needed and retry */
+		/* grow buffer if needed and retry
+		 *
+		 * 如果需要的话增加缓冲区并重试
+		 */
 		bl_sz = bl_len + 1;
 		bl = repalloc(bl, bl_sz);
 		bl_len = pg_strfold(bl, bl_sz, b, b_sz, locale);
@@ -158,8 +173,12 @@ ltree_prefix_eq_ci(const char *a, size_t a_sz, const char *b, size_t b_sz)
 /*
  * See if an lquery_level matches an ltree_level
  *
+ * 查看 lquery_level 是否与 ltree_level 匹配
+ *
  * This accounts for all flags including LQL_NOT, but does not
  * consider repetition counts.
+ *
+ * 这考虑了包括 LQL_NOT 在内的所有标志，但不考虑重复计数。
  */
 static bool
 checkLevel(lquery_level *curq, ltree_level *curt)
@@ -169,7 +188,10 @@ checkLevel(lquery_level *curq, ltree_level *curt)
 
 	success = (curq->flag & LQL_NOT) ? false : true;
 
-	/* numvar == 0 means '*' which matches anything */
+	/* numvar == 0 means '*' which matches anything
+	 *
+	 * numvar == 0 表示 '*' 匹配任何内容
+	 */
 	if (curq->numvar == 0)
 		return success;
 
@@ -197,18 +219,29 @@ checkLevel(lquery_level *curq, ltree_level *curt)
 
 /*
  * Try to match an lquery (of qlen items) to an ltree (of tlen items)
+ *
+ * 尝试将 lquery（qlen 项）与 ltree（tlen 项）匹配
  */
 static bool
 checkCond(lquery_level *curq, int qlen,
 		  ltree_level *curt, int tlen)
 {
-	/* Since this function recurses, it could be driven to stack overflow */
+	/* Since this function recurses, it could be driven to stack overflow
+	 *
+	 * 由于该函数会递归，因此可能会导致堆栈溢出
+	 */
 	check_stack_depth();
 
-	/* Pathological patterns could take awhile, too */
+	/* Pathological patterns could take awhile, too
+	 *
+	 * 病理模式也可能需要一段时间
+	 */
 	CHECK_FOR_INTERRUPTS();
 
-	/* Loop while we have query items to consider */
+	/* Loop while we have query items to consider
+	 *
+	 * 当我们有要考虑的查询项时循环
+	 */
 	while (qlen > 0)
 	{
 		int			low,
@@ -219,6 +252,8 @@ checkCond(lquery_level *curq, int qlen,
 		 * Get min and max repetition counts for this query item, dealing with
 		 * the backwards-compatibility hack that the low/high fields aren't
 		 * meaningful for non-'*' items unless LQL_COUNT is set.
+		 *
+		 * 获取此查询项的最小和最大重复计数，处理向后兼容性黑客，除非设置了 LQL_COUNT，否则低/高字段对于非“*”项没有意义。
 		 */
 		if ((curq->flag & LQL_COUNT) || curq->numvar == 0)
 			low = curq->low, high = curq->high;
@@ -228,17 +263,24 @@ checkCond(lquery_level *curq, int qlen,
 		/*
 		 * We may limit "high" to the remaining text length; this avoids
 		 * separate tests below.
+		 *
+		 * 我们可能会将“高”限制为剩余文本长度；这避免了下面的单独测试。
 		 */
 		if (high > tlen)
 			high = tlen;
 
-		/* Fail if a match of required number of items is impossible */
+		/* Fail if a match of required number of items is impossible
+		 *
+		 * 如果无法匹配所需数量的项目，则失败
+		 */
 		if (high < low)
 			return false;
 
 		/*
 		 * Recursively check the rest of the pattern against each possible
 		 * start point following some of this item's match(es).
+		 *
+		 * 根据该项目的某些匹配项之后的每个可能的起点，递归地检查模式的其余部分。
 		 */
 		nextq = LQL_NEXT(curq);
 		qlen--;
@@ -248,12 +290,16 @@ checkCond(lquery_level *curq, int qlen,
 			/*
 			 * If we've consumed an acceptable number of matches of this item,
 			 * and the rest of the pattern matches beginning here, we're good.
+			 *
+			 * 如果我们已经消耗了该项目的可接受数量的匹配，并且其余的模式匹配从这里开始，那么我们就很好。
 			 */
 			if (matchcnt >= low && checkCond(nextq, qlen, curt, tlen))
 				return true;
 
 			/*
 			 * Otherwise, try to match one more text item to this query item.
+			 *
+			 * 否则，请尝试将另一个文本项与该查询项相匹配。
 			 */
 			if (!checkLevel(curq, curt))
 				return false;
@@ -266,6 +312,8 @@ checkCond(lquery_level *curq, int qlen,
 		 * Once we've consumed "high" matches, we can succeed only if the rest
 		 * of the pattern matches beginning here.  Loop around (if you prefer,
 		 * think of this as tail recursion).
+		 *
+		 * 一旦我们消耗了“高”匹配，只有当模式的其余部分从这里开始匹配时，我们才能成功。  循环（如果您愿意，可以将其视为尾递归）。
 		 */
 		curq = nextq;
 	}
@@ -273,6 +321,8 @@ checkCond(lquery_level *curq, int qlen,
 	/*
 	 * Once we're out of query items, we match only if there's no remaining
 	 * text either.
+	 *
+	 * 一旦我们没有查询项，我们仅在没有剩余文本的情况下进行匹配。
 	 */
 	return (tlen == 0);
 }

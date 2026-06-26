@@ -2,7 +2,11 @@
 # Copyright (c) 2023-2025, PostgreSQL Global Development Group
 
 # This regression test checks the behavior of the btree validation in the
+#
+# 此回归测试检查 btree 验证的行为
 # presence of breaking sort order changes.
+#
+# 存在破坏排序顺序的变化。
 #
 use strict;
 use warnings FATAL => 'all';
@@ -16,6 +20,8 @@ $node->append_conf('postgresql.conf', 'autovacuum = off');
 $node->start;
 
 # Create a custom operator class and an index which uses it.
+#
+# 创建一个自定义运算符类和一个使用它的索引。
 $node->safe_psql(
 	'postgres', q(
 	CREATE EXTENSION amcheck;
@@ -32,6 +38,8 @@ $node->safe_psql(
 
 	---
 	--- Check 1: uniqueness violation.
+	--
+	--- 检查 1：唯一性违规。
 	---
 	CREATE FUNCTION ok_cmp1 (int4, int4)
 	RETURNS int LANGUAGE sql AS
@@ -41,6 +49,8 @@ $node->safe_psql(
 
 	---
 	--- Make values 768 and 769 look equal.
+	--
+	--- 使值 768 和 769 看起来相等。
 	---
 	CREATE FUNCTION bad_cmp1 (int4, int4)
 	RETURNS int LANGUAGE sql AS
@@ -54,6 +64,8 @@ $node->safe_psql(
 
 	---
 	--- Check 2: uniqueness violation without deduplication.
+	--
+	--- 检查2：没有重复数据删除的唯一性违规。
 	---
 	CREATE FUNCTION ok_cmp2 (int4, int4)
 	RETURNS int LANGUAGE sql AS
@@ -72,6 +84,8 @@ $node->safe_psql(
 
 	---
 	--- Check 3: uniqueness violation with deduplication.
+	--
+	--- 检查 3：重复数据删除的唯一性违规。
 	---
 	CREATE FUNCTION ok_cmp3 (int4, int4)
 	RETURNS int LANGUAGE sql AS
@@ -87,6 +101,8 @@ $node->safe_psql(
 
 	---
 	--- Create data.
+	--
+	--- 创建数据。
 	---
 	CREATE TABLE bttest_unique1 (i int4);
 	INSERT INTO bttest_unique1
@@ -133,13 +149,25 @@ my ($result, $stdout, $stderr);
 
 #
 # Test 1.
+#
+# 测试1。
 #  - insert seq values
+#
+# - 插入序列值
 #  - create unique index
+#
+# - 创建唯一索引
 #  - break cmp function
+#
+# - 中断 cmp 功能
 #  - amcheck finds the uniqueness violation
+#
+# - amcheck 发现唯一性违规
 #
 
 # We have not yet broken the index, so we should get no corruption
+#
+# 我们还没有破坏索引，所以我们应该没有腐败
 $result = $node->safe_psql(
 	'postgres', q(
 	SELECT bt_index_check('bttest_unique_idx1', true, true);
@@ -147,7 +175,11 @@ $result = $node->safe_psql(
 is($result, '', 'run amcheck on non-broken bttest_unique_idx1');
 
 # Change the operator class to use a function which considers certain different
+#
+# 更改运算符类以使用考虑某些不同的函数
 # values to be equal.
+#
+# 值要相等。
 $node->safe_psql(
 	'postgres', q(
 	UPDATE pg_catalog.pg_amproc SET
@@ -164,15 +196,31 @@ ok( $stderr =~ /index uniqueness is violated for index "bttest_unique_idx1"/,
 
 #
 # Test 2.
+#
+# 测试2。
 #  - break cmp function
+#
+# - 中断 cmp 功能
 #  - insert seq values with duplicates
+#
+# - 插入重复的 seq 值
 #  - create unique index
+#
+# - 创建唯一索引
 #  - make cmp function correct
+#
+# - 使 cmp 功能正确
 #  - amcheck finds the uniqueness violation
+#
+# - amcheck 发现唯一性违规
 #
 
 # Due to bad cmp function we expect amcheck to detect item order violation,
+#
+# 由于 cmp 功能不良，我们希望 amcheck 能够检测到项目顺序违规，
 # but no uniqueness violation.
+#
+# 但没有违反唯一性。
 ($result, $stdout, $stderr) = $node->psql(
 	'postgres', q(
 	SELECT bt_index_check('bttest_unique_idx2', true, true);
@@ -196,14 +244,26 @@ ok( $stderr =~ /index uniqueness is violated for index "bttest_unique_idx2"/,
 
 #
 # Test 3.
+#
+# 测试3。
 #  - same as Test 2, but with index deduplication
 #
+# - 与测试 2 相同，但具有索引重复数据删除功能
+#
 # Then uniqueness violation is detected between different posting list
+#
+# 然后在不同的发布列表之间检测到唯一性违规
 # entries inside one index entry.
+#
+# 一个索引条目内的条目。
 #
 
 # Due to bad cmp function we expect amcheck to detect item order violation,
+#
+# 由于 cmp 功能不良，我们希望 amcheck 能够检测到项目顺序违规，
 # but no uniqueness violation.
+#
+# 但没有违反唯一性。
 ($result, $stdout, $stderr) = $node->psql(
 	'postgres', q(
 	SELECT bt_index_check('bttest_unique_idx3', true, true);
@@ -212,7 +272,11 @@ ok( $stderr =~ /item order invariant violated for index "bttest_unique_idx3"/,
 	'detected item order invariant violation for index "bttest_unique_idx3"');
 
 # For unique index deduplication is possible only for same values, but
+#
+# 对于唯一索引，重复数据删除只能针对相同的值，但是
 # with different visibility.
+#
+# 具有不同的可见度。
 $node->safe_psql(
 	'postgres', q(
 	DELETE FROM bttest_unique3 WHERE 380 <= i AND i <= 420;

@@ -1,4 +1,6 @@
 -- int4 check
+--
+-- int4检查
 
 CREATE TABLE int4tmp (a int4);
 

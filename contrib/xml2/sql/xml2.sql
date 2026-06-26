@@ -46,6 +46,8 @@ xpath_table('article_id',
 AS t(article_id integer, author text, page_count integer, title text);
 
 -- this used to fail when invoked a second time
+--
+-- 第二次调用时会失败
 select xslt_process('<aaa/>',$$<xsl:stylesheet version="1.0"
 xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 <xsl:template match="@*|node()">
@@ -140,6 +142,8 @@ SELECT xpath_list(article_xml::text, '/article/author|/article/pages', '|')
   FROM articles;
 
 -- possible security exploit
+--
+-- 可能的安全漏洞
 SELECT xslt_process('<xml><foo>Hello from XML</foo></xml>',
 $$<xsl:stylesheet version="1.0"
       xmlns:xsl="http://www.w3.org/1999/XSL/Transform"

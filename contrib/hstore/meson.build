@@ -1,6 +1,8 @@
 # Copyright (c) 2022-2025, PostgreSQL Global Development Group
 
 # .. so that includes of hstore/hstore.h work
+#
+# ..这样就包括了 hstore/hstore.h 的工作
 hstore_inc = include_directories('.', '../')
 
 hstore_sources = files(

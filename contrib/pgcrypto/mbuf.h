@@ -43,12 +43,16 @@ struct PushFilterOps
 	/*
 	 * should return needed buffer size, 0- no buffering, <0 on error if NULL,
 	 * no buffering, and priv=init_arg
+	 *
+	 * 应返回所需的缓冲区大小，0-无缓冲，如果为 NULL，则出错时 <0，无缓冲，并且 priv=init_arg
 	 */
 	int			(*init) (PushFilter *next, void *init_arg, void **priv_p);
 
 	/*
 	 * send data to next.  should consume all? if null, it will be simply
 	 * copied (in-place) returns 0 on error
+	 *
+	 * 发送数据到下一个。  应该全部消耗掉吗？如果为 null，它将被简单地复制（就地），出错时返回 0
 	 */
 	int			(*push) (PushFilter *next, void *priv,
 						 const uint8 *src, int len);
@@ -61,12 +65,16 @@ struct PullFilterOps
 	/*
 	 * should return needed buffer size, 0- no buffering, <0 on error if NULL,
 	 * no buffering, and priv=init_arg
+	 *
+	 * 应返回所需的缓冲区大小，0-无缓冲，如果为 NULL，则出错时 <0，无缓冲，并且 priv=init_arg
 	 */
 	int			(*init) (void **priv_p, void *init_arg, PullFilter *src);
 
 	/*
 	 * request data from src, put result ptr to data_p can use ptr from src or
 	 * use buf as work area if NULL in-place copy
+	 *
+	 * 从 src 请求数据，将结果 ptr 放入 data_p 可以使用 src 中的 ptr 或如果 NULL 就地复制则使用 buf 作为工作区
 	 */
 	int			(*pull) (void *priv, PullFilter *src, int len,
 						 uint8 **data_p, uint8 *buf, int buflen);
@@ -75,6 +83,8 @@ struct PullFilterOps
 
 /*
  * Memory buffer
+ *
+ * 内存缓冲区
  */
 MBuf	   *mbuf_create(int len);
 MBuf	   *mbuf_create_from_data(uint8 *data, int len);
@@ -87,6 +97,8 @@ int			mbuf_free(MBuf *mbuf);
 
 /*
  * Push filter
+ *
+ * 推式过滤器
  */
 int			pushf_create(PushFilter **mp_p, const PushFilterOps *op,
 						 void *init_arg, PushFilter *next);
@@ -99,6 +111,8 @@ int			pushf_create_mbuf_writer(PushFilter **res, MBuf *dst);
 
 /*
  * Pull filter
+ *
+ * 拉滤网
  */
 int			pullf_create(PullFilter **pf_p, const PullFilterOps *op,
 						 void *init_arg, PullFilter *src);

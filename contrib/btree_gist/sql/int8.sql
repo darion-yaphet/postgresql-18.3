@@ -1,4 +1,6 @@
 -- int8 check
+--
+-- int8检查
 
 CREATE TABLE int8tmp (a int8);
 

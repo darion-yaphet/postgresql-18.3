@@ -19,6 +19,8 @@ SELECT lo_get(43213);
 SELECT lo_get(43214);
 
 -- test updating of unrelated column
+--
+-- 测试不相关列的更新
 UPDATE image SET title = 'beautiful picture' WHERE title = 'beautiful image';
 
 SELECT lo_get(43214);
@@ -28,6 +30,8 @@ DELETE FROM image;
 SELECT lo_get(43214);
 
 -- Now let's try it with an AFTER trigger
+--
+-- 现在让我们尝试使用 AFTER 触发器
 
 DROP TRIGGER t_raster ON image;
 
@@ -49,11 +53,15 @@ SELECT lo_get(43223);  -- gone
 SELECT lo_get(43224);
 
 -- test updating of unrelated column
+--
+-- 测试不相关列的更新
 UPDATE image SET title = 'beautiful picture' WHERE title = 'beautiful image';
 
 SELECT lo_get(43224);
 
 -- this case used to be buggy
+--
+-- 这个案例曾经是有问题的
 BEGIN;
 UPDATE image SET title = 'beautiful image' WHERE title = 'beautiful picture';
 UPDATE image SET raster = 43225 WHERE title = 'beautiful image';

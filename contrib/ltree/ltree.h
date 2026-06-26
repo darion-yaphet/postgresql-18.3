@@ -14,6 +14,8 @@
  * We want the maximum length of a label to be encoding-independent, so
  * set it somewhat arbitrarily at 1000 characters (not bytes), while using
  * uint16 fields to hold the byte length.
+ *
+ * 我们希望标签的最大长度与编码无关，因此将其任意设置为 1000 个字符（而不是字节），同时使用 uint16 字段来保存字节长度。
  */
 #define LTREE_LABEL_MAX_CHARS 1000
 
@@ -25,6 +27,8 @@
  * get the historic behavior of LOWER_NODE not being defined on MSVC, we only
  * define it when not building in that environment.  This is important as we
  * want to maintain the same LOWER_NODE behavior after a pg_upgrade.
+ *
+ * LOWER_NODE 过去是通过编译标志在 Makefile 中定义的。然而，MSVC 构建脚本忽略了执行相同操作，导致 MSVC 构建不使用 LOWER_NODE。  从那时起，MSVC 脚本已被修改为在 Makefile 中查找 -D 编译标志，因此在这里，为了获得未在 MSVC 上定义 LOWER_NODE 的历史行为，我们仅在不在该环境中构建时定义它。  这很重要，因为我们希望在 pg_upgrade 之后保持相同的 LOWER_NODE 行为。
  */
 #ifndef _MSC_VER
 #define LOWER_NODE
@@ -43,7 +47,10 @@ typedef struct
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	uint16		numlevel;		/* number of labels */
-	/* Array of maxalign'd ltree_level structs follows: */
+	/* Array of maxalign'd ltree_level structs follows:
+	 *
+	 * maxalign'd ltree_level 结构数组如下：
+	 */
 	char		data[FLEXIBLE_ARRAY_MEMBER];
 } ltree;
 
@@ -54,7 +61,10 @@ typedef struct
 
 /* lquery */
 
-/* lquery_variant: one branch of some OR'ed alternatives */
+/* lquery_variant: one branch of some OR'ed alternatives
+ *
+ * lquery_variant：一些“或”替代方案的一个分支
+ */
 typedef struct
 {
 	int32		val;			/* CRC of label string */
@@ -67,6 +77,8 @@ typedef struct
  * Note: these macros contain too many MAXALIGN calls and so will sometimes
  * overestimate the space needed for an lquery_variant.  However, we can't
  * change it without breaking on-disk compatibility for lquery.
+ *
+ * 注意：这些宏包含太多 MAXALIGN 调用，因此有时会高估 lquery_variant 所需的空间。  但是，我们无法在不破坏 lquery 磁盘兼容性的情况下更改它。
  */
 #define LVAR_HDRSIZE   MAXALIGN(offsetof(lquery_variant, name))
 #define LVAR_NEXT(x)	( (lquery_variant*)( ((char*)(x)) + MAXALIGN(((lquery_variant*)(x))->len) + LVAR_HDRSIZE ) )
@@ -79,11 +91,15 @@ typedef struct
  * In an lquery_level, "flag" contains the union of the variants' flags
  * along with possible LQL_xxx flags; so those bit sets can't overlap.
  *
+ * 在 lquery_level 中，“flag”包含变体标志与可能的 LQL_xxx 标志的并集；所以这些位集不能重叠。
+ *
  * "low" and "high" are nominally the minimum and maximum number of matches.
  * However, for backwards compatibility with pre-v13 on-disk lqueries,
  * non-'*' levels (those with numvar > 0) only have valid low/high if the
  * LQL_COUNT flag is set; otherwise those fields are zero, but the behavior
  * is as if they were both 1.
+ *
+ * “低”和“高”名义上是最小和最大匹配数。但是，为了向后兼容 v13 之前的磁盘查询，非“*”级别（numvar > 0 的级别）仅在设置了 LQL_COUNT 标志时才具有有效的低/高；否则这些字段为零，但行为就好像它们都是 1。
  */
 typedef struct
 {
@@ -92,7 +108,10 @@ typedef struct
 	uint16		numvar;			/* number of variants; 0 means '*' */
 	uint16		low;			/* minimum repeat count */
 	uint16		high;			/* maximum repeat count */
-	/* Array of maxalign'd lquery_variant structs follows: */
+	/* Array of maxalign'd lquery_variant structs follows:
+	 *
+	 * maxalign'd lquery_variant 结构数组如下：
+	 */
 	char		variants[FLEXIBLE_ARRAY_MEMBER];
 } lquery_level;
 
@@ -116,7 +135,10 @@ typedef struct
 	uint16		numlevel;		/* number of lquery_levels */
 	uint16		firstgood;		/* number of leading simple-match levels */
 	uint16		flag;			/* see LQUERY_xxx flags below */
-	/* Array of maxalign'd lquery_level structs follows: */
+	/* Array of maxalign'd lquery_level structs follows:
+	 *
+	 * maxalign'd lquery_level 结构数组如下：
+	 */
 	char		data[FLEXIBLE_ARRAY_MEMBER];
 } lquery;
 
@@ -126,14 +148,22 @@ typedef struct
 
 #define LQUERY_HASNOT		0x01
 
-/* valid label chars are alphanumerics, underscores and hyphens */
+/* valid label chars are alphanumerics, underscores and hyphens
+ *
+ * 有效的标签字符是字母数字、下划线和连字符
+ */
 #define ISLABEL(x) ( t_isalnum_cstr(x) || t_iseq(x, '_') || t_iseq(x, '-') )
 
-/* full text query */
+/* full text query
+ *
+ * 全文查询
+ */
 
 /*
  * item in polish notation with back link
  * to left operand
+ *
+ * 采用波兰表示法的项目，带有指向左操作数的反向链接
  */
 typedef struct ITEM
 {
@@ -141,7 +171,10 @@ typedef struct ITEM
 	int16		left;
 	int32		val;
 	uint8		flag;
-	/* user-friendly value */
+	/* user-friendly value
+	 *
+	 * 用户友好的价值
+	 */
 	uint8		length;
 	uint16		distance;
 } ITEM;
@@ -149,6 +182,8 @@ typedef struct ITEM
 /*
  *Storage:
  *		(len)(size)(array of ITEM)(array of operand in user-friendly form)
+ *
+ * 存储：（len）（大小）（ITEM数组）（用户友好形式的操作数数组）
  */
 typedef struct
 {
@@ -178,7 +213,10 @@ typedef bool (*ltree_prefix_eq_func) (const char *, size_t, const char *, size_t
 #define VALFALSE				7
 
 
-/* use in array iterator */
+/* use in array iterator
+ *
+ * 在数组迭代器中使用
+ */
 PGDLLEXPORT Datum ltree_isparent(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum ltree_risparent(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum ltq_regex(PG_FUNCTION_ARGS);
@@ -196,12 +234,18 @@ PGDLLEXPORT Datum _ltxtq_rexec(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum _ltree_isparent(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum _ltree_risparent(PG_FUNCTION_ARGS);
 
-/* Concatenation functions */
+/* Concatenation functions
+ *
+ * 串联函数
+ */
 PGDLLEXPORT Datum ltree_addltree(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum ltree_addtext(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum ltree_textadd(PG_FUNCTION_ARGS);
 
-/* Util function */
+/* Util function
+ *
+ * 实用函数
+ */
 PGDLLEXPORT Datum ltree_in(PG_FUNCTION_ARGS);
 
 bool		ltree_execute(ITEM *curitem, void *checkval,
@@ -215,7 +259,10 @@ ltree	   *lca_inner(ltree **a, int len);
 bool		ltree_prefix_eq(const char *a, size_t a_sz, const char *b, size_t b_sz);
 bool		ltree_prefix_eq_ci(const char *a, size_t a_sz, const char *b, size_t b_sz);
 
-/* fmgr macros for ltree objects */
+/* fmgr macros for ltree objects
+ *
+ * ltree 对象的 fmgr 宏
+ */
 #define DatumGetLtreeP(X)			((ltree *) PG_DETOAST_DATUM(X))
 #define DatumGetLtreePCopy(X)		((ltree *) PG_DETOAST_DATUM_COPY(X))
 #define PG_GETARG_LTREE_P(n)		DatumGetLtreeP(PG_GETARG_DATUM(n))
@@ -231,7 +278,10 @@ bool		ltree_prefix_eq_ci(const char *a, size_t a_sz, const char *b, size_t b_sz)
 #define PG_GETARG_LTXTQUERY_P(n)		DatumGetLtxtqueryP(PG_GETARG_DATUM(n))
 #define PG_GETARG_LTXTQUERY_P_COPY(n)	DatumGetLtxtqueryPCopy(PG_GETARG_DATUM(n))
 
-/* GiST support for ltree */
+/* GiST support for ltree
+ *
+ * GiST 对 ltree 的支持
+ */
 
 #define BITBYTE 8
 #define SIGLENBIT(siglen) ((siglen) * BITBYTE)
@@ -264,6 +314,8 @@ typedef unsigned char *BITVECP;
  *				 (len)(flag)(sign)(left_ltree)(right_ltree)
  *		ALLTRUE: (len)(flag)(left_ltree)(right_ltree)
  *
+ * ltree 的索引键类型。树由 B 树和 R 树组合而成 存储：叶页 (len)(flag)(ltree) 非叶页 (len)(flag)(sign)(left_ltree)(right_ltree) ALLTRUE：(len)(flag)(left_ltree)(right_ltree)
+ *
  */
 
 typedef struct
@@ -293,7 +345,10 @@ typedef struct
 extern ltree_gist *ltree_gist_alloc(bool isalltrue, BITVECP sign, int siglen,
 									ltree *left, ltree *right);
 
-/* GiST support for ltree[] */
+/* GiST support for ltree[]
+ *
+ * GiST 对 ltree[] 的支持
+ */
 
 #define LTREE_ASIGLEN_DEFAULT	(7 * sizeof(int32))
 #define LTREE_ASIGLEN_MAX		GISTMaxIndexKeySize
@@ -308,13 +363,19 @@ extern ltree_gist *ltree_gist_alloc(bool isalltrue, BITVECP sign, int siglen,
 #define AHASHVAL(val, siglen) (((unsigned int)(val)) % ASIGLENBIT(siglen))
 #define AHASH(sign, val, siglen) SETBIT((sign), AHASHVAL(val, siglen))
 
-/* gist_ltree_ops and gist__ltree_ops opclass options */
+/* gist_ltree_ops and gist__ltree_ops opclass options
+ *
+ * gist_ltree_ops 和 gist__ltree_ops opclass 选项
+ */
 typedef struct
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int			siglen;			/* signature length in bytes */
 } LtreeGistOptions;
 
-/* type of key is the same to ltree_gist */
+/* type of key is the same to ltree_gist
+ *
+ * key 的类型与 ltree_gist 相同
+ */
 
 #endif

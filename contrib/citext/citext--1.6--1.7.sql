@@ -1,9 +1,13 @@
 /* contrib/citext/citext--1.6--1.7.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION citext UPDATE TO '1.7'" to load this file. \quit
 
 -- add function argument names
+--
+-- 添加函数参数名称
 CREATE OR REPLACE FUNCTION regexp_match(string citext, pattern citext) RETURNS TEXT[] AS $$
     SELECT pg_catalog.regexp_match( $1::pg_catalog.text, $2::pg_catalog.text, 'i' );
 $$ LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;

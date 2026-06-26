@@ -5,6 +5,8 @@
   This file contains routines that can be bound to a Postgres backend and
   called by the backend in the process of processing queries.  The calling
   format for these routines is dictated by Postgres architecture.
+ *
+ * 该文件包含可以绑定到 Postgres 后端并由后端在处理查询过程中调用的例程。  这些例程的调用格式由 Postgres 体系结构决定。
 ******************************************************************************/
 
 #include "postgres.h"
@@ -35,6 +37,8 @@ PG_MODULE_MAGIC_EXT(
 
 /*
  * Auxiliary data structure for picksplit method.
+ *
+ * picksplit方法的辅助数据结构。
  */
 typedef struct
 {
@@ -45,6 +49,8 @@ typedef struct
 
 /*
 ** Input/Output routines
+*
+* * 输入/输出例程
 */
 PG_FUNCTION_INFO_V1(seg_in);
 PG_FUNCTION_INFO_V1(seg_out);
@@ -55,6 +61,8 @@ PG_FUNCTION_INFO_V1(seg_center);
 
 /*
 ** GiST support methods
+*
+* * GiST支持方法
 */
 PG_FUNCTION_INFO_V1(gseg_consistent);
 PG_FUNCTION_INFO_V1(gseg_compress);
@@ -70,6 +78,8 @@ static Datum gseg_binary_union(Datum r1, Datum r2, int *sizep);
 
 /*
 ** R-tree support functions
+*
+* * R树支持函数
 */
 PG_FUNCTION_INFO_V1(seg_same);
 PG_FUNCTION_INFO_V1(seg_contains);
@@ -85,6 +95,8 @@ static void rt_seg_size(SEG *a, float *size);
 
 /*
 ** Various operators
+*
+* * 各种运营商
 */
 PG_FUNCTION_INFO_V1(seg_cmp);
 PG_FUNCTION_INFO_V1(seg_lt);
@@ -95,12 +107,16 @@ PG_FUNCTION_INFO_V1(seg_different);
 
 /*
 ** Auxiliary functions
+*
+* * 辅助功能
 */
 static int	restore(char *result, float val, int n);
 
 
 /*****************************************************************************
  * Input/Output functions
+ *
+ * 输入/输出功能
  *****************************************************************************/
 
 Datum
@@ -136,6 +152,8 @@ seg_out(PG_FUNCTION_ARGS)
 	{
 		/*
 		 * indicates that this interval was built by seg_in off a single point
+		 *
+		 * 表示该区间是由 seg_in 从单个点构建的
 		 */
 		p += restore(p, seg->lower, seg->l_sigd);
 	}
@@ -143,14 +161,20 @@ seg_out(PG_FUNCTION_ARGS)
 	{
 		if (seg->l_ext != '-')
 		{
-			/* print the lower boundary if exists */
+			/* print the lower boundary if exists
+			 *
+			 * 如果存在则打印下边界
+			 */
 			p += restore(p, seg->lower, seg->l_sigd);
 			p += sprintf(p, " ");
 		}
 		p += sprintf(p, "..");
 		if (seg->u_ext != '-')
 		{
-			/* print the upper boundary if exists */
+			/* print the upper boundary if exists
+			 *
+			 * 如果存在则打印上边界
+			 */
 			p += sprintf(p, " ");
 			if (seg->u_ext == '>' || seg->u_ext == '<' || seg->l_ext == '~')
 				p += sprintf(p, "%c", seg->u_ext);
@@ -188,6 +212,8 @@ seg_upper(PG_FUNCTION_ARGS)
 
 /*****************************************************************************
  *						   GiST functions
+ *
+ * GiST 函数
  *****************************************************************************/
 
 /*
@@ -195,6 +221,8 @@ seg_upper(PG_FUNCTION_ARGS)
 ** Should return false if for all data items x below entry,
 ** the predicate x op query == false, where op is the oper
 ** corresponding to strategy in the pg_amop table.
+*
+* * 段的 GiST 一致性方法 * 如果对于条目下面的所有数据项 x，则应返回 false， * 谓词 x op 查询 == false，其中 op 是与 pg_amop 表中的策略相对应的操作。
 */
 Datum
 gseg_consistent(PG_FUNCTION_ARGS)
@@ -203,15 +231,23 @@ gseg_consistent(PG_FUNCTION_ARGS)
 	Datum		query = PG_GETARG_DATUM(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	/*
 	 * if entry is not leaf, use gseg_internal_consistent, else use
 	 * gseg_leaf_consistent
+	 *
+	 * 如果条目不是叶子，则使用 gseg_internal_concient，否则使用 gseg_leaf_concient
 	 */
 	if (GIST_LEAF(entry))
 		return gseg_leaf_consistent(entry->key, query, strategy);
@@ -222,6 +258,8 @@ gseg_consistent(PG_FUNCTION_ARGS)
 /*
 ** The GiST Union method for segments
 ** returns the minimal bounding seg that encloses all the entries in entryvec
+*
+* * 段的 GiST Union 方法 * 返回包含 Entryvec 中所有条目的最小边界段
 */
 Datum
 gseg_union(PG_FUNCTION_ARGS)
@@ -253,6 +291,8 @@ gseg_union(PG_FUNCTION_ARGS)
 /*
 ** GiST Compress and Decompress methods for segments
 ** do not do anything.
+*
+* * 段的 GiST 压缩和解压缩方法 * 不执行任何操作。
 */
 Datum
 gseg_compress(PG_FUNCTION_ARGS)
@@ -269,6 +309,8 @@ gseg_decompress(PG_FUNCTION_ARGS)
 /*
 ** The GiST Penalty method for segments
 ** As in the R-tree paper, we use change in area as our penalty metric
+*
+* * 线段的 GiST 惩罚方法 * 与 R 树论文中一样，我们使用面积变化作为惩罚指标
 */
 Datum
 gseg_penalty(PG_FUNCTION_ARGS)
@@ -297,6 +339,8 @@ gseg_penalty(PG_FUNCTION_ARGS)
 
 /*
  * Compare function for gseg_picksplit_item: sort by center.
+ *
+ * gseg_picksplit_item 的比较函数：按中心排序。
  */
 static int
 gseg_picksplit_item_cmp(const void *a, const void *b)
@@ -315,9 +359,13 @@ gseg_picksplit_item_cmp(const void *a, const void *b)
 /*
  * The GiST PickSplit method for segments
  *
+ * 用于分段的 GiST PickSplit 方法
+ *
  * We used to use Guttman's split algorithm here, but since the data is 1-D
  * it's easier and more robust to just sort the segments by center-point and
  * split at the middle.
+ *
+ * 我们曾经在这里使用 Guttman 的分割算法，但由于数据是一维的，因此按中心点对段进行排序并在中间分割会更容易、更稳健。
  */
 Datum
 gseg_picksplit(PG_FUNCTION_ARGS)
@@ -338,18 +386,26 @@ gseg_picksplit(PG_FUNCTION_ARGS)
 	fprintf(stderr, "picksplit\n");
 #endif
 
-	/* Valid items in entryvec->vector[] are indexed 1..maxoff */
+	/* Valid items in entryvec->vector[] are indexed 1..maxoff
+	 *
+	 * Entryvec->vector[] 中的有效项索引为 1..maxoff
+	 */
 	maxoff = entryvec->n - 1;
 
 	/*
 	 * Prepare the auxiliary array and sort it.
+	 *
+	 * 准备辅助数组并排序。
 	 */
 	sort_items = (gseg_picksplit_item *)
 		palloc(maxoff * sizeof(gseg_picksplit_item));
 	for (i = 1; i <= maxoff; i++)
 	{
 		seg = DatumGetSegP(entryvec->vector[i].key);
-		/* center calculation is done this way to avoid possible overflow */
+		/* center calculation is done this way to avoid possible overflow
+		 *
+		 * 中心计算以这种方式完成以避免可能的溢出
+		 */
 		sort_items[i - 1].center = seg->lower * 0.5f + seg->upper * 0.5f;
 		sort_items[i - 1].index = i;
 		sort_items[i - 1].data = seg;
@@ -357,7 +413,10 @@ gseg_picksplit(PG_FUNCTION_ARGS)
 	qsort(sort_items, maxoff, sizeof(gseg_picksplit_item),
 		  gseg_picksplit_item_cmp);
 
-	/* sort items below "firstright" will go into the left side */
+	/* sort items below "firstright" will go into the left side
+	 *
+	 * 对“firstright”下方的项目进行排序将进入左侧
+	 */
 	firstright = maxoff / 2;
 
 	v->spl_left = (OffsetNumber *) palloc(maxoff * sizeof(OffsetNumber));
@@ -369,6 +428,8 @@ gseg_picksplit(PG_FUNCTION_ARGS)
 
 	/*
 	 * Emit segments to the left output page, and compute its bounding box.
+	 *
+	 * 将段发送到左侧输出页面，并计算其边界框。
 	 */
 	seg_l = (SEG *) palloc(sizeof(SEG));
 	memcpy(seg_l, sort_items[0].data, sizeof(SEG));
@@ -387,6 +448,8 @@ gseg_picksplit(PG_FUNCTION_ARGS)
 
 	/*
 	 * Likewise for the right page.
+	 *
+	 * 右页也是如此。
 	 */
 	seg_r = (SEG *) palloc(sizeof(SEG));
 	memcpy(seg_r, sort_items[firstright].data, sizeof(SEG));
@@ -411,6 +474,8 @@ gseg_picksplit(PG_FUNCTION_ARGS)
 
 /*
 ** Equality methods
+*
+* * 平等方法
 */
 Datum
 gseg_same(PG_FUNCTION_ARGS)
@@ -431,6 +496,8 @@ gseg_same(PG_FUNCTION_ARGS)
 
 /*
 ** SUPPORT ROUTINES
+*
+* * 支持例程
 */
 static Datum
 gseg_leaf_consistent(Datum key, Datum query, StrategyNumber strategy)
@@ -557,6 +624,8 @@ seg_contained(PG_FUNCTION_ARGS)
 
 /*****************************************************************************
  * Operator class for R-tree indexing
+ *
+ * R 树索引的运算符类
  *****************************************************************************/
 
 Datum
@@ -634,7 +703,10 @@ seg_union(PG_FUNCTION_ARGS)
 
 	n = (SEG *) palloc(sizeof(*n));
 
-	/* take max of upper endpoints */
+	/* take max of upper endpoints
+	 *
+	 * 取上端点的最大值
+	 */
 	if (a->upper > b->upper)
 	{
 		n->upper = a->upper;
@@ -648,7 +720,10 @@ seg_union(PG_FUNCTION_ARGS)
 		n->u_ext = b->u_ext;
 	}
 
-	/* take min of lower endpoints */
+	/* take min of lower endpoints
+	 *
+	 * 取下端点的最小值
+	 */
 	if (a->lower < b->lower)
 	{
 		n->lower = a->lower;
@@ -674,7 +749,10 @@ seg_inter(PG_FUNCTION_ARGS)
 
 	n = (SEG *) palloc(sizeof(*n));
 
-	/* take min of upper endpoints */
+	/* take min of upper endpoints
+	 *
+	 * 取上端点的最小值
+	 */
 	if (a->upper < b->upper)
 	{
 		n->upper = a->upper;
@@ -688,7 +766,10 @@ seg_inter(PG_FUNCTION_ARGS)
 		n->u_ext = b->u_ext;
 	}
 
-	/* take max of lower endpoints */
+	/* take max of lower endpoints
+	 *
+	 * 取下端点的最大值
+	 */
 	if (a->lower > b->lower)
 	{
 		n->lower = a->lower;
@@ -725,6 +806,8 @@ seg_size(PG_FUNCTION_ARGS)
 
 /*****************************************************************************
  *				   Miscellaneous operators
+ *
+ * 杂项运算符
  *****************************************************************************/
 Datum
 seg_cmp(PG_FUNCTION_ARGS)
@@ -734,6 +817,8 @@ seg_cmp(PG_FUNCTION_ARGS)
 
 	/*
 	 * First compare on lower boundary position
+	 *
+	 * 首先比较下边界位置
 	 */
 	if (a->lower < b->lower)
 		PG_RETURN_INT32(-1);
@@ -743,9 +828,13 @@ seg_cmp(PG_FUNCTION_ARGS)
 	/*
 	 * a->lower == b->lower, so consider type of boundary.
 	 *
+	 * a->lower == b->lower，所以要考虑边界的类型。
+	 *
 	 * A '-' lower bound is < any other kind (this could only be relevant if
 	 * -HUGE_VAL is used as a regular data value). A '<' lower bound is < any
 	 * other kind except '-'. A '>' lower bound is > any other kind.
+	 *
+	 * “-”下限小于任何其他类型（仅当 -HUGE_VAL 用作常规数据值时才相关）。 '<' 下限是 < 除 '-' 之外的任何其他类型。 “>”下界是 > 任何其他类型。
 	 */
 	if (a->l_ext != b->l_ext)
 	{
@@ -765,6 +854,8 @@ seg_cmp(PG_FUNCTION_ARGS)
 
 	/*
 	 * For other boundary types, consider # of significant digits first.
+	 *
+	 * 对于其他边界类型，首先考虑有效数字的数量。
 	 */
 	if (a->l_sigd < b->l_sigd)	/* (a) is blurred and is likely to include (b) */
 		PG_RETURN_INT32(-1);
@@ -775,6 +866,8 @@ seg_cmp(PG_FUNCTION_ARGS)
 	/*
 	 * For same # of digits, an approximate boundary is more blurred than
 	 * exact.
+	 *
+	 * 对于相同的位数，近似边界比精确边界更模糊。
 	 */
 	if (a->l_ext != b->l_ext)
 	{
@@ -782,15 +875,23 @@ seg_cmp(PG_FUNCTION_ARGS)
 			PG_RETURN_INT32(-1);
 		if (b->l_ext == '~')
 			PG_RETURN_INT32(1);
-		/* can't get here unless data is corrupt */
+		/* can't get here unless data is corrupt
+		 *
+		 * 除非数据损坏否则无法到达此处
+		 */
 		elog(ERROR, "bogus lower boundary types %d %d",
 			 (int) a->l_ext, (int) b->l_ext);
 	}
 
-	/* at this point, the lower boundaries are identical */
+	/* at this point, the lower boundaries are identical
+	 *
+	 * 此时，下边界是相同的
+	 */
 
 	/*
 	 * First compare on upper boundary position
+	 *
+	 * 首先比较上边界位置
 	 */
 	if (a->upper < b->upper)
 		PG_RETURN_INT32(-1);
@@ -800,9 +901,13 @@ seg_cmp(PG_FUNCTION_ARGS)
 	/*
 	 * a->upper == b->upper, so consider type of boundary.
 	 *
+	 * a->upper == b->upper，所以要考虑边界的类型。
+	 *
 	 * A '-' upper bound is > any other kind (this could only be relevant if
 	 * HUGE_VAL is used as a regular data value). A '<' upper bound is < any
 	 * other kind. A '>' upper bound is > any other kind except '-'.
+	 *
+	 * “-”上限是 > 任何其他类型（这仅在 HUGE_VAL 用作常规数据值时才相关）。 '<' 上限是 < 任何其他类型。 “>”上限是除“-”之外的任何其他类型。
 	 */
 	if (a->u_ext != b->u_ext)
 	{
@@ -823,6 +928,8 @@ seg_cmp(PG_FUNCTION_ARGS)
 	/*
 	 * For other boundary types, consider # of significant digits first. Note
 	 * result here is converse of the lower-boundary case.
+	 *
+	 * 对于其他边界类型，首先考虑有效数字的数量。注意这里的结果与下边界情况相反。
 	 */
 	if (a->u_sigd < b->u_sigd)	/* (a) is blurred and is likely to include (b) */
 		PG_RETURN_INT32(1);
@@ -833,6 +940,8 @@ seg_cmp(PG_FUNCTION_ARGS)
 	/*
 	 * For same # of digits, an approximate boundary is more blurred than
 	 * exact.  Again, result is converse of lower-boundary case.
+	 *
+	 * 对于相同的位数，近似边界比精确边界更模糊。  同样，结果与下边界情况相反。
 	 */
 	if (a->u_ext != b->u_ext)
 	{
@@ -840,7 +949,10 @@ seg_cmp(PG_FUNCTION_ARGS)
 			PG_RETURN_INT32(1);
 		if (b->u_ext == '~')
 			PG_RETURN_INT32(-1);
-		/* can't get here unless data is corrupt */
+		/* can't get here unless data is corrupt
+		 *
+		 * 除非数据损坏否则无法到达此处
+		 */
 		elog(ERROR, "bogus upper boundary types %d %d",
 			 (int) a->u_ext, (int) b->u_ext);
 	}
@@ -903,6 +1015,8 @@ seg_different(PG_FUNCTION_ARGS)
 
 /*****************************************************************************
  *				   Auxiliary functions
+ *
+ * 辅助功能
  *****************************************************************************/
 
 /*
@@ -911,8 +1025,12 @@ seg_different(PG_FUNCTION_ARGS)
  * is similar to %.ng except it prints 8.00 where %.ng would
  * print 8.  Returns the length of the string written at "result".
  *
+ * 该例程的目的是打印给定的浮点值，其中恰好有 n 个有效数字。  它的行为与 %.ng 类似，只是它打印 8.00，而 %.ng 将打印 8。返回写入“结果”的字符串的长度。
+ *
  * Caller must provide a sufficiently large result buffer; 16 bytes
  * should be enough for all known float implementations.
+ *
+ * 调用者必须提供足够大的结果缓冲区； 16 个字节对于所有已知的浮点实现来说应该足够了。
  */
 static int
 restore(char *result, float val, int n)
@@ -934,29 +1052,46 @@ restore(char *result, float val, int n)
 	 * Put a cap on the number of significant digits to avoid garbage in the
 	 * output and ensure we don't overrun the result buffer.  (n should not be
 	 * negative, but check to protect ourselves against corrupted data.)
+	 *
+	 * 对有效数字的数量设置上限，以避免输出中出现垃圾，并确保我们不会溢出结果缓冲区。  （n 不应为负数，但应进行检查以保护我们免受数据损坏。）
 	 */
 	if (n <= 0)
 		n = FLT_DIG;
 	else
 		n = Min(n, FLT_DIG);
 
-	/* remember the sign */
+	/* remember the sign
+	 *
+	 * 记住标志
+	 */
 	sign = (val < 0 ? 1 : 0);
 
-	/* print, in %e style to start with */
+	/* print, in %e style to start with
+	 *
+	 * 打印，以 %e 样式开始
+	 */
 	sprintf(result, "%.*e", n - 1, val);
 
-	/* find the exponent */
+	/* find the exponent
+	 *
+	 * 找到指数
+	 */
 	p = strchr(result, 'e');
 
-	/* punt if we have 'inf' or similar */
+	/* punt if we have 'inf' or similar
+	 *
+	 * 如果我们有“inf”或类似的，则弃踢
+	 */
 	if (p == NULL)
 		return strlen(result);
 
 	exp = atoi(p + 1);
 	if (exp == 0)
 	{
-		/* just truncate off the 'e+00' */
+		/* just truncate off the 'e+00'
+		 *
+		 * 只是截断“e+00”
+		 */
 		*p = '\0';
 	}
 	else
@@ -966,6 +1101,8 @@ restore(char *result, float val, int n)
 			/*
 			 * remove the decimal point from the mantissa and write the digits
 			 * to the buf array
+			 *
+			 * 去掉尾数小数点，将数字写入buf数组
 			 */
 			for (p = result + sign, i = 10, dp = 0; *p != 'e'; p++, i++)
 			{
@@ -987,11 +1124,16 @@ restore(char *result, float val, int n)
 					 * the decimal point is behind the last significant digit;
 					 * the digits in between must be converted to the exponent
 					 * and the decimal point placed after the first digit
+					 *
+					 * 小数点位于最后一位有效数字后面；中间的数字必须转换为指数，小数点放在第一位数字之后
 					 */
 					exp = dp - 10 + exp - n;
 					buf[10 + n] = '\0';
 
-					/* insert the decimal point */
+					/* insert the decimal point
+					 *
+					 * 插入小数点
+					 */
 					if (n > 1)
 					{
 						dp = 11;
@@ -1003,6 +1145,8 @@ restore(char *result, float val, int n)
 					/*
 					 * adjust the exponent by the number of digits after the
 					 * decimal point
+					 *
+					 * 按小数点后的位数调整指数
 					 */
 					if (n > 1)
 						sprintf(&buf[11 + n], "e%d", exp + n - 1);
@@ -1048,10 +1192,19 @@ restore(char *result, float val, int n)
 			}
 		}
 
-		/* do nothing for abs(exp) > 4; %e must be OK */
-		/* just get rid of zeroes after [eE]- and +zeroes after [Ee]. */
+		/* do nothing for abs(exp) > 4; %e must be OK
+		 *
+		 * 对于 abs(exp) > 4 不执行任何操作； %e 一定没问题
+		 */
+		/* just get rid of zeroes after [eE]- and +zeroes after [Ee].
+		 *
+		 * 只需去掉 [eE]- 后面的零和 [Ee] 后面的 + 零即可。
+		 */
 
-		/* ... this is not done yet. */
+		/* ... this is not done yet.
+		 *
+		 * ...这还没有完成。
+		 */
 	}
 	return strlen(result);
 }
@@ -1059,10 +1212,14 @@ restore(char *result, float val, int n)
 
 /*
 ** Miscellany
+*
+* * 杂项
 */
 
 /* find out the number of significant digits in a string representing
  * a floating point number
+ *
+ * 浮点数
  */
 int
 significant_digits(const char *s)
@@ -1073,17 +1230,26 @@ significant_digits(const char *s)
 				zeroes;
 
 	zeroes = 1;
-	/* skip leading zeroes and sign */
+	/* skip leading zeroes and sign
+	 *
+	 * 跳过前导零和符号
+	 */
 	for (c = *p; (c == '0' || c == '+' || c == '-') && c != 0; c = *(++p));
 
-	/* skip decimal point and following zeroes */
+	/* skip decimal point and following zeroes
+	 *
+	 * 跳过小数点和后面的零
+	 */
 	for (c = *p; (c == '0' || c == '.') && c != 0; c = *(++p))
 	{
 		if (c != '.')
 			zeroes++;
 	}
 
-	/* count significant digits (n) */
+	/* count significant digits (n)
+	 *
+	 * 计算有效数字 (n)
+	 */
 	for (c = *p, n = 0; c != 0; c = *(++p))
 	{
 		if (!((c >= '0' && c <= '9') || (c == '.')))

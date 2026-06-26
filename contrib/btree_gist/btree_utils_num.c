@@ -102,6 +102,8 @@ gbt_num_compress(GISTENTRY *entry, const gbtree_ninfo *tinfo)
 /*
  * Convert a compressed leaf item back to the original type, for index-only
  * scans.
+ *
+ * 将压缩的叶项转换回原始类型，以进行仅索引扫描。
  */
 GISTENTRY *
 gbt_num_fetch(GISTENTRY *entry, const gbtree_ninfo *tinfo)
@@ -115,6 +117,8 @@ gbt_num_fetch(GISTENTRY *entry, const gbtree_ninfo *tinfo)
 	 * Get the original Datum from the stored datum. On leaf entries, the
 	 * lower and upper bound are the same. We just grab the lower bound and
 	 * return it.
+	 *
+	 * 从存储的数据中获取原始数据。在叶条目上，下限和上限相同。我们只需抓住下界并返回它。
 	 */
 	switch (tinfo->t)
 	{
@@ -166,6 +170,8 @@ gbt_num_fetch(GISTENTRY *entry, const gbtree_ninfo *tinfo)
 
 /*
 ** The GiST union method for numerical values
+*
+* * 数值的 GiST 联合方法
 */
 
 void *
@@ -191,10 +197,16 @@ gbt_num_union(GBT_NUMKEY *out, const GistEntryVector *entryvec, const gbtree_nin
 		cur = (GBT_NUMKEY *) DatumGetPointer((entryvec->vector[i].key));
 		c.lower = &cur[0];
 		c.upper = &cur[tinfo->size];
-		/* if out->lower > cur->lower, adopt cur as lower */
+		/* if out->lower > cur->lower, adopt cur as lower
+		 *
+		 * 如果 out->lower > cur->lower，则采用 cur 作为 lower
+		 */
 		if (tinfo->f_gt(o.lower, c.lower, flinfo))
 			memcpy(unconstify(GBT_NUMKEY *, o.lower), c.lower, tinfo->size);
-		/* if out->upper < cur->upper, adopt cur as upper */
+		/* if out->upper < cur->upper, adopt cur as upper
+		 *
+		 * 如果 out->upper < cur->upper，则采用 cur 作为上层
+		 */
 		if (tinfo->f_lt(o.upper, c.upper, flinfo))
 			memcpy(unconstify(GBT_NUMKEY *, o.upper), c.upper, tinfo->size);
 	}
@@ -206,6 +218,8 @@ gbt_num_union(GBT_NUMKEY *out, const GistEntryVector *entryvec, const gbtree_nin
 
 /*
 ** The GiST same method for numerical values
+*
+* * GiST 数值方法相同
 */
 
 bool
@@ -256,8 +270,12 @@ gbt_num_bin_union(Datum *u, GBT_NUMKEY *e, const gbtree_ninfo *tinfo, FmgrInfo *
 /*
  * The GiST consistent method
  *
+ * GiST一致方法
+ *
  * Note: we currently assume that no datatypes that use this routine are
  * collation-aware; so we don't bother passing collation through.
+ *
+ * 注意：我们当前假设使用此例程的数据类型均不支持排序规则；所以我们不用费心去传递校对。
  */
 bool
 gbt_num_consistent(const GBT_NUMKEY_R *key,
@@ -310,6 +328,8 @@ gbt_num_consistent(const GBT_NUMKEY_R *key,
 
 /*
 ** The GiST distance method (for KNN-Gist)
+*
+* * GiST距离方法（对于KNN-Gist）
 */
 
 float8
@@ -353,7 +373,10 @@ gbt_num_picksplit(const GistEntryVector *entryvec, GIST_SPLITVEC *v,
 	v->spl_nleft = 0;
 	v->spl_nright = 0;
 
-	/* Sort entries */
+	/* Sort entries
+	 *
+	 * 对条目进行排序
+	 */
 
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 	{
@@ -362,7 +385,10 @@ gbt_num_picksplit(const GistEntryVector *entryvec, GIST_SPLITVEC *v,
 	}
 	qsort_arg(&arr[FirstOffsetNumber], maxoff - FirstOffsetNumber + 1, sizeof(Nsrt), (qsort_arg_comparator) tinfo->f_cmp, flinfo);
 
-	/* We do simply create two parts */
+	/* We do simply create two parts
+	 *
+	 * 我们只是简单地创建两个部分
+	 */
 
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 	{

@@ -2,6 +2,8 @@
 /*
  * A scanner for EMP-style numeric ranges
  * contrib/cube/cubescan.l
+ *
+ * EMP 风格数字范围扫描仪 contrib/cube/cubescan.l
  */
 
 #include "postgres.h"
@@ -13,10 +15,16 @@
 %{
 /* LCOV_EXCL_START */
 
-/* No reason to constrain amount of data slurped */
+/* No reason to constrain amount of data slurped
+ *
+ * 没有理由限制窃取的数据量
+ */
 #define YY_READ_BUF_SIZE 16777216
 
-/* Avoid exit() on fatal scanner errors (a bit ugly -- see yy_fatal_error) */
+/* Avoid exit() on fatal scanner errors (a bit ugly -- see yy_fatal_error)
+ *
+ * 避免在致命扫描仪错误时使用 exit() （有点难看 - 请参阅 yy_fatal_error）
+ */
 #undef fprintf
 #define fprintf(file, fmt, msg)  fprintf_to_ereport(fmt, msg)
 
@@ -66,7 +74,10 @@ NaN          [nN][aA][nN]
 
 /* LCOV_EXCL_STOP */
 
-/* result and scanbuflen are not used, but Bison expects this signature */
+/* result and scanbuflen are not used, but Bison expects this signature
+ *
+ * 未使用 result 和 scanbuflen，但 Bison 期望此签名
+ */
 void
 cube_yyerror(NDBOX **result, Size scanbuflen,
 			 struct Node *escontext,
@@ -81,7 +92,10 @@ cube_yyerror(NDBOX **result, Size scanbuflen,
 		errsave(escontext,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for cube"),
-		/* translator: %s is typically "syntax error" */
+		/* translator: %s is typically "syntax error"
+		 *
+		 * 译者：%s 通常是“语法错误”
+		 */
 				 errdetail("%s at end of input", message)));
 	}
 	else
@@ -89,7 +103,10 @@ cube_yyerror(NDBOX **result, Size scanbuflen,
 		errsave(escontext,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for cube"),
-		/* translator: first %s is typically "syntax error" */
+		/* translator: first %s is typically "syntax error"
+		 *
+		 * 译者：第一个 %s 通常是“语法错误”
+		 */
 				 errdetail("%s at or near \"%s\"", message, yytext)));
 	}
 }
@@ -97,6 +114,8 @@ cube_yyerror(NDBOX **result, Size scanbuflen,
 
 /*
  * Called before any actual parsing is done
+ *
+ * 在完成任何实际解析之前调用
  */
 void
 cube_scanner_init(const char *str, Size *scanbuflen, yyscan_t *yyscannerp)
@@ -116,6 +135,8 @@ cube_scanner_init(const char *str, Size *scanbuflen, yyscan_t *yyscannerp)
 
 /*
  * Called after parsing is done to clean up after cube_scanner_init()
+ *
+ * 解析完成后调用以在cube_scanner_init()之后进行清理
  */
 void
 cube_scanner_finish(yyscan_t yyscanner)
@@ -126,6 +147,8 @@ cube_scanner_finish(yyscan_t yyscanner)
 /*
  * Interface functions to make flex use palloc() instead of malloc().
  * It'd be better to make these static, but flex insists otherwise.
+ *
+ * 使 flex 使用 palloc() 而不是 malloc() 的接口函数。最好将这些设置为静态，但 Flex 坚持不这样做。
  */
 
 void *

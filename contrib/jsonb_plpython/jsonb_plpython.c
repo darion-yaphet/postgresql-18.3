@@ -12,7 +12,10 @@ PG_MODULE_MAGIC_EXT(
 					.version = PG_VERSION
 );
 
-/* for PLyObject_AsString in plpy_typeio.c */
+/* for PLyObject_AsString in plpy_typeio.c
+ *
+ * 对于 plpy_typeio.c 中的 PLyObject_AsString
+ */
 typedef char *(*PLyObject_AsString_t) (PyObject *plrv);
 static PLyObject_AsString_t PLyObject_AsString_p;
 
@@ -22,6 +25,8 @@ static PLy_elog_impl_t PLy_elog_impl_p;
 /*
  * decimal_constructor is a function from python library and used
  * for transforming strings into python decimal type
+ *
+ * decimal_constructor是python库中的一个函数，用于将字符串转换为python十进制类型
  */
 static PyObject *decimal_constructor;
 
@@ -35,11 +40,16 @@ static PLyUnicode_FromStringAndSize_t PLyUnicode_FromStringAndSize_p;
 
 /*
  * Module initialize function: fetch function pointers for cross-module calls.
+ *
+ * 模块初始化函数：获取跨模块调用的函数指针。
  */
 void
 _PG_init(void)
 {
-	/* Asserts verify that typedefs above match original declarations */
+	/* Asserts verify that typedefs above match original declarations
+	 *
+	 * 断言验证上面的 typedef 是否与原始声明匹配
+	 */
 	AssertVariableIsOfType(&PLyObject_AsString, PLyObject_AsString_t);
 	PLyObject_AsString_p = (PLyObject_AsString_t)
 		load_external_function("$libdir/" PLPYTHON_LIBNAME, "PLyObject_AsString",
@@ -54,7 +64,10 @@ _PG_init(void)
 							   true, NULL);
 }
 
-/* These defines must be after the _PG_init */
+/* These defines must be after the _PG_init
+ *
+ * 这些定义必须在 _PG_init 之后
+ */
 #define PLyObject_AsString (PLyObject_AsString_p)
 #define PLyUnicode_FromStringAndSize (PLyUnicode_FromStringAndSize_p)
 #undef PLy_elog
@@ -64,6 +77,8 @@ _PG_init(void)
  * PLyUnicode_FromJsonbValue
  *
  * Transform string JsonbValue to Python string.
+ *
+ * 将字符串 JsonbValue 转换为 Python 字符串。
  */
 static PyObject *
 PLyUnicode_FromJsonbValue(JsonbValue *jbv)
@@ -77,6 +92,8 @@ PLyUnicode_FromJsonbValue(JsonbValue *jbv)
  * PLyUnicode_ToJsonbValue
  *
  * Transform Python string to JsonbValue.
+ *
+ * 将 Python 字符串转换为 JsonbValue。
  */
 static void
 PLyUnicode_ToJsonbValue(PyObject *obj, JsonbValue *jbvElem)
@@ -90,6 +107,8 @@ PLyUnicode_ToJsonbValue(PyObject *obj, JsonbValue *jbvElem)
  * PLyObject_FromJsonbValue
  *
  * Transform JsonbValue to PyObject.
+ *
+ * 将 JsonbValue 转换为 PyObject。
  */
 static PyObject *
 PLyObject_FromJsonbValue(JsonbValue *jsonbValue)
@@ -132,6 +151,8 @@ PLyObject_FromJsonbValue(JsonbValue *jsonbValue)
  * PLyObject_FromJsonbContainer
  *
  * Transform JsonbContainer to PyObject.
+ *
+ * 将 JsonbContainer 转换为 PyObject。
  */
 static PyObject *
 PLyObject_FromJsonbContainer(JsonbContainer *jsonb)
@@ -260,6 +281,8 @@ PLyObject_FromJsonbContainer(JsonbContainer *jsonb)
  * PLyMapping_ToJsonbValue
  *
  * Transform Python dict to JsonbValue.
+ *
+ * 将 Python 字典转换为 JsonbValue。
  */
 static JsonbValue *
 PLyMapping_ToJsonbValue(PyObject *obj, JsonbParseState **jsonb_state)
@@ -284,7 +307,10 @@ PLyMapping_ToJsonbValue(PyObject *obj, JsonbParseState **jsonb_state)
 			PyObject   *key = PyTuple_GetItem(item, 0);
 			PyObject   *value = PyTuple_GetItem(item, 1);
 
-			/* Python dictionary can have None as key */
+			/* Python dictionary can have None as key
+			 *
+			 * Python 字典可以有 None 作为键
+			 */
 			if (key == Py_None)
 			{
 				jbvKey.type = jbvString;
@@ -293,7 +319,10 @@ PLyMapping_ToJsonbValue(PyObject *obj, JsonbParseState **jsonb_state)
 			}
 			else
 			{
-				/* All others types of keys we serialize to string */
+				/* All others types of keys we serialize to string
+				 *
+				 * 我们将所有其他类型的键序列化为字符串
+				 */
 				PLyUnicode_ToJsonbValue(key, &jbvKey);
 			}
 
@@ -317,6 +346,8 @@ PLyMapping_ToJsonbValue(PyObject *obj, JsonbParseState **jsonb_state)
  *
  * Transform python list to JsonbValue. Expects transformed PyObject and
  * a state required for jsonb construction.
+ *
+ * 将 python 列表转换为 JsonbValue。需要转换后的 PyObject 和 jsonb 构造所需的状态。
  */
 static JsonbValue *
 PLySequence_ToJsonbValue(PyObject *obj, JsonbParseState **jsonb_state)
@@ -354,7 +385,11 @@ PLySequence_ToJsonbValue(PyObject *obj, JsonbParseState **jsonb_state)
 /*
  * PLyNumber_ToJsonbValue(PyObject *obj)
  *
+ * PLyNumber_ToJsonbValue(PyObject *obj)
+ *
  * Transform python number to JsonbValue.
+ *
+ * 将 python 数字转换为 JsonbValue。
  */
 static JsonbValue *
 PLyNumber_ToJsonbValue(PyObject *obj, JsonbValue *jbvNum)
@@ -385,6 +420,8 @@ PLyNumber_ToJsonbValue(PyObject *obj, JsonbValue *jbvNum)
 	/*
 	 * jsonb doesn't allow NaN or infinity (per JSON specification), so we
 	 * have to reject those here explicitly.
+	 *
+	 * jsonb 不允许 NaN 或无穷大（根据 JSON 规范），因此我们必须明确拒绝这些。
 	 */
 	if (numeric_is_nan(num))
 		ereport(ERROR,
@@ -404,7 +441,11 @@ PLyNumber_ToJsonbValue(PyObject *obj, JsonbValue *jbvNum)
 /*
  * PLyObject_ToJsonbValue(PyObject *obj)
  *
+ * PLyObject_ToJsonbValue(PyObject *obj)
+ *
  * Transform python object to JsonbValue.
+ *
+ * 将 python 对象转换为 JsonbValue。
  */
 static JsonbValue *
 PLyObject_ToJsonbValue(PyObject *obj, JsonbParseState **jsonb_state, bool is_elem)
@@ -429,6 +470,8 @@ PLyObject_ToJsonbValue(PyObject *obj, JsonbParseState **jsonb_state, bool is_ele
 	/*
 	 * PyNumber_Check() returns true for booleans, so boolean check should
 	 * come first.
+	 *
+	 * PyNumber_Check() 对于布尔值返回 true，因此布尔检查应该首先进行。
 	 */
 	else if (PyBool_Check(obj))
 	{
@@ -443,7 +486,10 @@ PLyObject_ToJsonbValue(PyObject *obj, JsonbParseState **jsonb_state, bool is_ele
 				 errmsg("Python type \"%s\" cannot be transformed to jsonb",
 						PLyObject_AsString((PyObject *) obj->ob_type))));
 
-	/* Push result into 'jsonb_state' unless it is raw scalar value. */
+	/* Push result into 'jsonb_state' unless it is raw scalar value.
+	 *
+	 * 将结果推入“jsonb_state”，除非它是原始标量值。
+	 */
 	return (*jsonb_state ?
 			pushJsonbValue(jsonb_state, is_elem ? WJB_ELEM : WJB_VALUE, out) :
 			out);
@@ -453,6 +499,8 @@ PLyObject_ToJsonbValue(PyObject *obj, JsonbParseState **jsonb_state, bool is_ele
  * plpython_to_jsonb
  *
  * Transform python object to Jsonb datum
+ *
+ * 将 python 对象转换为 Jsonb 数据
  */
 PG_FUNCTION_INFO_V1(plpython_to_jsonb);
 Datum
@@ -471,6 +519,8 @@ plpython_to_jsonb(PG_FUNCTION_ARGS)
  * jsonb_to_plpython
  *
  * Transform Jsonb datum to PyObject and return it as internal.
+ *
+ * 将 Jsonb 数据转换为 PyObject 并将其作为内部返回。
  */
 PG_FUNCTION_INFO_V1(jsonb_to_plpython);
 Datum
@@ -483,6 +533,8 @@ jsonb_to_plpython(PG_FUNCTION_ARGS)
 	 * Initialize pointer to Decimal constructor. First we try "cdecimal", C
 	 * version of decimal library. In case of failure we use slower "decimal"
 	 * module.
+	 *
+	 * 初始化指向 Decimal 构造函数的指针。首先我们尝试“cdecimal”，C 版本的十进制库。如果出现故障，我们使用较慢的“十进制”模块。
 	 */
 	if (!decimal_constructor)
 	{

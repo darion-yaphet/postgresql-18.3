@@ -11,14 +11,20 @@
 #include "hstore.h"
 #include "utils/pg_crc.h"
 
-/* gist_hstore_ops opclass options */
+/* gist_hstore_ops opclass options
+ *
+ * gist_hstore_ops opclass 选项
+ */
 typedef struct
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int			siglen;			/* signature length in bytes */
 } GistHstoreOptions;
 
-/* bigint defines */
+/* bigint defines
+ *
+ * bigint 定义
+ */
 #define BITBYTE 8
 #define SIGLEN_DEFAULT	(sizeof(int32) * 4)
 #define SIGLEN_MAX		GISTMaxIndexKeySize
@@ -36,7 +42,10 @@ typedef char *BITVECP;
 #define LOOPBIT(siglen) \
 			for (i = 0; i < SIGLENBIT(siglen); i++)
 
-/* beware of multiple evaluation of arguments to these macros! */
+/* beware of multiple evaluation of arguments to these macros!
+ *
+ * 当心这些宏参数的多次求值！
+ */
 #define GETBYTE(x,i) ( *( (BITVECP)(x) + (int)( (i) / BITBYTE ) ) )
 #define GETBITBYTE(x,i) ( (*((char*)(x)) >> (i)) & 0x01 )
 #define CLRBIT(x,i)   GETBYTE(x,i) &= ~( 0x01 << ( (i) % BITBYTE ) )
@@ -76,7 +85,10 @@ typedef struct
 
 #define WISH_F(a,b,c) (double)( -(double)(((a)-(b))*((a)-(b))*((a)-(b)))*(c) )
 
-/* shorthand for calculating CRC-32 of a single chunk of data. */
+/* shorthand for calculating CRC-32 of a single chunk of data.
+ *
+ * 计算单个数据块的 CRC-32 的简写。
+ */
 static pg_crc32
 crc32_sz(const char *buf, int size)
 {
@@ -208,6 +220,8 @@ ghstore_compress(PG_FUNCTION_ARGS)
 /*
  * Since type ghstore isn't toastable (and doesn't need to be),
  * this function can be a no-op.
+ *
+ * 由于 ghstore 类型不可烘烤（也不需要），因此该函数可以是无操作。
  */
 Datum
 ghstore_decompress(PG_FUNCTION_ARGS)
@@ -421,14 +435,20 @@ ghstore_picksplit(PG_FUNCTION_ARGS)
 		seed_2 = 2;
 	}
 
-	/* form initial .. */
+	/* form initial ..
+	 *
+	 * 形成初始..
+	 */
 	datum_l = ghstore_alloc(ISALLTRUE(GETENTRY(entryvec, seed_1)), siglen,
 							GETSIGN(GETENTRY(entryvec, seed_1)));
 	datum_r = ghstore_alloc(ISALLTRUE(GETENTRY(entryvec, seed_2)), siglen,
 							GETSIGN(GETENTRY(entryvec, seed_2)));
 
 	maxoff = OffsetNumberNext(maxoff);
-	/* sort before ... */
+	/* sort before ...
+	 *
+	 * 排序在...之前
+	 */
 	costvector = (SPLITCOST *) palloc(sizeof(SPLITCOST) * maxoff);
 	for (j = FirstOffsetNumber; j <= maxoff; j = OffsetNumberNext(j))
 	{
@@ -511,13 +531,19 @@ ghstore_consistent(PG_FUNCTION_ARGS)
 	GISTTYPE   *entry = (GISTTYPE *) DatumGetPointer(((GISTENTRY *) PG_GETARG_POINTER(0))->key);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	int			siglen = GET_SIGLEN();
 	bool		res = true;
 	BITVECP		sign;
 
-	/* All cases served by this function are inexact */
+	/* All cases served by this function are inexact
+	 *
+	 * 该函数提供的所有案例都是不准确的
+	 */
 	*recheck = true;
 
 	if (ISALLTRUE(entry))

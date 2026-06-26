@@ -83,19 +83,31 @@ SELECT * FROM hash_page_items(get_raw_page('test_hash_a_idx', 4));
 SELECT * FROM hash_page_items(get_raw_page('test_hash_a_idx', 5));
 
 -- Failure with non-hash index
+--
+-- 非哈希索引失败
 CREATE INDEX test_hash_a_btree ON test_hash USING btree (a);
 SELECT hash_bitmap_info('test_hash_a_btree', 0);
 
 -- Failure with various modes.
+--
+-- 各种模式失败。
 -- Suppress the DETAIL message, to allow the tests to work across various
+--
+-- 抑制 DETAIL 消息，以允许测试在不同的环境中工作
 -- page sizes and architectures.
+--
+-- 页面大小和体系结构。
 \set VERBOSITY terse
 -- invalid page size
+--
+-- 页面大小无效
 SELECT hash_metapage_info('aaa'::bytea);
 SELECT hash_page_items('bbb'::bytea);
 SELECT hash_page_stats('ccc'::bytea);
 SELECT hash_page_type('ddd'::bytea);
 -- invalid special area size
+--
+-- 无效的特殊区域大小
 SELECT hash_metapage_info(get_raw_page('test_hash', 0));
 SELECT hash_page_items(get_raw_page('test_hash', 0));
 SELECT hash_page_stats(get_raw_page('test_hash', 0));
@@ -103,6 +115,8 @@ SELECT hash_page_type(get_raw_page('test_hash', 0));
 \set VERBOSITY default
 
 -- Tests with all-zero pages.
+--
+-- 使用全零页面进行测试。
 SHOW block_size \gset
 SELECT hash_metapage_info(decode(repeat('00', :block_size), 'hex'));
 SELECT hash_page_items(decode(repeat('00', :block_size), 'hex'));

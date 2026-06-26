@@ -241,7 +241,10 @@ pullf_free(PullFilter *pf)
 	pfree(pf);
 }
 
-/* may return less data than asked, 0 means eof */
+/* may return less data than asked, 0 means eof
+ *
+ * 可能返回的数据少于要求的数据，0 表示 eof
+ */
 int
 pullf_read(PullFilter *pf, int len, uint8 **data_p)
 {
@@ -270,7 +273,10 @@ pullf_read_max(PullFilter *pf, int len, uint8 **data_p, uint8 *tmpbuf)
 	if (res <= 0 || res == len)
 		return res;
 
-	/* read was shorter, use tmpbuf */
+	/* read was shorter, use tmpbuf
+	 *
+	 * 读取较短，使用 tmpbuf
+	 */
 	memcpy(tmpbuf, *data_p, res);
 	*data_p = tmpbuf;
 	len -= res;
@@ -281,7 +287,10 @@ pullf_read_max(PullFilter *pf, int len, uint8 **data_p, uint8 *tmpbuf)
 		res = pullf_read(pf, len, &tmp);
 		if (res < 0)
 		{
-			/* so the caller must clear only on success */
+			/* so the caller must clear only on success
+			 *
+			 * 所以调用者必须仅在成功时清除
+			 */
 			px_memset(tmpbuf, 0, total);
 			return res;
 		}
@@ -296,6 +305,8 @@ pullf_read_max(PullFilter *pf, int len, uint8 **data_p, uint8 *tmpbuf)
 
 /*
  * caller wants exactly len bytes and don't bother with references
+ *
+ * 调用者想要正好 len 个字节并且不关心引用
  */
 int
 pullf_read_fixed(PullFilter *src, int len, uint8 *dst)
@@ -318,6 +329,8 @@ pullf_read_fixed(PullFilter *src, int len, uint8 *dst)
 
 /*
  * read from MBuf
+ *
+ * 从 MBuf 读取
  */
 static int
 pull_from_mbuf(void *arg, PullFilter *src, int len,
@@ -434,7 +447,10 @@ wrap_process(PushFilter *mp, const uint8 *data, int len)
 	return res;
 }
 
-/* consumes all data, returns len on success */
+/* consumes all data, returns len on success
+ *
+ * 消耗所有数据，成功时返回 len
+ */
 int
 pushf_write(PushFilter *mp, const uint8 *data, int len)
 {
@@ -443,12 +459,16 @@ pushf_write(PushFilter *mp, const uint8 *data, int len)
 
 	/*
 	 * no buffering
+	 *
+	 * 无缓冲
 	 */
 	if (mp->block_size <= 0)
 		return wrap_process(mp, data, len);
 
 	/*
 	 * try to empty buffer
+	 *
+	 * 尝试清空缓冲区
 	 */
 	need = mp->block_size - mp->pos;
 	if (need > 0)
@@ -466,6 +486,8 @@ pushf_write(PushFilter *mp, const uint8 *data, int len)
 
 	/*
 	 * buffer full, process
+	 *
+	 * 缓冲区已满，进程
 	 */
 	res = wrap_process(mp, mp->buf, mp->block_size);
 	if (res < 0)
@@ -474,6 +496,8 @@ pushf_write(PushFilter *mp, const uint8 *data, int len)
 
 	/*
 	 * now process directly from data
+	 *
+	 * 现在直接从数据处理
 	 */
 	while (len > 0)
 	{
@@ -524,6 +548,8 @@ pushf_flush(PushFilter *mp)
 
 /*
  * write to MBuf
+ *
+ * 写入MBuf
  */
 static int
 push_into_mbuf(PushFilter *next, void *arg, const uint8 *data, int len)

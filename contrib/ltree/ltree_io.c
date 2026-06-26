@@ -2,6 +2,8 @@
  * in/out function for ltree and lquery
  * Teodor Sigaev <teodor@stack.net>
  * contrib/ltree/ltree_io.c
+ *
+ * ltree 和 lquery 的输入/输出函数 Teodor Sigaev <teodor@stack.net> contrib/ltree/ltree_io.c
  */
 #include "postgres.h"
 
@@ -31,6 +33,8 @@ static bool finish_nodeitem(nodeitem *lptr, const char *ptr,
 /*
  * expects a null terminated string
  * returns an ltree
+ *
+ * 期望以 null 结尾的字符串返回 ltree
  */
 static ltree *
 parse_ltree(const char *buf, struct Node *escontext)
@@ -139,6 +143,8 @@ parse_ltree(const char *buf, struct Node *escontext)
 /*
  * expects an ltree
  * returns a null terminated string
+ *
+ * 期望 ltree 返回一个以 null 结尾的字符串
  */
 static char *
 deparse_ltree(const ltree *in)
@@ -168,6 +174,8 @@ deparse_ltree(const ltree *in)
 
 /*
  * Basic ltree I/O functions
+ *
+ * 基本 ltree I/O 函数
  */
 PG_FUNCTION_INFO_V1(ltree_in);
 Datum
@@ -194,10 +202,14 @@ ltree_out(PG_FUNCTION_ARGS)
 /*
  * ltree type send function
  *
+ * ltree类型发送函数
+ *
  * The type is sent as text in binary mode, so this is almost the same
  * as the output function, but it's prefixed with a version number so we
  * can change the binary format sent in future if necessary. For now,
  * only version 1 is supported.
+ *
+ * 该类型以二进制模式作为文本发送，因此这与输出函数几乎相同，但它带有版本号前缀，因此我们可以在必要时更改将来发送的二进制格式。目前仅支持版本 1。
  */
 PG_FUNCTION_INFO_V1(ltree_send);
 Datum
@@ -219,10 +231,14 @@ ltree_send(PG_FUNCTION_ARGS)
 /*
  * ltree type recv function
  *
+ * ltree类型recv函数
+ *
  * The type is sent as text in binary mode, so this is almost the same
  * as the input function, but it's prefixed with a version number so we
  * can change the binary format sent in future if necessary. For now,
  * only version 1 is supported.
+ *
+ * 该类型以二进制模式作为文本发送，因此这与输入函数几乎相同，但它带有版本号前缀，因此我们可以在必要时更改将来发送的二进制格式。目前仅支持版本 1。
  */
 PG_FUNCTION_INFO_V1(ltree_recv);
 Datum
@@ -263,6 +279,8 @@ ltree_recv(PG_FUNCTION_ARGS)
 /*
  * expects a null terminated string
  * returns an lquery
+ *
+ * 期望以 null 结尾的字符串返回 lquery
  */
 static lquery *
 parse_lquery(const char *buf, struct Node *escontext)
@@ -387,7 +405,10 @@ parse_lquery(const char *buf, struct Node *escontext)
 				}
 				else if (ISLABEL(ptr))
 				{
-					/* disallow more chars after a flag */
+					/* disallow more chars after a flag
+					 *
+					 * 禁止在标志后添加更多字符
+					 */
 					if (lptr->flag)
 						UNCHAR;
 				}
@@ -399,7 +420,10 @@ parse_lquery(const char *buf, struct Node *escontext)
 					state = LQPRS_WAITFNUM;
 				else if (t_iseq(ptr, '.'))
 				{
-					/* We only get here for '*', so these are correct defaults */
+					/* We only get here for '*', so these are correct defaults
+					 *
+					 * 我们只到达这里的“*”，所以这些是正确的默认值
+					 */
 					curqlevel->low = 0;
 					curqlevel->high = LTREE_MAX_LEVELS;
 					curqlevel = NEXTLEV(curqlevel);
@@ -553,18 +577,27 @@ parse_lquery(const char *buf, struct Node *escontext)
 			pfree(GETVAR(curqlevel));
 			if (cur->numvar > 1 || cur->flag != 0)
 			{
-				/* Not a simple match */
+				/* Not a simple match
+				 *
+				 * 不是一场简单的比赛
+				 */
 				wasbad = true;
 			}
 			else if (wasbad == false)
 			{
-				/* count leading simple matches */
+				/* count leading simple matches
+				 *
+				 * 计算领先的简单匹配
+				 */
 				(result->firstgood)++;
 			}
 		}
 		else
 		{
-			/* '*', so this isn't a simple match */
+			/* '*', so this isn't a simple match
+			 *
+			 * '*'，所以这不是一个简单的匹配
+			 */
 			wasbad = true;
 		}
 		curqlevel = NEXTLEV(curqlevel);
@@ -580,6 +613,8 @@ parse_lquery(const char *buf, struct Node *escontext)
 /*
  * Close out parsing an ltree or lquery nodeitem:
  * compute the correct length, and complain if it's not OK
+ *
+ * 结束解析 ltree 或 lquery 节点项：计算正确的长度，如果不正确则抱怨
  */
 static bool
 finish_nodeitem(nodeitem *lptr, const char *ptr, bool is_lquery, int pos,
@@ -590,6 +625,8 @@ finish_nodeitem(nodeitem *lptr, const char *ptr, bool is_lquery, int pos,
 		/*
 		 * Back up over any flag characters, and discount them from length and
 		 * position.
+		 *
+		 * 备份任何标志字符，并从长度和位置上折扣它们。
 		 */
 		while (ptr > lptr->start && strchr("@*%", ptr[-1]) != NULL)
 		{
@@ -599,10 +636,16 @@ finish_nodeitem(nodeitem *lptr, const char *ptr, bool is_lquery, int pos,
 		}
 	}
 
-	/* Now compute the byte length, which we weren't tracking before. */
+	/* Now compute the byte length, which we weren't tracking before.
+	 *
+	 * 现在计算字节长度，我们之前没有跟踪。
+	 */
 	lptr->len = ptr - lptr->start;
 
-	/* Complain if it's empty or too long */
+	/* Complain if it's empty or too long
+	 *
+	 * 如果内容为空或太长，请投诉
+	 */
 	if (lptr->len == 0)
 		ereturn(escontext, false,
 				(errcode(ERRCODE_SYNTAX_ERROR),
@@ -622,6 +665,8 @@ finish_nodeitem(nodeitem *lptr, const char *ptr, bool is_lquery, int pos,
 /*
  * expects an lquery
  * returns a null terminated string
+ *
+ * 期望 lquery 返回一个以 null 结尾的字符串
  */
 static char *
 deparse_lquery(const lquery *in)
@@ -711,7 +756,10 @@ deparse_lquery(const lquery *in)
 				{
 					if (curqlevel->numvar == 0)
 					{
-						/* This is default for '*', so print nothing */
+						/* This is default for '*', so print nothing
+						 *
+						 * 这是“*”的默认值，因此不打印任何内容
+						 */
 						*ptr = '\0';
 					}
 					else
@@ -738,6 +786,8 @@ deparse_lquery(const lquery *in)
 
 /*
  * Basic lquery I/O functions
+ *
+ * 基本 lquery I/O 函数
  */
 PG_FUNCTION_INFO_V1(lquery_in);
 Datum
@@ -764,10 +814,14 @@ lquery_out(PG_FUNCTION_ARGS)
 /*
  * lquery type send function
  *
+ * lquery类型发送函数
+ *
  * The type is sent as text in binary mode, so this is almost the same
  * as the output function, but it's prefixed with a version number so we
  * can change the binary format sent in future if necessary. For now,
  * only version 1 is supported.
+ *
+ * 该类型以二进制模式作为文本发送，因此这与输出函数几乎相同，但它带有版本号前缀，因此我们可以在必要时更改将来发送的二进制格式。目前仅支持版本 1。
  */
 PG_FUNCTION_INFO_V1(lquery_send);
 Datum
@@ -789,10 +843,14 @@ lquery_send(PG_FUNCTION_ARGS)
 /*
  * lquery type recv function
  *
+ * lquery类型recv函数
+ *
  * The type is sent as text in binary mode, so this is almost the same
  * as the input function, but it's prefixed with a version number so we
  * can change the binary format sent in future if necessary. For now,
  * only version 1 is supported.
+ *
+ * 该类型以二进制模式作为文本发送，因此这与输入函数几乎相同，但它带有版本号前缀，因此我们可以在必要时更改将来发送的二进制格式。目前仅支持版本 1。
  */
 PG_FUNCTION_INFO_V1(lquery_recv);
 Datum

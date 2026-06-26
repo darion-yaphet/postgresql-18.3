@@ -1,11 +1,17 @@
 /* contrib/btree_gist/btree_gist--1.2--1.3.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION btree_gist UPDATE TO '1.3'" to load this file. \quit
 
 -- Add support for indexing UUID columns
+--
+-- 添加对 UUID 列索引的支持
 
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_uuid_consistent(internal,uuid,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -42,6 +48,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_uuid_ops
 DEFAULT FOR TYPE uuid USING gist
 AS
@@ -60,6 +68,8 @@ AS
 	STORAGE		gbtreekey32;
 
 -- These are "loose" in the opfamily for consistency with the rest of btree_gist
+--
+-- 为了与 btree_gist 的其余部分保持一致，这些在 opfamily 中是“松散的”
 ALTER OPERATOR FAMILY gist_uuid_ops USING gist ADD
 	OPERATOR	6	<>  (uuid, uuid) ,
 	FUNCTION	9 (uuid, uuid) gbt_uuid_fetch (internal) ;

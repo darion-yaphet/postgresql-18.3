@@ -1,4 +1,6 @@
 -- numeric check
+--
+-- 数字检查
 
 CREATE TABLE numerictmp (a numeric);
 
@@ -77,6 +79,8 @@ SELECT count(*) FROM numerictmp WHERE a >= 0 ;
 SELECT count(*) FROM numerictmp WHERE a >  0 ;
 
 -- Test index-only scans
+--
+-- 测试仅索引扫描
 SET enable_bitmapscan=off;
 EXPLAIN (COSTS OFF)
 SELECT * FROM numerictmp WHERE a BETWEEN 1 AND 300 ORDER BY a;

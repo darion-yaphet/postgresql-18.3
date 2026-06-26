@@ -28,16 +28,22 @@ $node->safe_psql("postgres",
 	  . "CREATE ROLE test_user LOGIN;");
 
 # test read mode
+#
+# 测试读取模式
 my $result =
   $node->safe_psql("postgres", "SELECT pg_prewarm('test', 'read');");
 like($result, qr/^[1-9][0-9]*$/, 'read mode succeeded');
 
 # test buffer_mode
+#
+# 测试缓冲区模式
 $result =
   $node->safe_psql("postgres", "SELECT pg_prewarm('test', 'buffer');");
 like($result, qr/^[1-9][0-9]*$/, 'buffer mode succeeded');
 
 # prefetch mode might or might not be available
+#
+# 预取模式可能可用，也可能不可用
 my ($cmdret, $stdout, $stderr) =
   $node->psql("postgres", "SELECT pg_prewarm('test', 'prefetch');");
 ok( (        $stdout =~ qr/^[1-9][0-9]*$/
@@ -45,6 +51,8 @@ ok( (        $stdout =~ qr/^[1-9][0-9]*$/
 	'prefetch mode succeeded');
 
 # test_user should be unable to prewarm table/index without privileges
+#
+# test_user 应该无法在没有权限的情况下预热表/索引
 ($cmdret, $stdout, $stderr) =
   $node->psql(
     "postgres", "SELECT pg_prewarm('test');",
@@ -57,6 +65,8 @@ ok($stderr =~ /permission denied for table test/, 'pg_prewarm failed as expected
 ok($stderr =~ /permission denied for index test_idx/, 'pg_prewarm failed as expected');
 
 # test_user should be able to prewarm table/index with privileges
+#
+# test_user 应该能够使用特权预热表/索引
 $node->safe_psql("postgres", "GRANT SELECT ON test TO test_user;");
 $result =
   $node->safe_psql(
@@ -70,10 +80,14 @@ $result =
 like($result, qr/^[1-9][0-9]*$/, 'pg_prewarm succeeded as expected');
 
 # test autoprewarm_dump_now()
+#
+# 测试 autoprewarm_dump_now()
 $result = $node->safe_psql("postgres", "SELECT autoprewarm_dump_now();");
 like($result, qr/^[1-9][0-9]*$/, 'autoprewarm_dump_now succeeded');
 
 # restart, to verify that auto prewarm actually works
+#
+# 重新启动，以验证自动预热是否确实有效
 $node->restart;
 
 $node->wait_for_log(
@@ -83,6 +97,8 @@ $node->wait_for_log(
 $node->stop;
 
 # control file should indicate normal shut down
+#
+# 控制文件应指示正常关闭
 command_like(
 	[ 'pg_controldata', $node->data_dir() ],
 	qr/Database cluster state:\s*shut down/,

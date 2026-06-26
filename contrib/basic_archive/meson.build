@@ -28,7 +28,11 @@ tests += {
       '--temp-config', files('basic_archive.conf'),
     ],
     # Disabled because these tests require special configuration, which
+    #
+    # 禁用，因为这些测试需要特殊配置，这
     # typical installcheck users do not have (e.g. buildfarm clients).
+    #
+    # 典型的 installcheck 用户没有（例如 buildfarm 客户端）。
     'runningcheck': false,
   },
 }

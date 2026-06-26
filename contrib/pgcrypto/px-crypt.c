@@ -121,6 +121,8 @@ px_crypt(const char *psw, const char *salt, char *buf, unsigned len)
 
 /*
  * salt generators
+ *
+ * 盐发生器
  */
 
 struct generator

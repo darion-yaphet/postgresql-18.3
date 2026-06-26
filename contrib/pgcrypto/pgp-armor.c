@@ -36,6 +36,8 @@
 
 /*
  * BASE64 - duplicated :(
+ *
+ * BASE64 - 重复:(
  */
 
 static const unsigned char _base64[] =
@@ -62,6 +64,8 @@ pg_base64_encode(const uint8 *src, unsigned len, uint8 *dst)
 
 		/*
 		 * write it out
+		 *
+		 * 写出来
 		 */
 		if (pos < 0)
 		{
@@ -90,7 +94,10 @@ pg_base64_encode(const uint8 *src, unsigned len, uint8 *dst)
 	return p - dst;
 }
 
-/* probably should use lookup table */
+/* probably should use lookup table
+ *
+ * 可能应该使用查找表
+ */
 static int
 pg_base64_decode(const uint8 *src, unsigned len, uint8 *dst)
 {
@@ -120,6 +127,8 @@ pg_base64_decode(const uint8 *src, unsigned len, uint8 *dst)
 		{
 			/*
 			 * end sequence
+			 *
+			 * 结束序列
 			 */
 			if (!end)
 			{
@@ -139,6 +148,8 @@ pg_base64_decode(const uint8 *src, unsigned len, uint8 *dst)
 
 		/*
 		 * add it to buffer
+		 *
+		 * 将其添加到缓冲区
 		 */
 		buf = (buf << 6) + b;
 		pos++;
@@ -164,6 +175,8 @@ pg_base64_enc_len(unsigned srclen)
 {
 	/*
 	 * 3 bytes will be converted to 4, linefeed after 76 chars
+	 *
+	 * 3 个字节将转换为 4 个字节，76 个字符后换行
 	 */
 	return (srclen + 2) / 3 * 4 + srclen / (76 * 3 / 4);
 }
@@ -176,12 +189,17 @@ pg_base64_dec_len(unsigned srclen)
 
 /*
  * PGP armor
+ *
+ * PGP装甲
  */
 
 static const char *const armor_header = "-----BEGIN PGP MESSAGE-----\n";
 static const char *const armor_footer = "\n-----END PGP MESSAGE-----\n";
 
-/* CRC24 implementation from rfc2440 */
+/* CRC24 implementation from rfc2440
+ *
+ * rfc2440 的 CRC24 实现
+ */
 #define CRC24_INIT 0x00b704ceL
 #define CRC24_POLY 0x01864cfbL
 static long
@@ -218,7 +236,10 @@ pgp_armor_encode(const uint8 *src, unsigned len, StringInfo dst,
 		appendStringInfo(dst, "%s: %s\n", keys[n], values[n]);
 	appendStringInfoChar(dst, '\n');
 
-	/* make sure we have enough room to pg_base64_encode() */
+	/* make sure we have enough room to pg_base64_encode()
+	 *
+	 * 确保我们有足够的空间来 pg_base64_encode()
+	 */
 	b64len = pg_base64_enc_len(len);
 	enlargeStringInfo(dst, (int) b64len);
 
@@ -271,13 +292,19 @@ find_header(const uint8 *data, const uint8 *datend,
 	static const char *end_sep = "-----END";
 	const char *sep = is_end ? end_sep : start_sep;
 
-	/* find header line */
+	/* find header line
+	 *
+	 * 查找标题行
+	 */
 	while (1)
 	{
 		p = find_str(p, datend, sep, strlen(sep));
 		if (p == NULL)
 			return PXE_PGP_CORRUPT_ARMOR;
-		/* it must start at beginning of line */
+		/* it must start at beginning of line
+		 *
+		 * 它必须从行首开始
+		 */
 		if (p == data || *(p - 1) == '\n')
 			break;
 		p += strlen(sep);
@@ -285,10 +312,16 @@ find_header(const uint8 *data, const uint8 *datend,
 	*start_p = p;
 	p += strlen(sep);
 
-	/* check if header text ok */
+	/* check if header text ok
+	 *
+	 * 检查标题文本是否正常
+	 */
 	for (; p < datend && *p != '-'; p++)
 	{
-		/* various junk can be there, but definitely not line-feed	*/
+		/* various junk can be there, but definitely not line-feed
+		 *
+		 * 可能有各种垃圾，但绝对不是换行
+		 */
 		if (*p >= ' ')
 			continue;
 		return PXE_PGP_CORRUPT_ARMOR;
@@ -297,7 +330,10 @@ find_header(const uint8 *data, const uint8 *datend,
 		return PXE_PGP_CORRUPT_ARMOR;
 	p += 5;
 
-	/* check if at end of line */
+	/* check if at end of line
+	 *
+	 * 检查是否在行尾
+	 */
 	if (p < datend)
 	{
 		if (*p != '\n' && *p != '\r')
@@ -324,30 +360,45 @@ pgp_armor_decode(const uint8 *src, int len, StringInfo dst)
 	int			blen;
 	int			res = PXE_PGP_CORRUPT_ARMOR;
 
-	/* armor start */
+	/* armor start
+	 *
+	 * 装甲启动
+	 */
 	hlen = find_header(src, data_end, &p, 0);
 	if (hlen <= 0)
 		goto out;
 	p += hlen;
 
-	/* armor end */
+	/* armor end
+	 *
+	 * 装甲端
+	 */
 	hlen = find_header(p, data_end, &armor_end, 1);
 	if (hlen <= 0)
 		goto out;
 
-	/* skip comments - find empty line */
+	/* skip comments - find empty line
+	 *
+	 * 跳过注释 - 查找空行
+	 */
 	while (p < armor_end && *p != '\n' && *p != '\r')
 	{
 		p = memchr(p, '\n', armor_end - p);
 		if (!p)
 			goto out;
 
-		/* step to start of next line */
+		/* step to start of next line
+		 *
+		 * 步骤到下一行的开始
+		 */
 		p++;
 	}
 	base64_start = p;
 
-	/* find crc pos */
+	/* find crc pos
+	 *
+	 * 查找 crc 位置
+	 */
 	for (p = armor_end; p >= base64_start; p--)
 		if (*p == '=')
 		{
@@ -357,12 +408,18 @@ pgp_armor_decode(const uint8 *src, int len, StringInfo dst)
 	if (base64_end == NULL)
 		goto out;
 
-	/* decode crc */
+	/* decode crc
+	 *
+	 * 解码CRC
+	 */
 	if (pg_base64_decode(p + 1, 4, buf) != 3)
 		goto out;
 	crc = (((long) buf[0]) << 16) + (((long) buf[1]) << 8) + (long) buf[2];
 
-	/* decode data */
+	/* decode data
+	 *
+	 * 解码数据
+	 */
 	blen = (int) pg_base64_dec_len(len);
 	enlargeStringInfo(dst, blen);
 	res = pg_base64_decode(base64_start, base64_end - base64_start, (uint8 *) dst->data);
@@ -382,9 +439,13 @@ out:
 /*
  * Extracts all armor headers from an ASCII-armored input.
  *
+ * 从 ASCII 装甲输入中提取所有装甲标头。
+ *
  * Returns 0 on success, or PXE_* error code on error. On success, the
  * number of headers and their keys and values are returned in *nheaders,
  * *nkeys and *nvalues.
+ *
+ * 成功时返回 0，出错时返回 PXE_* 错误代码。成功后，标头数量及其键和值将在 *nheaders、*nkeys 和 *nvalues 中返回。
  */
 int
 pgp_extract_armor_headers(const uint8 *src, unsigned len,
@@ -405,18 +466,27 @@ pgp_extract_armor_headers(const uint8 *src, unsigned len,
 	int			hdrlines;
 	int			n;
 
-	/* armor start */
+	/* armor start
+	 *
+	 * 装甲启动
+	 */
 	hlen = find_header(src, data_end, &armor_start, 0);
 	if (hlen <= 0)
 		return PXE_PGP_CORRUPT_ARMOR;
 	armor_start += hlen;
 
-	/* armor end */
+	/* armor end
+	 *
+	 * 装甲端
+	 */
 	hlen = find_header(armor_start, data_end, &armor_end, 1);
 	if (hlen <= 0)
 		return PXE_PGP_CORRUPT_ARMOR;
 
-	/* Count the number of armor header lines. */
+	/* Count the number of armor header lines.
+	 *
+	 * 计算装甲头线的数量。
+	 */
 	hdrlines = 0;
 	p = armor_start;
 	while (p < armor_end && *p != '\n' && *p != '\r')
@@ -425,7 +495,10 @@ pgp_extract_armor_headers(const uint8 *src, unsigned len,
 		if (!p)
 			return PXE_PGP_CORRUPT_ARMOR;
 
-		/* step to start of next line */
+		/* step to start of next line
+		 *
+		 * 步骤到下一行的开始
+		 */
 		p++;
 		hdrlines++;
 	}
@@ -434,41 +507,60 @@ pgp_extract_armor_headers(const uint8 *src, unsigned len,
 	/*
 	 * Make a modifiable copy of the part of the input that contains the
 	 * headers. The returned key/value pointers will point inside the buffer.
+	 *
+	 * 制作包含标题的输入部分的可修改副本。返回的键/值指针将指向缓冲区内部。
 	 */
 	armor_len = base64_start - armor_start;
 	buf = palloc(armor_len + 1);
 	memcpy(buf, armor_start, armor_len);
 	buf[armor_len] = '\0';
 
-	/* Allocate return arrays */
+	/* Allocate return arrays
+	 *
+	 * 分配返回数组
+	 */
 	*keys = (char **) palloc(hdrlines * sizeof(char *));
 	*values = (char **) palloc(hdrlines * sizeof(char *));
 
 	/*
 	 * Split the header lines at newlines and ": " separators, and collect
 	 * pointers to the keys and values in the return arrays.
+	 *
+	 * 在换行符和“:”分隔符处拆分标题行，并收集指向返回数组中的键和值的指针。
 	 */
 	n = 0;
 	line = buf;
 	for (;;)
 	{
-		/* find end of line */
+		/* find end of line
+		 *
+		 * 找到行尾
+		 */
 		eol = strchr(line, '\n');
 		if (!eol)
 			break;
 		nextline = eol + 1;
-		/* if the line ends in CR + LF, strip the CR */
+		/* if the line ends in CR + LF, strip the CR
+		 *
+		 * 如果该行以 CR + LF 结尾，则去掉 CR
+		 */
 		if (eol > line && *(eol - 1) == '\r')
 			eol--;
 		*eol = '\0';
 
-		/* find colon+space separating the key and value */
+		/* find colon+space separating the key and value
+		 *
+		 * 找到分隔键和值的冒号+空格
+		 */
 		colon = strstr(line, ": ");
 		if (!colon)
 			return PXE_PGP_CORRUPT_ARMOR;
 		*colon = '\0';
 
-		/* shouldn't happen, we counted the number of lines beforehand */
+		/* shouldn't happen, we counted the number of lines beforehand
+		 *
+		 * 不应该发生，我们事先计算过行数
+		 */
 		if (n >= hdrlines)
 			elog(ERROR, "unexpected number of armor header lines");
 
@@ -476,7 +568,10 @@ pgp_extract_armor_headers(const uint8 *src, unsigned len,
 		(*values)[n] = colon + 2;
 		n++;
 
-		/* step to start of next line */
+		/* step to start of next line
+		 *
+		 * 步骤到下一行的开始
+		 */
 		line = nextline;
 	}
 

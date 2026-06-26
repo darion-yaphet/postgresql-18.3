@@ -1,15 +1,21 @@
 /* contrib/pg_trgm/pg_trgm--1.3.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION pg_trgm" to load this file. \quit
 
 -- Deprecated function
+--
+-- 已弃用的函数
 CREATE FUNCTION set_limit(float4)
 RETURNS float4
 AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT VOLATILE PARALLEL UNSAFE;
 
 -- Deprecated function
+--
+-- 已弃用的函数
 CREATE FUNCTION show_limit()
 RETURNS float4
 AS 'MODULE_PATHNAME'
@@ -109,6 +115,8 @@ CREATE OPERATOR <->> (
 );
 
 -- gist key
+--
+-- 要点关键
 CREATE FUNCTION gtrgm_in(cstring)
 RETURNS gtrgm
 AS 'MODULE_PATHNAME'
@@ -126,6 +134,8 @@ CREATE TYPE gtrgm (
 );
 
 -- support functions for gist
+--
+-- gist 的支持函数
 CREATE FUNCTION gtrgm_consistent(internal,text,smallint,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -167,6 +177,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 -- create the operator class for gist
+--
+-- 为要点创建运算符类
 CREATE OPERATOR CLASS gist_trgm_ops
 FOR TYPE text USING gist
 AS
@@ -181,9 +193,17 @@ AS
         STORAGE         gtrgm;
 
 -- Add operators and support functions that are new in 9.1.  We do it like
+--
+-- 添加 9.1 中新增的运算符和支持功能。  我们这样做就像
 -- this, leaving them "loose" in the operator family rather than bound into
+--
+-- 这使得它们在运营商家族中“松散”，而不是被束缚
 -- the gist_trgm_ops opclass, because that's the only state that could be
+--
+-- gist_trgm_ops opclass，因为这是唯一可能的状态
 -- reproduced during an upgrade from 9.0.
+--
+-- 从 9.0 升级期间重现。
 
 ALTER OPERATOR FAMILY gist_trgm_ops USING gist ADD
         OPERATOR        2       <-> (text, text) FOR ORDER BY pg_catalog.float_ops,
@@ -192,18 +212,24 @@ ALTER OPERATOR FAMILY gist_trgm_ops USING gist ADD
         FUNCTION        8 (text, text)  gtrgm_distance (internal, text, smallint, oid, internal);
 
 -- Add operators that are new in 9.3.
+--
+-- 添加 9.3 中新增的运算符。
 
 ALTER OPERATOR FAMILY gist_trgm_ops USING gist ADD
         OPERATOR        5       pg_catalog.~ (text, text),
         OPERATOR        6       pg_catalog.~* (text, text);
 
 -- Add operators that are new in 9.6 (pg_trgm 1.2).
+--
+-- 添加 9.6 中新增的运算符 (pg_trgm 1.2)。
 
 ALTER OPERATOR FAMILY gist_trgm_ops USING gist ADD
         OPERATOR        7       %> (text, text),
         OPERATOR        8       <->> (text, text) FOR ORDER BY pg_catalog.float_ops;
 
 -- support functions for gin
+--
+-- 杜松子酒的支持功能
 CREATE FUNCTION gin_extract_value_trgm(text, internal)
 RETURNS internal
 AS 'MODULE_PATHNAME'
@@ -220,6 +246,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 -- create the operator class for gin
+--
+-- 为 gin 创建操作符类
 CREATE OPERATOR CLASS gin_trgm_ops
 FOR TYPE text USING gin
 AS
@@ -231,18 +259,24 @@ AS
         STORAGE         int4;
 
 -- Add operators that are new in 9.1.
+--
+-- 添加 9.1 中新增的运算符。
 
 ALTER OPERATOR FAMILY gin_trgm_ops USING gin ADD
         OPERATOR        3       pg_catalog.~~ (text, text),
         OPERATOR        4       pg_catalog.~~* (text, text);
 
 -- Add operators that are new in 9.3.
+--
+-- 添加 9.3 中新增的运算符。
 
 ALTER OPERATOR FAMILY gin_trgm_ops USING gin ADD
         OPERATOR        5       pg_catalog.~ (text, text),
         OPERATOR        6       pg_catalog.~* (text, text);
 
 -- Add functions that are new in 9.6 (pg_trgm 1.2).
+--
+-- 添加 9.6 (pg_trgm 1.2) 中的新增功能。
 
 CREATE FUNCTION gin_trgm_triconsistent(internal, int2, text, int4, internal, internal, internal)
 RETURNS "char"

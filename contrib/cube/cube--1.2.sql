@@ -1,9 +1,13 @@
 /* contrib/cube/cube--1.2.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION cube" to load this file. \quit
 
 -- Create the user-defined type for N-dimensional boxes
+--
+-- 为 N 维框创建用户定义的类型
 
 CREATE FUNCTION cube_in(cstring)
 RETURNS cube
@@ -35,8 +39,12 @@ COMMENT ON TYPE cube IS 'multi-dimensional cube ''(FLOAT-1, FLOAT-2, ..., FLOAT-
 --
 -- External C-functions for R-tree methods
 --
+-- R 树方法的外部 C 函数
+--
 
 -- Comparison methods
+--
+-- 比较方法
 
 CREATE FUNCTION cube_eq(cube, cube)
 RETURNS bool
@@ -109,6 +117,8 @@ LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 COMMENT ON FUNCTION cube_overlap(cube, cube) IS 'overlaps';
 
 -- support routines for indexing
+--
+-- 支持索引例程
 
 CREATE FUNCTION cube_union(cube, cube)
 RETURNS cube
@@ -127,6 +137,8 @@ LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 
 -- Misc N-dimensional functions
+--
+-- 其他 N 维函数
 
 CREATE FUNCTION cube_subset(cube, int4[])
 RETURNS cube
@@ -134,6 +146,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 -- proximity routines
+--
+-- 邻近例程
 
 CREATE FUNCTION cube_distance(cube, cube)
 RETURNS float8
@@ -151,6 +165,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Extracting elements functions
+--
+-- 提取元素函数
 
 CREATE FUNCTION cube_dim(cube)
 RETURNS int4
@@ -194,6 +210,8 @@ AS 'MODULE_PATHNAME', 'cube_c_f8_f8'
 LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Test if cube is also a point
+--
+-- 测试立方体是否也是一个点
 
 CREATE FUNCTION cube_is_point(cube)
 RETURNS bool
@@ -201,6 +219,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Increasing the size of a cube by a radius in at least n dimensions
+--
+-- 将立方体的大小增加至少 n 维的半径
 
 CREATE FUNCTION cube_enlarge(cube, float8, int4)
 RETURNS cube
@@ -290,6 +310,8 @@ CREATE OPERATOR <=> (
 );
 
 -- these are obsolete/deprecated:
+--
+-- 这些已过时/已弃用：
 CREATE OPERATOR @ (
 	LEFTARG = cube, RIGHTARG = cube, PROCEDURE = cube_contains,
 	COMMUTATOR = '~',
@@ -304,6 +326,8 @@ CREATE OPERATOR ~ (
 
 
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION g_cube_consistent(internal,cube,smallint,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -345,6 +369,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Create the operator classes for indexing
+--
+-- 创建用于索引的运算符类
 
 CREATE OPERATOR CLASS cube_ops
     DEFAULT FOR TYPE cube USING btree AS

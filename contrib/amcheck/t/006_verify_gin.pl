@@ -13,10 +13,14 @@ my $node;
 my $blksize;
 
 # to get the split fast, we want tuples to be as large as possible, but the same time we don't want them to be toasted.
+#
+# 为了快速分割，我们希望元组尽可能大，但同时我们不希望它们被烘烤。
 my $filler_size = 1900;
 
 #
 # Test set-up
+#
+# 测试设置
 #
 $node = PostgreSQL::Test::Cluster->new('test');
 $node->init(no_data_checksums => 1);
@@ -57,6 +61,8 @@ sub invalid_entry_order_leaf_page_test
 	my $blkno = 1;    # root
 
 	# produce wrong order by replacing aaaaa with ccccc
+	#
+	# 将 aaaaa 替换为 ccccc 会产生错误的顺序
 	string_replace_block($relpath, 'aaaaa', 'ccccc', $blkno);
 
 	$node->start;
@@ -74,7 +80,11 @@ sub invalid_entry_order_inner_page_test
 	my $indexname = "test_gin_idx";
 
 	# to break the order in the inner page we need at least 3 items (rightmost key in the inner level is not checked for the order)
+	#
+	# 要打破内页中的顺序，我们至少需要 3 个项目（内层最右边的键不检查顺序）
 	# so fill table until we have 2 splits
+	#
+	# 所以填写表格直到我们有两个分割
 	$node->safe_psql(
 		'postgres', qq(
 		DROP TABLE IF EXISTS $relname;
@@ -96,6 +106,8 @@ sub invalid_entry_order_inner_page_test
 	my $blkno = 1;    # root
 
 	# we have rrrrrrrrr... and tttttttttt... as keys in the root, so produce wrong order by replacing rrrrrrrrrr....
+	#
+	# 我们有 rrrrrrrrr... 和 tttttttttt... 作为根中的键，因此通过替换 rrrrrrrrrr... 会产生错误的顺序。
 	string_replace_block($relpath, 'rrrrrrrrrr', 'zzzzzzzzzz', $blkno);
 
 	$node->start;
@@ -126,8 +138,14 @@ sub invalid_entry_columns_order_test
 	my $blkno = 1;    # root
 
 	# mess column numbers
+	#
+	# 混乱的列号
 	# root items order before: (1,aaa), (2,bbb)
+	#
+	# 根项目之前的顺序：(1,aaa), (2,bbb)
 	# root items order after:  (2,aaa), (1,bbb)
+	#
+	# 根项目顺序为：(2,aaa), (1,bbb)
 	my $attrno_1 = pack('s', 1);
 	my $attrno_2 = pack('s', 2);
 
@@ -154,6 +172,8 @@ sub inconsistent_with_parent_key__parent_key_corrupted_test
 	my $indexname = "test_gin_idx";
 
 	# fill the table until we have a split
+	#
+	# 填满表格，直到我们分开
 	$node->safe_psql(
 		'postgres', qq(
 		DROP TABLE IF EXISTS $relname;
@@ -172,6 +192,8 @@ sub inconsistent_with_parent_key__parent_key_corrupted_test
 	my $blkno = 1;    # root
 
 	# we have nnnnnnnnnn... as parent key in the root, so replace it with something smaller then child's keys
+	#
+	# 我们有 nnnnnnnnnn... 作为根中的父键，因此将其替换为比子键更小的值
 	string_replace_block($relpath, 'nnnnnnnnnn', 'aaaaaaaaaa', $blkno);
 
 	$node->start;
@@ -189,6 +211,8 @@ sub inconsistent_with_parent_key__child_key_corrupted_test
 	my $indexname = "test_gin_idx";
 
 	# fill the table until we have a split
+	#
+	# 填满表格，直到我们分开
 	$node->safe_psql(
 		'postgres', qq(
 		DROP TABLE IF EXISTS $relname;
@@ -207,6 +231,8 @@ sub inconsistent_with_parent_key__child_key_corrupted_test
 	my $blkno = 3;    # leaf
 
 	# we have nnnnnnnnnn... as parent key in the root, so replace child key with something bigger
+	#
+	# 我们有 nnnnnnnnnn... 作为根中的父键，因此用更大的东西替换子键
 	string_replace_block($relpath, 'nnnnnnnnnn', 'pppppppppp', $blkno);
 
 	$node->start;
@@ -237,8 +263,14 @@ sub inconsistent_with_parent_key__parent_key_corrupted_posting_tree_test
 	my $blkno = 2;    # posting tree root
 
 	# we have a posting tree for 'aaaaa' key with the root at 2nd block
+	#
+	# 我们有一个“aaaaa”键的发布树，根位于第二个块
 	# and two leaf pages 3 and 4. replace 4th page's high key with (1,1)
+	#
+	# 和两个叶页 3 和 4。将第 4 页的高调替换为 (1,1)
 	# so that there are tid's in leaf page that are larger then the new high key.
+	#
+	# 这样叶页中的 tid 就比新的高键大。
 	my $find = pack('S*', 0, 4, 0) . '....';
 	my $replace = pack('S*', 0, 4, 0, 1, 1);
 	string_replace_block($relpath, $find, $replace, $blkno);
@@ -254,6 +286,8 @@ sub inconsistent_with_parent_key__parent_key_corrupted_posting_tree_test
 
 
 # Returns the filesystem path for the named relation.
+#
+# 返回命名关系的文件系统路径。
 sub relation_filepath
 {
 	my ($relname) = @_;
@@ -266,6 +300,8 @@ sub relation_filepath
 }
 
 # substitute pattern 'find' with 'replace' within the block with number 'blkno' in the file 'filename'
+#
+# 在文件“filename”中使用编号“blkno”的块内用“replace”替换模式“find”
 sub string_replace_block
 {
 	my ($filename, $find, $replace, $blkno) = @_;

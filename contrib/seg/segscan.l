@@ -1,6 +1,8 @@
 %top{
 /*
  * A scanner for EMP-style numeric ranges
+ *
+ * EMP 式数字范围扫描仪
  */
 #include "postgres.h"
 
@@ -13,10 +15,16 @@
 %{
 /* LCOV_EXCL_START */
 
-/* No reason to constrain amount of data slurped */
+/* No reason to constrain amount of data slurped
+ *
+ * 没有理由限制窃取的数据量
+ */
 #define YY_READ_BUF_SIZE 16777216
 
-/* Avoid exit() on fatal scanner errors (a bit ugly -- see yy_fatal_error) */
+/* Avoid exit() on fatal scanner errors (a bit ugly -- see yy_fatal_error)
+ *
+ * 避免在致命扫描仪错误时使用 exit() （有点难看 - 请参阅 yy_fatal_error）
+ */
 #undef fprintf
 #define fprintf(file, fmt, msg)  fprintf_to_ereport(fmt, msg)
 
@@ -69,7 +77,10 @@ seg_yyerror(SEG *result, struct Node *escontext, yyscan_t yyscanner, const char 
 	struct yyguts_t *yyg = (struct yyguts_t *) yyscanner;	/* needed for yytext
 															 * macro */
 
-	/* if we already reported an error, don't overwrite it */
+	/* if we already reported an error, don't overwrite it
+	 *
+	 * 如果我们已经报告了错误，请不要覆盖它
+	 */
 	if (SOFT_ERROR_OCCURRED(escontext))
 		return;
 
@@ -78,7 +89,10 @@ seg_yyerror(SEG *result, struct Node *escontext, yyscan_t yyscanner, const char 
 		errsave(escontext,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("bad seg representation"),
-		/* translator: %s is typically "syntax error" */
+		/* translator: %s is typically "syntax error"
+		 *
+		 * 译者：%s 通常是“语法错误”
+		 */
 				 errdetail("%s at end of input", message)));
 	}
 	else
@@ -86,7 +100,10 @@ seg_yyerror(SEG *result, struct Node *escontext, yyscan_t yyscanner, const char 
 		errsave(escontext,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("bad seg representation"),
-		/* translator: first %s is typically "syntax error" */
+		/* translator: first %s is typically "syntax error"
+		 *
+		 * 译者：第一个 %s 通常是“语法错误”
+		 */
 				 errdetail("%s at or near \"%s\"", message, yytext)));
 	}
 }
@@ -94,6 +111,8 @@ seg_yyerror(SEG *result, struct Node *escontext, yyscan_t yyscanner, const char 
 
 /*
  * Called before any actual parsing is done
+ *
+ * 在完成任何实际解析之前调用
  */
 void
 seg_scanner_init(const char *str, yyscan_t *yyscannerp)
@@ -111,6 +130,8 @@ seg_scanner_init(const char *str, yyscan_t *yyscannerp)
 
 /*
  * Called after parsing is done to clean up after seg_scanner_init()
+ *
+ * 解析完成后调用，以在 seg_scanner_init() 之后进行清理
  */
 void
 seg_scanner_finish(yyscan_t yyscanner)
@@ -121,6 +142,8 @@ seg_scanner_finish(yyscan_t yyscanner)
 /*
  * Interface functions to make flex use palloc() instead of malloc().
  * It'd be better to make these static, but flex insists otherwise.
+ *
+ * 使 flex 使用 palloc() 而不是 malloc() 的接口函数。最好将这些设置为静态，但 Flex 坚持不这样做。
  */
 
 void *

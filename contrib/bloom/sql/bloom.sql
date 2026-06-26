@@ -52,6 +52,8 @@ SELECT count(*) FROM tst WHERE t = '5';
 SELECT count(*) FROM tst WHERE i = 7 AND t = '5';
 
 -- Try an unlogged table too
+--
+-- 也尝试使用未记录的表
 
 CREATE UNLOGGED TABLE tstu (
 	i	int4,
@@ -78,6 +80,8 @@ RESET enable_bitmapscan;
 RESET enable_indexscan;
 
 -- Run amvalidator function on our opclasses
+--
+-- 在我们的操作类上运行 amvalidator 函数
 SELECT opcname, amvalidate(opc.oid)
 FROM pg_opclass opc JOIN pg_am am ON am.oid = opcmethod
 WHERE amname = 'bloom'
@@ -86,10 +90,14 @@ ORDER BY 1;
 --
 -- relation options
 --
+-- 关系选项
+--
 DROP INDEX bloomidx;
 CREATE INDEX bloomidx ON tst USING bloom (i, t) WITH (length=7, col1=4);
 SELECT reloptions FROM pg_class WHERE oid = 'bloomidx'::regclass;
 -- check for min and max values
+--
+-- 检查最小值和最大值
 \set VERBOSITY terse
 CREATE INDEX bloomidx2 ON tst USING bloom (i, t) WITH (length=0);
 CREATE INDEX bloomidx2 ON tst USING bloom (i, t) WITH (col1=0);

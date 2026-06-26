@@ -1,9 +1,13 @@
 /* contrib/btree_gin/btree_gin--1.0--1.1.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "ALTER EXTENSION btree_gin UPDATE TO '1.1'" to load this file. \quit
 
 -- macaddr8 datatype support new in 10.0.
+--
+-- macaddr8 数据类型支持 10.0 中的新增功能。
 CREATE FUNCTION gin_extract_value_macaddr8(macaddr8, internal)
 RETURNS internal
 AS 'MODULE_PATHNAME'

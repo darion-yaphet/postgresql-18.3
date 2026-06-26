@@ -9,6 +9,8 @@ ORDER BY 1, 2, 5, 6;
 
 
 -- test perl -> hstore
+--
+-- 测试 perl -> hstore
 CREATE FUNCTION test2() RETURNS hstore
 LANGUAGE plperl
 TRANSFORM FOR TYPE hstore
@@ -21,6 +23,8 @@ SELECT test2();
 
 
 -- test perl -> hstore[]
+--
+-- 测试 perl -> hstore[]
 CREATE FUNCTION test2arr() RETURNS hstore[]
 LANGUAGE plperl
 TRANSFORM FOR TYPE hstore
@@ -32,6 +36,8 @@ $$;
 SELECT test2arr();
 
 -- check error cases
+--
+-- 检查错误情况
 CREATE OR REPLACE FUNCTION test2() RETURNS hstore
 LANGUAGE plperl
 TRANSFORM FOR TYPE hstore

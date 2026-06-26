@@ -9,18 +9,26 @@ PG_MODULE_MAGIC_EXT(
 					.version = PG_VERSION
 );
 
-/* Linkage to functions in plpython module */
+/* Linkage to functions in plpython module
+ *
+ * 与 plpython 模块中函数的链接
+ */
 typedef PyObject *(*PLyUnicode_FromStringAndSize_t) (const char *s, Py_ssize_t size);
 static PLyUnicode_FromStringAndSize_t PLyUnicode_FromStringAndSize_p;
 
 
 /*
  * Module initialize function: fetch function pointers for cross-module calls.
+ *
+ * 模块初始化函数：获取跨模块调用的函数指针。
  */
 void
 _PG_init(void)
 {
-	/* Asserts verify that typedefs above match original declarations */
+	/* Asserts verify that typedefs above match original declarations
+	 *
+	 * 断言验证上面的 typedef 是否与原始声明匹配
+	 */
 	AssertVariableIsOfType(&PLyUnicode_FromStringAndSize, PLyUnicode_FromStringAndSize_t);
 	PLyUnicode_FromStringAndSize_p = (PLyUnicode_FromStringAndSize_t)
 		load_external_function("$libdir/" PLPYTHON_LIBNAME, "PLyUnicode_FromStringAndSize",
@@ -28,7 +36,10 @@ _PG_init(void)
 }
 
 
-/* These defines must be after the module init function */
+/* These defines must be after the module init function
+ *
+ * 这些定义必须位于模块初始化函数之后
+ */
 #define PLyUnicode_FromStringAndSize PLyUnicode_FromStringAndSize_p
 
 

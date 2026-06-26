@@ -10,7 +10,10 @@
 #include "common/int.h"
 #include "lib/qunique.h"
 
-/* arguments are assumed sorted & unique-ified */
+/* arguments are assumed sorted & unique-ified
+ *
+ * 假设参数已排序且唯一化
+ */
 bool
 inner_int_contains(ArrayType *a, ArrayType *b)
 {
@@ -45,7 +48,10 @@ inner_int_contains(ArrayType *a, ArrayType *b)
 	return (n == nb);
 }
 
-/* arguments are assumed sorted */
+/* arguments are assumed sorted
+ *
+ * 假设参数已排序
+ */
 bool
 inner_int_overlap(ArrayType *a, ArrayType *b)
 {
@@ -186,7 +192,10 @@ rt__int_size(ArrayType *a, float *size)
 	*size = (float) ARRNELEMS(a);
 }
 
-/* comparison function for isort() and _int_unique() */
+/* comparison function for isort() and _int_unique()
+ *
+ * isort() 和 _int_unique() 的比较函数
+ */
 static inline int
 isort_cmp(const void *a, const void *b, void *arg)
 {
@@ -195,7 +204,10 @@ isort_cmp(const void *a, const void *b, void *arg)
 
 	if (*((bool *) arg))
 	{
-		/* compare for ascending order */
+		/* compare for ascending order
+		 *
+		 * 比较升序
+		 */
 		if (aval < bval)
 			return -1;
 		if (aval > bval)
@@ -219,14 +231,20 @@ isort_cmp(const void *a, const void *b, void *arg)
 #define ST_DEFINE
 #include "lib/sort_template.h"
 
-/* Create a new int array with room for "num" elements */
+/* Create a new int array with room for "num" elements
+ *
+ * 创建一个新的 int 数组，其中包含“num”元素的空间
+ */
 ArrayType *
 new_intArrayType(int num)
 {
 	ArrayType  *r;
 	int			nbytes;
 
-	/* if no elements, return a zero-dimensional array */
+	/* if no elements, return a zero-dimensional array
+	 *
+	 * 如果没有元素，则返回零维数组
+	 */
 	if (num <= 0)
 	{
 		Assert(num == 0);
@@ -254,7 +272,10 @@ resize_intArrayType(ArrayType *a, int num)
 	int			nbytes;
 	int			i;
 
-	/* if no elements, return a zero-dimensional array */
+	/* if no elements, return a zero-dimensional array
+	 *
+	 * 如果没有元素，则返回零维数组
+	 */
 	if (num <= 0)
 	{
 		Assert(num == 0);
@@ -270,7 +291,10 @@ resize_intArrayType(ArrayType *a, int num)
 	a = (ArrayType *) repalloc(a, nbytes);
 
 	SET_VARSIZE(a, nbytes);
-	/* usually the array should be 1-D already, but just in case ... */
+	/* usually the array should be 1-D already, but just in case ...
+	 *
+	 * 通常数组应该已经是一维的了，但以防万一......
+	 */
 	for (i = 0; i < ARR_NDIM(a); i++)
 	{
 		ARR_DIMS(a)[i] = num;
@@ -290,7 +314,10 @@ copy_intArrayType(ArrayType *a)
 	return r;
 }
 
-/* num for compressed key */
+/* num for compressed key
+ *
+ * 压缩密钥的 num
+ */
 int
 internal_size(int *a, int len)
 {
@@ -308,7 +335,10 @@ internal_size(int *a, int len)
 	return (int) size;
 }
 
-/* unique-ify elements of r in-place ... r must be sorted already */
+/* unique-ify elements of r in-place ... r must be sorted already
+ *
+ * 就地唯一化 r 的元素... r 必须已经排序
+ */
 ArrayType *
 _int_unique(ArrayType *r)
 {
@@ -326,7 +356,10 @@ gensign(BITVECP sign, int *a, int len, int siglen)
 {
 	int			i;
 
-	/* we assume that the sign vector is previously zeroed */
+	/* we assume that the sign vector is previously zeroed
+	 *
+	 * 我们假设符号向量先前已归零
+	 */
 	for (i = 0; i < len; i++)
 	{
 		HASH(sign, *a, siglen);

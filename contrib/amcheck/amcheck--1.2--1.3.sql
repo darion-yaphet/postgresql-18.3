@@ -1,6 +1,8 @@
 /* contrib/amcheck/amcheck--1.2--1.3.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "ALTER EXTENSION amcheck UPDATE TO '1.3'" to load this file. \quit
 
 --
@@ -21,6 +23,8 @@ AS 'MODULE_PATHNAME', 'verify_heapam'
 LANGUAGE C;
 
 -- Don't want this to be available to public
+--
+-- 不希望公开此信息
 REVOKE ALL ON FUNCTION verify_heapam(regclass,
 									 boolean,
 									 boolean,

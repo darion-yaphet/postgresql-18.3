@@ -1,10 +1,14 @@
 --
 -- Tests for parallel statistics
 --
+-- 并行统计测试
+--
 
 SET pg_stat_statements.track_utility = FALSE;
 
 -- encourage use of parallel plans
+--
+-- 鼓励使用并行计划
 SET parallel_setup_cost = 0;
 SET parallel_tuple_cost = 0;
 SET min_parallel_table_scan_size = 0;

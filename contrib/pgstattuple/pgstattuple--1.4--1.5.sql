@@ -1,6 +1,8 @@
 /* contrib/pgstattuple/pgstattuple--1.4--1.5.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION pgstattuple UPDATE TO '1.5'" to load this file. \quit
 
 CREATE OR REPLACE FUNCTION pgstattuple(IN relname text,
@@ -44,7 +46,10 @@ LANGUAGE C STRICT PARALLEL SAFE;
 REVOKE EXECUTE ON FUNCTION pg_relpages(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION pg_relpages(text) TO pg_stat_scan_tables;
 
-/* New stuff in 1.1 begins here */
+/* New stuff in 1.1 begins here
+ *
+ * 1.1 中的新内容从这里开始
+ */
 
 CREATE OR REPLACE FUNCTION pgstatginindex(IN relname regclass,
     OUT version INT4,
@@ -56,7 +61,10 @@ LANGUAGE C STRICT PARALLEL SAFE;
 REVOKE EXECUTE ON FUNCTION pgstatginindex(regclass) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION pgstatginindex(regclass) TO pg_stat_scan_tables;
 
-/* New stuff in 1.2 begins here */
+/* New stuff in 1.2 begins here
+ *
+ * 1.2 中的新内容从这里开始
+ */
 
 CREATE OR REPLACE FUNCTION pgstattuple(IN reloid regclass,
     OUT table_len BIGINT,		-- physical table length in bytes
@@ -99,7 +107,10 @@ LANGUAGE C STRICT PARALLEL SAFE;
 REVOKE EXECUTE ON FUNCTION pg_relpages(regclass) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION pg_relpages(regclass) TO pg_stat_scan_tables;
 
-/* New stuff in 1.3 begins here */
+/* New stuff in 1.3 begins here
+ *
+ * 1.3 的新内容从这里开始
+ */
 
 CREATE OR REPLACE FUNCTION pgstattuple_approx(IN reloid regclass,
     OUT table_len BIGINT,               -- physical table length in bytes
@@ -118,7 +129,10 @@ LANGUAGE C STRICT PARALLEL SAFE;
 REVOKE EXECUTE ON FUNCTION pgstattuple_approx(regclass) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION pgstattuple_approx(regclass) TO pg_stat_scan_tables;
 
-/* New stuff in 1.5 begins here */
+/* New stuff in 1.5 begins here
+ *
+ * 1.5 的新内容从这里开始
+ */
 
 CREATE OR REPLACE FUNCTION pgstathashindex(IN relname regclass,
 	OUT version INTEGER,

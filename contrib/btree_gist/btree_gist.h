@@ -9,7 +9,10 @@
 
 #define BtreeGistNotEqualStrategyNumber 6
 
-/* indexed types */
+/* indexed types
+ *
+ * 索引类型
+ */
 
 enum gbtree_type
 {

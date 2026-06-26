@@ -1,7 +1,13 @@
 --
 -- This tests resetting unknown custom GUCs with reserved prefixes.  There's
+--
+-- 此测试使用保留前缀重置未知的自定义 GUC。  有
 -- nothing specific to auto_explain; this is just a convenient place to put
+--
+-- auto_explain 没有什么具体的内容；这只是一个方便放置的地方
 -- this test.
+--
+-- 这个测试。
 --
 
 SELECT current_database() AS datname \gset

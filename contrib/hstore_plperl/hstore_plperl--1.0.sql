@@ -1,6 +1,8 @@
 /* contrib/hstore_plperl/hstore_plperl--1.0.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION hstore_plperl" to load this file. \quit
 
 CREATE FUNCTION hstore_to_plperl(val internal) RETURNS internal

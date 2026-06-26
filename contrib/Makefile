@@ -91,6 +91,8 @@ endif
 
 # Missing:
 #		start-scripts	\ (does not have a makefile)
+#
+#	start-scripts \（没有 makefile）
 
 
 $(recurse)

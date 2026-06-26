@@ -15,6 +15,8 @@
 #define GETENTRY(vec,pos) ((GISTTYPE *) DatumGetPointer((vec)->vector[(pos)].key))
 /*
 ** _intbig methods
+*
+* * _intbig 方法
 */
 PG_FUNCTION_INFO_V1(g_intbig_consistent);
 PG_FUNCTION_INFO_V1(g_intbig_compress);
@@ -72,6 +74,8 @@ _intbig_alloc(bool allistrue, int siglen, BITVECP sign)
 
 /*********************************************************************
 ** intbig functions
+*
+* * intbig 函数
 *********************************************************************/
 static bool
 _intbig_overlap(GISTTYPE *a, ArrayType *b, int siglen)
@@ -223,7 +227,10 @@ hemdistsign(BITVECP a, BITVECP b, int siglen)
 	LOOPBYTE(siglen)
 	{
 		diff = (unsigned char) (a[i] ^ b[i]);
-		/* Using the popcount functions here isn't likely to win */
+		/* Using the popcount functions here isn't likely to win
+		 *
+		 * 在这里使用 popcount 函数不太可能获胜
+		 */
 		dist += pg_number_of_ones[diff];
 	}
 	return dist;
@@ -377,14 +384,20 @@ g_intbig_picksplit(PG_FUNCTION_ARGS)
 		seed_2 = 2;
 	}
 
-	/* form initial .. */
+	/* form initial ..
+	 *
+	 * 形成初始..
+	 */
 	datum_l = _intbig_alloc(ISALLTRUE(GETENTRY(entryvec, seed_1)), siglen,
 							GETSIGN(GETENTRY(entryvec, seed_1)));
 	datum_r = _intbig_alloc(ISALLTRUE(GETENTRY(entryvec, seed_2)), siglen,
 							GETSIGN(GETENTRY(entryvec, seed_2)));
 
 	maxoff = OffsetNumberNext(maxoff);
-	/* sort before ... */
+	/* sort before ...
+	 *
+	 * 排序在...之前
+	 */
 	costvector = (SPLITCOST *) palloc(sizeof(SPLITCOST) * maxoff);
 	for (j = FirstOffsetNumber; j <= maxoff; j = OffsetNumberNext(j))
 	{
@@ -468,12 +481,18 @@ g_intbig_consistent(PG_FUNCTION_ARGS)
 	ArrayType  *query = PG_GETARG_ARRAYTYPE_P(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	int			siglen = GET_SIGLEN();
 	bool		retval;
 
-	/* All cases served by this function are inexact */
+	/* All cases served by this function are inexact
+	 *
+	 * 该函数提供的所有案例都是不准确的
+	 */
 	*recheck = true;
 
 	if (ISALLTRUE(DatumGetPointer(entry->key)))
@@ -541,6 +560,8 @@ g_intbig_consistent(PG_FUNCTION_ARGS)
 			 * This code is unreachable as of intarray 1.4, because the <@
 			 * operator has been removed from the opclass.  We keep it for now
 			 * to support older versions of the SQL definitions.
+			 *
+			 * 从 intarray 1.4 开始，此代码无法访问，因为 <@ 运算符已从 opclass 中删除。  我们暂时保留它是为了支持旧版本的 SQL 定义。
 			 */
 			if (GIST_LEAF(entry))
 			{
@@ -572,6 +593,8 @@ g_intbig_consistent(PG_FUNCTION_ARGS)
 				/*
 				 * Unfortunately, because empty arrays could be anywhere in
 				 * the index, we must search the whole tree.
+				 *
+				 * 不幸的是，因为空数组可能位于索引中的任何位置，所以我们必须搜索整个树。
 				 */
 				retval = true;
 			}

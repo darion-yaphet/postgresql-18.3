@@ -13,6 +13,8 @@ ltree_sources = files(
 )
 
 # .. so that includes of ltree/ltree.h work
+#
+# ..因此包括 ltree/ltree.h 工作
 ltree_inc = include_directories('.', '../')
 
 if host_system == 'windows'

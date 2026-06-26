@@ -1,9 +1,13 @@
 /* contrib/pg_stat_statements/pg_stat_statements--1.4.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION pg_stat_statements" to load this file. \quit
 
 -- Register functions.
+--
+-- 注册函数。
 CREATE FUNCTION pg_stat_statements_reset()
 RETURNS void
 AS 'MODULE_PATHNAME'
@@ -39,10 +43,14 @@ AS 'MODULE_PATHNAME', 'pg_stat_statements_1_3'
 LANGUAGE C STRICT VOLATILE PARALLEL SAFE;
 
 -- Register a view on the function for ease of use.
+--
+-- 注册该函数的视图以方便使用。
 CREATE VIEW pg_stat_statements AS
   SELECT * FROM pg_stat_statements(true);
 
 GRANT SELECT ON pg_stat_statements TO PUBLIC;
 
 -- Don't want this to be available to non-superusers.
+--
+-- 不希望非超级用户可以使用此功能。
 REVOKE ALL ON FUNCTION pg_stat_statements_reset() FROM PUBLIC;

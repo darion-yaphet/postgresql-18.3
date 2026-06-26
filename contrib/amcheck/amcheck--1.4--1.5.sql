@@ -1,6 +1,8 @@
 /* contrib/amcheck/amcheck--1.4--1.5.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "ALTER EXTENSION amcheck UPDATE TO '1.5'" to load this file. \quit
 
 

@@ -1,6 +1,8 @@
 --
 -- Regression Test for DML Permissions
 --
+-- DML 权限的回归测试
+--
 
 --
 -- Setup
@@ -31,6 +33,8 @@ SECURITY LABEL ON COLUMN t5.g IS 'system_u:object_r:sepgsql_secret_table_t:s0';
 
 ---
 -- partitioned table parent
+--
+-- 分区表父表
 CREATE TABLE t1p (o int, p text, q text) PARTITION BY RANGE (o);
 SECURITY LABEL ON TABLE t1p IS 'system_u:object_r:sepgsql_table_t:s0';
 SECURITY LABEL ON COLUMN t1p.o IS 'system_u:object_r:sepgsql_table_t:s0';
@@ -38,6 +42,8 @@ SECURITY LABEL ON COLUMN t1p.p IS 'system_u:object_r:sepgsql_ro_table_t:s0';
 SECURITY LABEL ON COLUMN t1p.q IS 'system_u:object_r:sepgsql_secret_table_t:s0';
 
 -- partitioned table children
+--
+-- 分区表子表
 CREATE TABLE t1p_ones PARTITION OF t1p FOR VALUES FROM ('0') TO ('10');
 SECURITY LABEL ON COLUMN t1p_ones.o IS 'system_u:object_r:sepgsql_table_t:s0';
 SECURITY LABEL ON COLUMN t1p_ones.p IS 'system_u:object_r:sepgsql_ro_table_t:s0';
@@ -83,11 +89,17 @@ SECURITY LABEL ON SCHEMA my_schema_2
     IS 'system_u:object_r:sepgsql_regtest_invisible_schema_t:s0';
 
 -- Hardwired Rules
+--
+-- 硬连线规则
 UPDATE pg_attribute SET attisdropped = true
     WHERE attrelid = 't5'::regclass AND attname = 'f';	-- failed
 
 --
 -- Simple DML statements
+--
+-- 简单的DML语句
+--
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_user_t:s0
 --
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_user_t:s0
 
@@ -102,9 +114,13 @@ SELECT (t4.*)::record FROM t4;		-- failed
 
 ---
 -- partitioned table parent
+--
+-- 分区表父表
 SELECT * FROM t1p;			-- failed
 SELECT o,p FROM t1p;		-- ok
 --partitioned table children
+--
+--分区表子表
 SELECT * FROM t1p_ones;			-- failed
 SELECT o FROM t1p_ones;			-- ok
 SELECT o,p FROM t1p_ones;		-- ok
@@ -121,9 +137,13 @@ SELECT count(*) FROM t5 WHERE g IS NULL;	-- failed
 
 ---
 -- partitioned table parent
+--
+-- 分区表父表
 SELECT count(*) FROM t1p;					-- ok
 SELECT count(*) FROM t1p WHERE q IS NULL;	-- failed
 -- partitioned table children
+--
+-- 分区表子表
 SELECT count(*) FROM t1p_ones;					-- ok
 SELECT count(*) FROM t1p_ones WHERE q IS NULL;	-- failed
 SELECT count(*) FROM t1p_tens;					-- ok
@@ -140,11 +160,15 @@ INSERT INTO t5 (e) VALUES ('abc');		-- ok
 
 ---
 -- partitioned table parent
+--
+-- 分区表父表
 INSERT INTO t1p (o,p) VALUES (9, 'mno');		-- failed
 INSERT INTO t1p (o) VALUES (9);						-- ok
 INSERT INTO t1p (o,p) VALUES (99, 'pqr');		-- failed
 INSERT INTO t1p (o) VALUES (99);					-- ok
 -- partitioned table children
+--
+-- 分区表子表
 INSERT INTO t1p_ones (o,p) VALUES (9, 'mno');		-- failed
 INSERT INTO t1p_ones (o) VALUES (9);				-- ok
 INSERT INTO t1p_tens (o,p) VALUES (99, 'pqr');		-- failed
@@ -161,11 +185,15 @@ UPDATE t5 SET e = g || '_upd';			-- failed
 
 ---
 -- partitioned table parent
+--
+-- 分区表父表
 UPDATE t1p SET o = 9 WHERE o < 10;			-- ok
 UPDATE t1p SET o = 99 WHERE o >= 10;			-- ok
 UPDATE t1p SET o = ascii(COALESCE(p,'upd'))%10 WHERE o < 10;		-- ok
 UPDATE t1p SET o = ascii(COALESCE(q,'upd'))%100 WHERE o >= 10;	-- failed
 -- partitioned table children
+--
+-- 分区表子表
 UPDATE t1p_ones SET o = 9;								-- ok
 UPDATE t1p_ones SET o = ascii(COALESCE(p,'upd'))%10;	-- ok
 UPDATE t1p_ones SET o = ascii(COALESCE(q,'upd'))%10;	-- failed
@@ -184,10 +212,14 @@ DELETE FROM t5 WHERE g IS NULL;			-- failed
 
 ---
 -- partitioned table parent
+--
+-- 分区表父表
 DELETE FROM t1p;						-- ok
 DELETE FROM t1p WHERE p IS NULL;		-- ok
 DELETE FROM t1p WHERE q IS NULL;		-- failed
 -- partitioned table children
+--
+-- 分区表子表
 DELETE FROM t1p_ones WHERE p IS NULL;		-- ok
 DELETE FROM t1p_ones WHERE q IS NULL;		-- failed;
 DELETE FROM t1p_tens WHERE p IS NULL;		-- ok
@@ -196,6 +228,8 @@ DELETE FROM t1p_tens WHERE q IS NULL;		-- failed
 
 --
 -- COPY TO/FROM statements
+--
+-- COPY TO/FROM 语句
 --
 COPY t1 TO '/dev/null';				-- ok
 COPY t2 TO '/dev/null';				-- ok
@@ -206,9 +240,13 @@ COPY t5(e,f) TO '/dev/null';			-- ok
 
 ---
 -- partitioned table parent
+--
+-- 分区表父表
 COPY (SELECT * FROM t1p) TO '/dev/null';		-- failed
 COPY (SELECT (o,p) FROM t1p) TO '/dev/null';	-- ok
 -- partitioned table children
+--
+-- 分区表子表
 COPY t1p_ones TO '/dev/null';				-- failed
 COPY t1p_ones(o,p) TO '/dev/null';			-- ok
 COPY t1p_tens TO '/dev/null';				-- failed
@@ -225,9 +263,13 @@ COPY t5 (e) FROM '/dev/null';			-- ok
 
 ---
 -- partitioned table parent
+--
+-- 分区表父表
 COPY t1p FROM '/dev/null';				-- failed
 COPY t1p (o) FROM '/dev/null';			-- ok
 -- partitioned table children
+--
+-- 分区表子表
 COPY t1p_ones FROM '/dev/null';				-- failed
 COPY t1p_ones (o) FROM '/dev/null';			-- ok
 COPY t1p_tens FROM '/dev/null';				-- failed
@@ -237,6 +279,8 @@ COPY t1p_tens (o) FROM '/dev/null';			-- ok
 --
 -- Schema search path
 --
+-- 架构搜索路径
+--
 SET search_path = my_schema_1, my_schema_2, public;
 SELECT * FROM ts1;		-- ok
 SELECT * FROM ts2;		-- failed (relation not found)
@@ -244,6 +288,10 @@ SELECT * FROM my_schema_2.ts2;	-- failed (policy violation)
 
 --
 -- Clean up
+--
+-- 清理
+--
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_superuser_t:s0-s0:c0.c255
 --
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_superuser_t:s0-s0:c0.c255
 DROP TABLE IF EXISTS t1 CASCADE;

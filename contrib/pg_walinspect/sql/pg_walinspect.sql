@@ -1,14 +1,20 @@
 CREATE EXTENSION pg_walinspect;
 
 -- Mask DETAIL messages as these could refer to current LSN positions.
+--
+-- 屏蔽 DETAIL 消息，因为这些消息可能引用当前的 LSN 位置。
 \set VERBOSITY terse
 
 -- Make sure checkpoints don't interfere with the test.
+--
+-- 确保检查点不会干扰测试。
 SELECT 'init' FROM pg_create_physical_replication_slot('regress_pg_walinspect_slot', true, false);
 
 CREATE TABLE sample_tbl(col1 int, col2 int);
 
 -- Save some LSNs for comparisons.
+--
+-- 保存一些 LSN 以供比较。
 SELECT pg_current_wal_lsn() AS wal_lsn1 \gset
 INSERT INTO sample_tbl SELECT * FROM generate_series(1, 2);
 SELECT pg_current_wal_lsn() AS wal_lsn2 \gset
@@ -16,34 +22,50 @@ INSERT INTO sample_tbl SELECT * FROM generate_series(3, 4);
 
 -- ===================================================================
 -- Tests for input validation
+--
+-- 输入验证测试
 -- ===================================================================
 
 -- Invalid input LSN.
+--
+-- 输入的 LSN 无效。
 SELECT * FROM pg_get_wal_record_info('0/0');
 
 -- Invalid start LSN.
+--
+-- 起始 LSN 无效。
 SELECT * FROM pg_get_wal_records_info('0/0', :'wal_lsn1');
 SELECT * FROM pg_get_wal_stats('0/0', :'wal_lsn1');
 SELECT * FROM pg_get_wal_block_info('0/0', :'wal_lsn1');
 
 -- Start LSN > End LSN.
+--
+-- 开始 LSN > 结束 LSN。
 SELECT * FROM pg_get_wal_records_info(:'wal_lsn2', :'wal_lsn1');
 SELECT * FROM pg_get_wal_stats(:'wal_lsn2', :'wal_lsn1');
 SELECT * FROM pg_get_wal_block_info(:'wal_lsn2', :'wal_lsn1');
 
 -- LSNs with the highest value possible.
+--
+-- 具有尽可能最高值的 LSN。
 SELECT * FROM pg_get_wal_record_info('FFFFFFFF/FFFFFFFF');
 -- Success with end LSNs.
+--
+-- 最终 LSN 成功。
 SELECT COUNT(*) >= 1 AS ok FROM pg_get_wal_records_info(:'wal_lsn1', 'FFFFFFFF/FFFFFFFF');
 SELECT COUNT(*) >= 1 AS ok FROM pg_get_wal_stats(:'wal_lsn1', 'FFFFFFFF/FFFFFFFF');
 SELECT COUNT(*) >= 1 AS ok FROM pg_get_wal_block_info(:'wal_lsn1', 'FFFFFFFF/FFFFFFFF');
 -- Failures with start LSNs.
+--
+-- 启动 LSN 失败。
 SELECT * FROM pg_get_wal_records_info('FFFFFFFF/FFFFFFFE', 'FFFFFFFF/FFFFFFFF');
 SELECT * FROM pg_get_wal_stats('FFFFFFFF/FFFFFFFE', 'FFFFFFFF/FFFFFFFF');
 SELECT * FROM pg_get_wal_block_info('FFFFFFFF/FFFFFFFE', 'FFFFFFFF/FFFFFFFF');
 
 -- ===================================================================
 -- Tests for all function executions
+--
+-- 测试所有函数执行
 -- ===================================================================
 
 SELECT COUNT(*) >= 1 AS ok FROM pg_get_wal_record_info(:'wal_lsn1');
@@ -53,6 +75,8 @@ SELECT COUNT(*) >= 1 AS ok FROM pg_get_wal_block_info(:'wal_lsn1', :'wal_lsn2');
 
 -- ===================================================================
 -- Test for filtering out WAL records of a particular table
+--
+-- 测试过滤掉特定表的 WAL 记录
 -- ===================================================================
 
 SELECT oid AS sample_tbl_oid FROM pg_class WHERE relname = 'sample_tbl' \gset
@@ -62,6 +86,8 @@ SELECT COUNT(*) >= 1 AS ok FROM pg_get_wal_records_info(:'wal_lsn1', :'wal_lsn2'
 
 -- ===================================================================
 -- Test for filtering out WAL records based on resource_manager and
+--
+-- 根据resource_manager和过滤掉WAL记录的测试
 -- record_type
 -- ===================================================================
 
@@ -70,35 +96,53 @@ SELECT COUNT(*) >= 1 AS ok FROM pg_get_wal_records_info(:'wal_lsn1', :'wal_lsn2'
 
 -- ===================================================================
 -- Tests to get block information from WAL record
+--
+-- 测试从 WAL 记录中获取块信息
 -- ===================================================================
 
 -- Update table to generate some block data.
+--
+-- 更新表以生成一些块数据。
 SELECT pg_current_wal_lsn() AS wal_lsn3 \gset
 UPDATE sample_tbl SET col1 = col1 + 1 WHERE col1 = 1;
 SELECT pg_current_wal_lsn() AS wal_lsn4 \gset
 -- Check if we get block data from WAL record.
+--
+-- 检查我们是否从 WAL 记录中获取块数据。
 SELECT COUNT(*) >= 1 AS ok FROM pg_get_wal_block_info(:'wal_lsn3', :'wal_lsn4')
   WHERE relfilenode = :'sample_tbl_oid' AND block_data IS NOT NULL;
 
 -- Force a checkpoint so that the next update will log a full-page image.
+--
+-- 强制设置检查点，以便下次更新将记录整页图像。
 SELECT pg_current_wal_lsn() AS wal_lsn5 \gset
 CHECKPOINT;
 
 -- Verify that an XLOG_CHECKPOINT_REDO record begins at precisely the redo LSN
+--
+-- 验证 XLOG_CHECKPOINT_REDO 记录是否恰好从重做 LSN 开始
 -- of the checkpoint we just performed.
+--
+-- 我们刚刚执行的检查点。
 SELECT redo_lsn FROM pg_control_checkpoint() \gset
 SELECT start_lsn = :'redo_lsn'::pg_lsn AS same_lsn, resource_manager,
     record_type FROM pg_get_wal_record_info(:'redo_lsn');
 
 -- This update should produce a full-page image because of the checkpoint.
+--
+-- 由于检查点，此更新应生成整页图像。
 UPDATE sample_tbl SET col1 = col1 + 1 WHERE col1 = 2;
 SELECT pg_current_wal_lsn() AS wal_lsn6 \gset
 -- Check if we get FPI from WAL record.
+--
+-- 检查我们是否从 WAL 记录中获取 FPI。
 SELECT COUNT(*) >= 1 AS ok FROM pg_get_wal_block_info(:'wal_lsn5', :'wal_lsn6')
   WHERE relfilenode = :'sample_tbl_oid' AND block_fpi_data IS NOT NULL;
 
 -- ===================================================================
 -- Tests for permissions
+--
+-- 权限测试
 -- ===================================================================
 CREATE ROLE regress_pg_walinspect;
 
@@ -112,6 +156,8 @@ SELECT has_function_privilege('regress_pg_walinspect',
   'pg_get_wal_block_info(pg_lsn, pg_lsn, boolean) ', 'EXECUTE'); -- no
 
 -- Functions accessible by users with role pg_read_server_files.
+--
+-- 具有 pg_read_server_files 角色的用户可以访问的函数。
 GRANT pg_read_server_files TO regress_pg_walinspect;
 
 SELECT has_function_privilege('regress_pg_walinspect',
@@ -126,6 +172,8 @@ SELECT has_function_privilege('regress_pg_walinspect',
 REVOKE pg_read_server_files FROM regress_pg_walinspect;
 
 -- Superuser can grant execute to other users.
+--
+-- 超级用户可以将执行权限授予其他用户。
 GRANT EXECUTE ON FUNCTION pg_get_wal_record_info(pg_lsn)
   TO regress_pg_walinspect;
 GRANT EXECUTE ON FUNCTION pg_get_wal_records_info(pg_lsn, pg_lsn)
@@ -155,6 +203,8 @@ REVOKE EXECUTE ON FUNCTION pg_get_wal_block_info(pg_lsn, pg_lsn, boolean)
 
 -- ===================================================================
 -- Clean up
+--
+-- 清理
 -- ===================================================================
 
 DROP ROLE regress_pg_walinspect;

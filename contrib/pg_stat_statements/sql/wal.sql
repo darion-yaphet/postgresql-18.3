@@ -1,6 +1,8 @@
 --
 -- Validate WAL generation metrics
 --
+-- 验证 WAL 生成指标
+--
 
 SET pg_stat_statements.track_utility = FALSE;
 
@@ -12,6 +14,8 @@ DELETE FROM pgss_wal_tab WHERE a > 9;
 DROP TABLE pgss_wal_tab;
 
 -- Check WAL is generated for the above statements
+--
+-- 检查上述语句是否生成了 WAL
 SELECT query, calls, rows,
 wal_bytes > 0 as wal_bytes_generated,
 wal_records > 0 as wal_records_generated,

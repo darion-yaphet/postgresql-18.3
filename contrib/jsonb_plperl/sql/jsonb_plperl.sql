@@ -43,10 +43,14 @@ return $val;
 $$;
 
 -- this might produce either 18446744073709551615 or 4294967295
+--
+-- 这可能会产生 18446744073709551615 或 4294967295
 SELECT testUVToJsonb() IN ('18446744073709551615'::jsonb, '4294967295'::jsonb);
 
 
 -- this revealed a bug in the original implementation
+--
+-- 这揭示了原始实现中的一个错误
 CREATE FUNCTION testRegexpResultToJsonb() RETURNS jsonb
 LANGUAGE plperl
 TRANSFORM FOR TYPE jsonb
@@ -58,6 +62,8 @@ SELECT testRegexpResultToJsonb();
 
 
 -- this revealed a different bug
+--
+-- 这揭示了一个不同的错误
 CREATE FUNCTION testTextToJsonbObject(text) RETURNS jsonb
 LANGUAGE plperl
 TRANSFORM FOR TYPE jsonb

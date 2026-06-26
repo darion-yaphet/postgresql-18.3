@@ -1,4 +1,6 @@
 #!/usr/bin/perl
+#
+#!/usr/bin/perl
 
 # Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
@@ -25,11 +27,23 @@ open(my $map, '>', "message_section_map.tmp") || die;
 srand(1);
 
 #foreach my $i ( 1..1778 ) {
+#
+#foreach 我的 $i ( 1..1778 ) {
 #foreach my $i ( 1..3443 ) {
+#
+#foreach 我的 $i ( 1..3443 ) {
 #foreach my $i ( 1..5000 ) {
+#
+#foreach 我的 $i ( 1..5000 ) {
 #foreach my $i ( 1..29362 ) {
+#
+#foreach 我的 $i ( 1..29362 ) {
 #foreach my $i ( 1..33331 ) {
+#
+#foreach 我的 $i ( 1..33331 ) {
 #foreach my $i ( 1..83268 ) {
+#
+#foreach 我的 $i ( 1..83268 ) {
 foreach my $i (1 .. 200000)
 {
 	my @sect;
@@ -64,6 +78,8 @@ print <<EOT;
 
 CREATE unique index message_key on message ( mid );
 --CREATE unique index message_section_map_key1 on message_section_map ( mid, sid );
+--
+--在 message_section_map ( mid, sid ) 上创建唯一索引 message_section_map_key1 ；
 CREATE unique index message_section_map_key2 on message_section_map ( sid, mid );
 CREATE INDEX message_rdtree_idx on message using gist ( sections gist__int_ops );
 VACUUM ANALYZE;

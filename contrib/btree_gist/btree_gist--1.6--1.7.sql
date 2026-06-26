@@ -1,9 +1,13 @@
 /* contrib/btree_gist/btree_gist--1.6--1.7.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "ALTER EXTENSION btree_gist UPDATE TO '1.7'" to load this file. \quit
 
 -- This upgrade scripts add support for bool.
+--
+-- 此升级脚本添加了对 bool 的支持。
 CREATE FUNCTION gbtreekey2_in(cstring)
 RETURNS gbtreekey2
 AS 'MODULE_PATHNAME', 'gbtreekey_in'
@@ -21,6 +25,8 @@ CREATE TYPE gbtreekey2 (
 );
 
 -- Define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_bool_consistent(internal,bool,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -57,6 +63,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_bool_ops
 DEFAULT FOR TYPE bool USING gist
 AS

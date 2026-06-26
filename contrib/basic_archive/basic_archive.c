@@ -60,6 +60,8 @@ static const ArchiveModuleCallbacks basic_archive_callbacks = {
  * _PG_init
  *
  * Defines the module's GUC.
+ *
+ * 定义模块的 GUC。
  */
 void
 _PG_init(void)
@@ -80,6 +82,8 @@ _PG_init(void)
  * _PG_archive_module_init
  *
  * Returns the module's archiving callbacks.
+ *
+ * 返回模块的归档回调。
  */
 const ArchiveModuleCallbacks *
 _PG_archive_module_init(void)
@@ -91,6 +95,8 @@ _PG_archive_module_init(void)
  * check_archive_directory
  *
  * Checks that the provided archive directory exists.
+ *
+ * 检查提供的存档目录是否存在。
  */
 static bool
 check_archive_directory(char **newval, void **extra, GucSource source)
@@ -101,6 +107,8 @@ check_archive_directory(char **newval, void **extra, GucSource source)
 	 * The default value is an empty string, so we have to accept that value.
 	 * Our check_configured callback also checks for this and prevents
 	 * archiving from proceeding if it is still empty.
+	 *
+	 * 默认值是空字符串，因此我们必须接受该值。我们的 check_configured 回调也会检查这一点，如果它仍然为空，则阻止归档继续进行。
 	 */
 	if (*newval == NULL || *newval[0] == '\0')
 		return true;
@@ -108,6 +116,8 @@ check_archive_directory(char **newval, void **extra, GucSource source)
 	/*
 	 * Make sure the file paths won't be too long.  The docs indicate that the
 	 * file names to be archived can be up to 64 characters long.
+	 *
+	 * 确保文件路径不会太长。  文档指出要存档的文件名最长可达 64 个字符。
 	 */
 	if (strlen(*newval) + 64 + 2 >= MAXPGPATH)
 	{
@@ -119,6 +129,8 @@ check_archive_directory(char **newval, void **extra, GucSource source)
 	 * Do a basic sanity check that the specified archive directory exists. It
 	 * could be removed at some point in the future, so we still need to be
 	 * prepared for it not to exist in the actual archiving logic.
+	 *
+	 * 执行基本的健全性检查以确保指定的存档目录存在。它可能在未来的某个时候被删除，所以我们仍然需要做好准备，让它不存在于实际的归档逻辑中。
 	 */
 	if (stat(*newval, &st) != 0 || !S_ISDIR(st.st_mode))
 	{
@@ -133,6 +145,8 @@ check_archive_directory(char **newval, void **extra, GucSource source)
  * basic_archive_configured
  *
  * Checks that archive_directory is not blank.
+ *
+ * 检查 archive_directory 是否不为空。
  */
 static bool
 basic_archive_configured(ArchiveModuleState *state)
@@ -149,6 +163,8 @@ basic_archive_configured(ArchiveModuleState *state)
  * basic_archive_file
  *
  * Archives one file.
+ *
+ * 归档一个文件。
  */
 static bool
 basic_archive_file(ArchiveModuleState *state, const char *file, const char *path)
@@ -171,8 +187,12 @@ basic_archive_file(ArchiveModuleState *state, const char *file, const char *path
 	 * This scenario is possible if the server crashed after archiving the
 	 * file but before renaming its .ready file to .done.
 	 *
+	 * 首先，检查文件是否已经存档。  如果它已经存在并且与我们尝试归档的文件具有相同的内容，我们可以返回成功（在确保文件持久保存到磁盘之后）。如果服务器在归档文件之后但在将其 .ready 文件重命名为 .done 之前崩溃，则可能出现这种情况。
+	 *
 	 * If the archive file already exists but has different contents,
 	 * something might be wrong, so we just fail.
+	 *
+	 * 如果存档文件已经存在但内容不同，则可能会出现问题，因此我们会失败。
 	 */
 	if (stat(destination, &st) == 0)
 	{
@@ -201,6 +221,8 @@ basic_archive_file(ArchiveModuleState *state, const char *file, const char *path
 	 * collision is unlikely.  This helps avoid problems in case a temporary
 	 * file was left around after a crash or another server happens to be
 	 * archiving to the same directory.
+	 *
+	 * 为临时文件选择一个足够唯一的名称，这样就不太可能发生冲突。  这有助于避免在崩溃后留下临时文件或另一台服务器恰好存档到同一目录时出现问题。
 	 */
 	gettimeofday(&tv, NULL);
 	if (pg_mul_u64_overflow((uint64) 1000, (uint64) tv.tv_sec, &epoch) ||
@@ -213,6 +235,8 @@ basic_archive_file(ArchiveModuleState *state, const char *file, const char *path
 	/*
 	 * Copy the file to its temporary destination.  Note that this will fail
 	 * if temp already exists.
+	 *
+	 * 将文件复制到其临时目的地。  请注意，如果 temp 已经存在，这将失败。
 	 */
 	copy_file(path, temp);
 
@@ -220,6 +244,8 @@ basic_archive_file(ArchiveModuleState *state, const char *file, const char *path
 	 * Sync the temporary file to disk and move it to its final destination.
 	 * Note that this will overwrite any existing file, but this is only
 	 * possible if someone else created the file since the stat() above.
+	 *
+	 * 将临时文件同步到磁盘并将其移动到最终目的地。请注意，这将覆盖任何现有文件，但这只有在其他人自上面的 stat() 之后创建该文件时才有可能。
 	 */
 	(void) durable_rename(temp, destination, ERROR);
 
@@ -233,6 +259,8 @@ basic_archive_file(ArchiveModuleState *state, const char *file, const char *path
  * compare_files
  *
  * Returns whether the contents of the files are the same.
+ *
+ * 返回文件内容是否相同。
  */
 static bool
 compare_files(const char *file1, const char *file2)

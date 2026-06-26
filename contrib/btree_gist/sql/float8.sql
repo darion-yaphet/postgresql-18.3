@@ -1,4 +1,6 @@
 -- float8 check
+--
+-- float8 检查
 
 CREATE TABLE float8tmp (a float8);
 

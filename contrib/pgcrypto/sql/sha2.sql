@@ -1,6 +1,8 @@
 --
 -- SHA2 family
 --
+-- SHA2家族
+--
 
 -- SHA224
 SELECT digest('', 'sha224');

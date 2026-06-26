@@ -16,16 +16,25 @@
 /*
  * Control the maximum sparseness of compressed keys.
  *
+ * 控制压缩密钥的最大稀疏度。
+ *
  * The upper safe bound for this limit is half the maximum allocatable array
  * size. A lower bound would give more guarantees that pathological data
  * wouldn't eat excessive CPU and memory, but at the expense of breaking
  * possibly working (after a fashion) indexes.
+ *
+ * 此限制的安全上限是最大可分配数组大小的一半。下限可以更好地保证病态数据不会消耗过多的 CPU 和内存，但代价是破坏可能工作的（某种程度上）索引。
  */
 #define MAXNUMELTS (Min((MaxAllocSize / sizeof(Datum)),((MaxAllocSize - ARR_OVERHEAD_NONULLS(1)) / sizeof(int)))/2)
-/* or: #define MAXNUMELTS 1000000 */
+/* or: #define MAXNUMELTS 1000000
+ *
+ * 或者：#define MAXNUMELTS 1000000
+ */
 
 /*
 ** GiST support methods
+*
+* * GiST支持方法
 */
 PG_FUNCTION_INFO_V1(g_int_consistent);
 PG_FUNCTION_INFO_V1(g_int_compress);
@@ -42,6 +51,8 @@ PG_FUNCTION_INFO_V1(g_int_options);
 ** Should return false if for all data items x below entry,
 ** the predicate x op query == false, where op is the oper
 ** corresponding to strategy in the pg_amop table.
+*
+* * _intments 的 GiST 一致性方法 * 如果对于条目下面的所有数据项 x，则应返回 false， * 谓词 x op 查询 == false，其中 op 是与 pg_amop 表中的策略相对应的操作。
 */
 Datum
 g_int_consistent(PG_FUNCTION_ARGS)
@@ -50,11 +61,17 @@ g_int_consistent(PG_FUNCTION_ARGS)
 	ArrayType  *query = PG_GETARG_ARRAYTYPE_P_COPY(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	bool		retval = false; /* silence compiler warning */
 
-	/* this is exact except for RTSameStrategyNumber */
+	/* this is exact except for RTSameStrategyNumber
+	 *
+	 * 除了 RTSameStrategyNumber 之外，这是准确的
+	 */
 	*recheck = (strategy == RTSameStrategyNumber);
 
 	if (strategy == BooleanSearchStrategy)
@@ -67,7 +84,10 @@ g_int_consistent(PG_FUNCTION_ARGS)
 		PG_RETURN_BOOL(retval);
 	}
 
-	/* sort query for fast search, key is already sorted */
+	/* sort query for fast search, key is already sorted
+	 *
+	 * 排序查询以进行快速搜索，键已排序
+	 */
 	CHECKARRVALID(query);
 	PREPAREARR(query);
 
@@ -99,6 +119,8 @@ g_int_consistent(PG_FUNCTION_ARGS)
 			 * This code is unreachable as of intarray 1.4, because the <@
 			 * operator has been removed from the opclass.  We keep it for now
 			 * to support older versions of the SQL definitions.
+			 *
+			 * 从 intarray 1.4 开始，此代码无法访问，因为 <@ 运算符已从 opclass 中删除。  我们暂时保留它是为了支持旧版本的 SQL 定义。
 			 */
 			if (GIST_LEAF(entry))
 				retval = inner_int_contains(query,
@@ -108,6 +130,8 @@ g_int_consistent(PG_FUNCTION_ARGS)
 				/*
 				 * Unfortunately, because empty arrays could be anywhere in
 				 * the index, we must search the whole tree.
+				 *
+				 * 不幸的是，因为空数组可能位于索引中的任何位置，所以我们必须搜索整个树。
 				 */
 				retval = true;
 			}
@@ -158,6 +182,8 @@ g_int_union(PG_FUNCTION_ARGS)
 
 /*
 ** GiST Compress and Decompress methods
+*
+* * GiST压缩和解压缩方法
 */
 Datum
 g_int_compress(PG_FUNCTION_ARGS)
@@ -196,6 +222,8 @@ g_int_compress(PG_FUNCTION_ARGS)
 	/*
 	 * leaf entries never compress one more time, only when entry->leafkey
 	 * ==true, so now we work only with internal keys
+	 *
+	 * 叶子条目永远不会再压缩一次，只有当entry->leafkey ==true时，所以现在我们只使用内部键
 	 */
 
 	r = DatumGetArrayTypeP(entry->key);
@@ -219,12 +247,16 @@ g_int_compress(PG_FUNCTION_ARGS)
 		 * "len" at this point is the number of ranges we will construct.
 		 * "lenr" is the number of ranges we must eventually remove by
 		 * merging, we must be careful to remove no more than this number.
+		 *
+		 * 此时的“len”是我们将构建的范围数。 “lenr”是我们最终必须通过合并删除的范围数，我们必须小心删除不超过这个数字。
 		 */
 		lenr = len - num_ranges;
 
 		/*
 		 * Initially assume we can merge consecutive ints into a range. but we
 		 * must count every value removed and stop when lenr runs out
+		 *
+		 * 最初假设我们可以将连续的整数合并到一个范围中。但我们必须计算每个删除的值，并在 lenr 耗尽时停止
 		 */
 		for (j = i = len - 1; i > 0 && lenr > 0; i--, j--)
 		{
@@ -233,10 +265,19 @@ g_int_compress(PG_FUNCTION_ARGS)
 
 			while (i > 0 && lenr > 0 && dr[i - 1] == r_start - 1)
 				--r_start, --i, --lenr;
+				--
+				--r_start，--i，--lenr；
+				--
+				--r_start，--i，--lenr；
+				--
+				--r_start，--i，--lenr；
 			dr[2 * j] = r_start;
 			dr[2 * j + 1] = r_end;
 		}
-		/* just copy the rest, if any, as trivial ranges */
+		/* just copy the rest, if any, as trivial ranges
+		 *
+		 * 只需将其余部分（如果有）复制为简单范围
+		 */
 		for (; i >= 0; i--, j--)
 			dr[2 * j] = dr[2 * j + 1] = dr[i];
 
@@ -244,12 +285,16 @@ g_int_compress(PG_FUNCTION_ARGS)
 		{
 			/*
 			 * shunt everything down to start at the right place
+			 *
+			 * 将所有事情分流到正确的地方开始
 			 */
 			memmove(&dr[0], &dr[2 * j], 2 * (len - j) * sizeof(int32));
 		}
 
 		/*
 		 * make "len" be number of array elements, not ranges
+		 *
+		 * 使“len”为数组元素的数量，而不是范围
 		 */
 		len = 2 * (len - j);
 		cand = 1;
@@ -268,6 +313,8 @@ g_int_compress(PG_FUNCTION_ARGS)
 
 		/*
 		 * check sparseness of result
+		 *
+		 * 检查结果的稀疏性
 		 */
 		lenr = internal_size(dr, len);
 		if (lenr < 0 || lenr > MAXNUMELTS)
@@ -342,7 +389,10 @@ g_int_decompress(PG_FUNCTION_ARGS)
 
 	for (i = 0; i < lenin; i += 2)
 	{
-		/* use int64 for j in case din[i + 1] is INT_MAX */
+		/* use int64 for j in case din[i + 1] is INT_MAX
+		 *
+		 * 如果 din[i + 1] 为 INT_MAX，则对 j 使用 int64
+		 */
 		for (int64 j = din[i]; j <= din[i + 1]; j++)
 			if ((!i) || *(dr - 1) != j)
 				*dr++ = (int) j;
@@ -359,6 +409,8 @@ g_int_decompress(PG_FUNCTION_ARGS)
 
 /*
 ** The GiST Penalty method for _intments
+*
+* * _intments 的 GiST 惩罚方法
 */
 Datum
 g_int_penalty(PG_FUNCTION_ARGS)
@@ -417,6 +469,8 @@ g_int_same(PG_FUNCTION_ARGS)
 
 /*****************************************************************
 ** Common GiST Method
+*
+* * 通用GiST方法
 *****************************************************************/
 
 typedef struct
@@ -437,6 +491,8 @@ comparecost(const void *a, const void *b)
 /*
 ** The GiST PickSplit method for _intments
 ** We use Guttman's poly time split algorithm
+*
+* * _intments 的 GiST PickSplit 方法 * 我们使用 Guttman 的多时间分割算法
 */
 Datum
 g_int_picksplit(PG_FUNCTION_ARGS)
@@ -488,8 +544,16 @@ g_int_picksplit(PG_FUNCTION_ARGS)
 		{
 			datum_beta = GETENTRY(entryvec, j);
 
-			/* compute the wasted space by unioning these guys */
-			/* size_waste = size_union - size_inter; */
+			/* compute the wasted space by unioning these guys
+			 *
+			 * 通过联合这些人来计算浪费的空间
+			 */
+			/* size_waste = size_union - size_inter;
+			 *
+			 * size_waste = size_union - size_inter；
+			 *
+			 * size_waste = size_union - size_inter；
+			 */
 			union_d = inner_int_union(datum_alpha, datum_beta);
 			rt__int_size(union_d, &size_union);
 			inter_d = inner_int_inter(datum_alpha, datum_beta);
@@ -501,6 +565,8 @@ g_int_picksplit(PG_FUNCTION_ARGS)
 
 			/*
 			 * are these a more promising split that what we've already seen?
+			 *
+			 * 这些是比我们已经看到的更有希望的分裂吗？
 			 */
 
 			if (size_waste > waste || firsttime)
@@ -534,6 +600,8 @@ g_int_picksplit(PG_FUNCTION_ARGS)
 
 	/*
 	 * sort entries
+	 *
+	 * 对条目进行排序
 	 */
 	costvector = (SPLITCOST *) palloc(sizeof(SPLITCOST) * maxoff);
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
@@ -557,9 +625,13 @@ g_int_picksplit(PG_FUNCTION_ARGS)
 	 * this property by doing a merge in the code that actually splits the
 	 * page.
 	 *
+	 * 现在分割两个种子之间的区域。  该分割算法的一个重要属性是分割向量 v 在其左向量和右向量中具有要按顺序分割的项目的索引。  我们通过在实际拆分页面的代码中进行合并来利用此属性。
+	 *
 	 * For efficiency, we also place the new index tuple in this loop. This is
 	 * handled at the very end, when we have placed all the existing tuples
 	 * and i == maxoff + 1.
+	 *
+	 * 为了提高效率，我们还将新的索引元组放入此循环中。这是在最后处理的，当我们放置了所有现有的元组并且 i == maxoff + 1 时。
 	 */
 
 
@@ -571,6 +643,8 @@ g_int_picksplit(PG_FUNCTION_ARGS)
 		 * If we've already decided where to place this item, just put it on
 		 * the right list.  Otherwise, we need to figure out which page needs
 		 * the least enlargement in order to store the item.
+		 *
+		 * 如果我们已经决定放置此项目的位置，只需将其放在正确的列表中即可。  否则，我们需要找出哪一页需要最小的放大才能存储该项目。
 		 */
 
 		if (i == seed_1)
@@ -586,14 +660,20 @@ g_int_picksplit(PG_FUNCTION_ARGS)
 			continue;
 		}
 
-		/* okay, which page needs least enlargement? */
+		/* okay, which page needs least enlargement?
+		 *
+		 * 好的，哪一页需要最小放大？
+		 */
 		datum_alpha = GETENTRY(entryvec, i);
 		union_dl = inner_int_union(datum_l, datum_alpha);
 		union_dr = inner_int_union(datum_r, datum_alpha);
 		rt__int_size(union_dl, &size_alpha);
 		rt__int_size(union_dr, &size_beta);
 
-		/* pick which page to add it to */
+		/* pick which page to add it to
+		 *
+		 * 选择要将其添加到哪个页面
+		 */
 		if (size_alpha - size_l < size_beta - size_r + WISH_F(v->spl_nleft, v->spl_nright, 0.01))
 		{
 			pfree(datum_l);

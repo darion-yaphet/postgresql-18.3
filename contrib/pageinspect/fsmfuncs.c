@@ -28,6 +28,8 @@
 
 /*
  * Dumps the contents of a FSM page.
+ *
+ * 转储 FSM 页的内容。
  */
 PG_FUNCTION_INFO_V1(fsm_page_contents);
 

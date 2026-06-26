@@ -19,11 +19,15 @@
 
 /*
  * SE-PostgreSQL Label Tag
+ *
+ * SE-PostgreSQL 标签 标签
  */
 #define SEPGSQL_LABEL_TAG			"selinux"
 
 /*
  * SE-PostgreSQL performing mode
+ *
+ * SE-PostgreSQL执行模式
  */
 #define SEPGSQL_MODE_DEFAULT		1
 #define SEPGSQL_MODE_PERMISSIVE		2
@@ -32,6 +36,8 @@
 
 /*
  * Internally used code of object classes
+ *
+ * 对象类内部使用的代码
  */
 #define SEPG_CLASS_PROCESS			0
 #define SEPG_CLASS_FILE				1
@@ -55,6 +61,8 @@
 
 /*
  * Internally used code of access vectors
+ *
+ * 访问向量内部使用的代码
  */
 #define SEPG_PROCESS__TRANSITION			(1<<0)
 #define SEPG_PROCESS__DYNTRANSITION			(1<<1)

@@ -9,7 +9,10 @@
 #include "utils/fmgrprotos.h"
 #include "utils/sortsupport.h"
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_text_compress);
 PG_FUNCTION_INFO_V1(gbt_bpchar_compress);
 PG_FUNCTION_INFO_V1(gbt_text_union);
@@ -22,7 +25,10 @@ PG_FUNCTION_INFO_V1(gbt_text_sortsupport);
 PG_FUNCTION_INFO_V1(gbt_bpchar_sortsupport);
 
 
-/* define for comparison */
+/* define for comparison
+ *
+ * 定义用于比较
+ */
 
 static bool
 gbt_textgt(const void *a, const void *b, Oid collation, FmgrInfo *flinfo)
@@ -92,7 +98,10 @@ static gbtree_vinfo tinfo =
 	NULL
 };
 
-/* bpchar needs its own comparison rules */
+/* bpchar needs its own comparison rules
+ *
+ * bpchar 需要自己的比较规则
+ */
 
 static bool
 gbt_bpchargt(const void *a, const void *b, Oid collation, FmgrInfo *flinfo)
@@ -165,6 +174,8 @@ static gbtree_vinfo bptinfo =
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 Datum
@@ -183,7 +194,10 @@ gbt_text_compress(PG_FUNCTION_ARGS)
 Datum
 gbt_bpchar_compress(PG_FUNCTION_ARGS)
 {
-	/* This should never have been distinct from gbt_text_compress */
+	/* This should never have been distinct from gbt_text_compress
+	 *
+	 * 这不应该与 gbt_text_compress 有区别
+	 */
 	return gbt_text_compress(fcinfo);
 }
 
@@ -194,13 +208,19 @@ gbt_text_consistent(PG_FUNCTION_ARGS)
 	void	   *query = DatumGetTextP(PG_GETARG_DATUM(1));
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	bool		retval;
 	GBT_VARKEY *key = (GBT_VARKEY *) DatumGetPointer(entry->key);
 	GBT_VARKEY_R r = gbt_var_key_readable(key);
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	if (tinfo.eml == 0)
@@ -221,13 +241,19 @@ gbt_bpchar_consistent(PG_FUNCTION_ARGS)
 	void	   *query = DatumGetTextP(PG_GETARG_DATUM(1));
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	bool		retval;
 	GBT_VARKEY *key = (GBT_VARKEY *) DatumGetPointer(entry->key);
 	GBT_VARKEY_R r = gbt_var_key_readable(key);
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	if (bptinfo.eml == 0)
@@ -293,7 +319,10 @@ gbt_text_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	GBT_VARKEY_R arg2 = gbt_var_key_readable(key2);
 	Datum		result;
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	result = DirectFunctionCall2Coll(bttextcmp,
 									 ssup->ssup_collation,
 									 PointerGetDatum(arg1.lower),
@@ -326,7 +355,10 @@ gbt_bpchar_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	GBT_VARKEY_R arg2 = gbt_var_key_readable(key2);
 	Datum		result;
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	result = DirectFunctionCall2Coll(bpcharcmp,
 									 ssup->ssup_collation,
 									 PointerGetDatum(arg1.lower),

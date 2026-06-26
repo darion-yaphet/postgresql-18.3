@@ -1,4 +1,10 @@
 #!/usr/bin/perl
+#
+#!/usr/bin/perl
+#
+#!/usr/bin/perl
+#
+#!/usr/bin/perl
 
 # Copyright (c) 2021-2025, PostgreSQL Global Development Group
 

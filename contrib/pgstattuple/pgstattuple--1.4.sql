@@ -1,6 +1,8 @@
 /* contrib/pgstattuple/pgstattuple--1.4.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION pgstattuple" to load this file. \quit
 
 CREATE FUNCTION pgstattuple(IN relname text,
@@ -35,7 +37,10 @@ RETURNS BIGINT
 AS 'MODULE_PATHNAME', 'pg_relpages'
 LANGUAGE C STRICT PARALLEL SAFE;
 
-/* New stuff in 1.1 begins here */
+/* New stuff in 1.1 begins here
+ *
+ * 1.1 中的新内容从这里开始
+ */
 
 CREATE FUNCTION pgstatginindex(IN relname regclass,
     OUT version INT4,
@@ -44,7 +49,10 @@ CREATE FUNCTION pgstatginindex(IN relname regclass,
 AS 'MODULE_PATHNAME', 'pgstatginindex'
 LANGUAGE C STRICT PARALLEL SAFE;
 
-/* New stuff in 1.2 begins here */
+/* New stuff in 1.2 begins here
+ *
+ * 1.2 中的新内容从这里开始
+ */
 
 CREATE FUNCTION pgstattuple(IN reloid regclass,
     OUT table_len BIGINT,		-- physical table length in bytes
@@ -78,7 +86,10 @@ RETURNS BIGINT
 AS 'MODULE_PATHNAME', 'pg_relpagesbyid'
 LANGUAGE C STRICT PARALLEL SAFE;
 
-/* New stuff in 1.3 begins here */
+/* New stuff in 1.3 begins here
+ *
+ * 1.3 的新内容从这里开始
+ */
 
 CREATE FUNCTION pgstattuple_approx(IN reloid regclass,
     OUT table_len BIGINT,               -- physical table length in bytes

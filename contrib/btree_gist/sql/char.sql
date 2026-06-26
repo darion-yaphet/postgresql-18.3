@@ -1,4 +1,6 @@
 -- char check
+--
+-- 字符检查
 
 CREATE TABLE chartmp (a char(32));
 
@@ -31,6 +33,8 @@ SELECT count(*) FROM chartmp WHERE a >=  '31b0'::char(32);
 SELECT count(*) FROM chartmp WHERE a >   '31b0'::char(32);
 
 -- Test index-only scans
+--
+-- 测试仅索引扫描
 SET enable_bitmapscan=off;
 EXPLAIN (COSTS OFF)
 SELECT * FROM chartmp WHERE a BETWEEN '31a' AND '31c';

@@ -1,4 +1,6 @@
 -- bool check
+--
+-- 布尔检查
 
 CREATE TABLE booltmp (a bool);
 
@@ -31,6 +33,8 @@ SELECT count(*) FROM booltmp WHERE a >= true;
 SELECT count(*) FROM booltmp WHERE a >  true;
 
 -- Test index-only scans
+--
+-- 测试仅索引扫描
 SET enable_bitmapscan=off;
 
 EXPLAIN (COSTS OFF)

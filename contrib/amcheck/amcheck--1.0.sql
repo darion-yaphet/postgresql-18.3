@@ -1,6 +1,8 @@
 /* contrib/amcheck/amcheck--1.0.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION amcheck" to load this file. \quit
 
 --
@@ -20,5 +22,7 @@ AS 'MODULE_PATHNAME', 'bt_index_parent_check'
 LANGUAGE C STRICT PARALLEL RESTRICTED;
 
 -- Don't want these to be available to public
+--
+-- 不希望这些内容向公众公开
 REVOKE ALL ON FUNCTION bt_index_check(regclass) FROM PUBLIC;
 REVOKE ALL ON FUNCTION bt_index_parent_check(regclass) FROM PUBLIC;

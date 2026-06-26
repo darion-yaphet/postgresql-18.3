@@ -17,7 +17,11 @@ ISOLATION = logical_inspect
 ISOLATION_OPTS = --temp-config $(top_srcdir)/contrib/pg_logicalinspect/logicalinspect.conf
 
 # Disabled because these tests require "wal_level=logical", which
+#
+# 禁用，因为这些测试需要“wal_level=逻辑”，这
 # some installcheck users do not have (e.g. buildfarm clients).
+#
+# 一些 installcheck 用户没有（例如 buildfarm 客户端）。
 NO_INSTALLCHECK = 1
 
 ifdef USE_PGXS

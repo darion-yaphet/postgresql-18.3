@@ -11,15 +11,21 @@ SELECT count(*) FROM test_tablesample TABLESAMPLE system_rows (10);
 SELECT count(*) FROM test_tablesample TABLESAMPLE system_rows (100);
 
 -- bad parameters should get through planning, but not execution:
+--
+-- 错误的参数应该通过计划，而不是执行：
 EXPLAIN (COSTS OFF)
 SELECT id FROM test_tablesample TABLESAMPLE system_rows (-1);
 
 SELECT id FROM test_tablesample TABLESAMPLE system_rows (-1);
 
 -- fail, this method is not repeatable:
+--
+-- 失败，此方法不可重复：
 SELECT * FROM test_tablesample TABLESAMPLE system_rows (10) REPEATABLE (0);
 
 -- but a join should be allowed:
+--
+-- 但应该允许加入：
 EXPLAIN (COSTS OFF)
 SELECT * FROM
   (VALUES (0),(10),(100)) v(nrows),

@@ -16,7 +16,10 @@ typedef struct
 } uuidKEY;
 
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_uuid_compress);
 PG_FUNCTION_INFO_V1(gbt_uuid_fetch);
 PG_FUNCTION_INFO_V1(gbt_uuid_union);
@@ -94,6 +97,8 @@ static const gbtree_ninfo tinfo =
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 Datum
@@ -136,12 +141,18 @@ gbt_uuid_consistent(PG_FUNCTION_ARGS)
 	pg_uuid_t  *query = PG_GETARG_UUID_P(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	uuidKEY    *kkk = (uuidKEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	key.lower = (GBT_NUMKEY *) &kkk->lower;
@@ -164,6 +175,8 @@ gbt_uuid_union(PG_FUNCTION_ARGS)
 
 /*
  * Convert a uuid to a "double" value for estimating sizes of ranges.
+ *
+ * 将 uuid 转换为“双精度”值以估计范围的大小。
  */
 static double
 uuid_2_double(const pg_uuid_t *u)
@@ -171,13 +184,18 @@ uuid_2_double(const pg_uuid_t *u)
 	uint64		uu[2];
 	const double two64 = 18446744073709551616.0;	/* 2^64 */
 
-	/* Source data may not be suitably aligned, so copy */
+	/* Source data may not be suitably aligned, so copy
+	 *
+	 * 源数据可能没有适当对齐，因此复制
+	 */
 	memcpy(uu, u->data, UUID_LEN);
 
 	/*
 	 * uuid values should be considered as big-endian numbers, since that
 	 * corresponds to how memcmp will compare them.  On a little-endian
 	 * machine, byte-swap each half so we can use native uint64 arithmetic.
+	 *
+	 * uuid 值应被视为大端数字，因为这对应于 memcmp 比较它们的方式。  在小端机器上，对每一半进行字节交换，以便我们可以使用本机 uint64 算术。
 	 */
 #ifndef WORDS_BIGENDIAN
 	uu[0] = pg_bswap64(uu[0]);
@@ -189,6 +207,8 @@ uuid_2_double(const pg_uuid_t *u)
 	 * "double" (POSIX only requires 1e37).  To avoid any risk of overflow,
 	 * put the decimal point between the two halves rather than treating the
 	 * uuid value as a 128-bit integer.
+	 *
+	 * 2^128大约是3.4e38，理论上可以超出“double”的范围（POSIX只需要1e37）。  为了避免任何溢出风险，请将小数点放在两半之间，而不是将 uuid 值视为 128 位整数。
 	 */
 	return (double) uu[0] + (double) uu[1] / two64;
 }
@@ -239,7 +259,10 @@ gbt_uuid_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	uuidKEY    *arg1 = (uuidKEY *) DatumGetPointer(x);
 	uuidKEY    *arg2 = (uuidKEY *) DatumGetPointer(y);
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	return uuid_internal_cmp(&arg1->lower, &arg2->lower);
 }
 

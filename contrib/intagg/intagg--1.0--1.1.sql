@@ -1,6 +1,8 @@
 /* contrib/intagg/intagg--1.0--1.1.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION intagg UPDATE TO '1.1'" to load this file. \quit
 
 ALTER FUNCTION int_agg_state(internal, int4) PARALLEL SAFE;
@@ -13,6 +15,8 @@ DECLARE
   old_path pg_catalog.text := pg_catalog.current_setting('search_path');
 BEGIN
 -- for safety, transiently set search_path to just pg_catalog+pg_temp
+--
+-- 为了安全起见，暂时将 search_path 设置为 pg_catalog+pg_temp
 PERFORM pg_catalog.set_config('search_path', 'pg_catalog, pg_temp', true);
 
 UPDATE pg_proc SET proparallel = 's'

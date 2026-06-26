@@ -32,6 +32,8 @@
 
 /*
  * GinScanItem represents one item of depth-first scan of the index.
+ *
+ * GinScanItem 表示索引的深度优先扫描的一项。
  */
 typedef struct GinScanItem
 {
@@ -44,6 +46,8 @@ typedef struct GinScanItem
 
 /*
  * GinPostingTreeScanItem represents one item of a depth-first posting tree scan.
+ *
+ * GinPostingTreeScanItem 表示深度优先发布树扫描的一项。
  */
 typedef struct GinPostingTreeScanItem
 {
@@ -71,9 +75,15 @@ static ItemId PageGetItemIdCareful(Relation rel, BlockNumber block, Page page,
 /*
  * gin_index_check(index regclass)
  *
+ * gin_index_check(索引regclass)
+ *
  * Verify integrity of GIN index.
  *
+ * 验证 GIN 索引的完整性。
+ *
  * Acquires AccessShareLock on heap & index relations.
+ *
+ * 获取堆和索引关系上的 AccessShareLock。
  */
 Datum
 gin_index_check(PG_FUNCTION_ARGS)
@@ -92,8 +102,12 @@ gin_index_check(PG_FUNCTION_ARGS)
 /*
  * Read item pointers from leaf entry tuple.
  *
+ * 从叶条目元组读取项目指针。
+ *
  * Returns a palloc'd array of ItemPointers. The number of items is returned
  * in *nitems.
+ *
+ * 返回一个 palloc 的 ItemPointers 数组。项目数以 *nitems 形式返回。
  */
 static ItemPointer
 ginReadTupleWithoutState(IndexTuple itup, int *nitems)
@@ -128,7 +142,11 @@ ginReadTupleWithoutState(IndexTuple itup, int *nitems)
  * Scans through a posting tree (given by the root), and verifies that the keys
  * on a child keys are consistent with the parent.
  *
+ * 扫描发布树（由根给出），并验证子密钥上的密钥与父密钥一致。
+ *
  * Allocates a separate memory context and scans through posting tree graph.
+ *
+ * 分配单独的内存上下文并扫描发布树图。
  */
 static void
 gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting_tree_root)
@@ -148,10 +166,15 @@ gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting
 	/*
 	 * We don't know the height of the tree yet, but as soon as we encounter a
 	 * leaf page, we will set 'leafdepth' to its depth.
+	 *
+	 * 我们还不知道树的高度，但是一旦遇到叶子页面，我们就会将 'leafdepth' 设置为它的深度。
 	 */
 	leafdepth = -1;
 
-	/* Start the scan at the root page */
+	/* Start the scan at the root page
+	 *
+	 * 从根页面开始扫描
+	 */
 	stack = (GinPostingTreeScanItem *) palloc0(sizeof(GinPostingTreeScanItem));
 	stack->depth = 0;
 	ItemPointerSetInvalid(&stack->parentkey);
@@ -178,7 +201,10 @@ gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting
 
 		Assert(GinPageIsData(page));
 
-		/* Check that the tree has the same height in all branches */
+		/* Check that the tree has the same height in all branches
+		 *
+		 * 检查树的所有分支的高度是否相同
+		 */
 		if (GinPageIsLeaf(page))
 		{
 			ItemPointerData minItem;
@@ -239,6 +265,8 @@ gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting
 			/*
 			 * Check that tuples in each page are properly ordered and
 			 * consistent with parent high key
+			 *
+			 * 检查每个页面中的元组是否正确排序并与父高键一致
 			 */
 			maxoff = GinPageGetOpaque(page)->maxoff;
 			rightlink = GinPageGetOpaque(page)->rightlink;
@@ -260,10 +288,14 @@ gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting
 			 * number of elements is stored in the opaque area (maxoff). Make
 			 * sure the size of the 'lower' part agrees with 'maxoff'
 			 *
+			 * GIN 发布树内部页面将 PostingItems 存储在页面的“下部”部分。 “上部”部分未使用。元素的数量存储在不透明区域（maxoff）中。确保“lower”部分的尺寸与“maxoff”一致
+			 *
 			 * We didn't set pd_lower until PostgreSQL version 9.4, so if this
 			 * check fails, it could also be because the index was
 			 * binary-upgraded from an earlier version. That was a long time
 			 * ago, though, so let's warn if it doesn't match.
+			 *
+			 * 我们直到 PostgreSQL 9.4 版本才设置 pd_lower，因此如果此检查失败，也可能是因为索引是从早期版本进行二进制升级的。不过那是很久以前的事了，所以如果不匹配的话我们会发出警告。
 			 */
 			pd_lower = ((PageHeader) page)->pd_lower;
 			lowersize = pd_lower - MAXALIGN(SizeOfPageHeaderData);
@@ -276,6 +308,8 @@ gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting
 			/*
 			 * Before the PostingItems, there's one ItemPointerData in the
 			 * 'lower' part that stores the page's high key.
+			 *
+			 * 在 PostingItems 之前，“下部”部分有一个 ItemPointerData，用于存储页面的高键。
 			 */
 			bound = *GinDataPageGetRightBound(page);
 
@@ -284,6 +318,8 @@ gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting
 			 * on the rightmost page (at a given level). For the rightmost
 			 * page does not store the highkey explicitly, and the value is
 			 * infinity.
+			 *
+			 * 仅当最右侧页面（在给定级别）上不是高键时，Gin 页面右边界才具有正常值。对于最右边的页面没有显式存储 highkey，并且该值是无穷大。
 			 */
 			if (ItemPointerIsValid(&stack->parentkey) &&
 				rightlink != InvalidBlockNumber &&
@@ -303,7 +339,10 @@ gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting
 				GinPostingTreeScanItem *ptr;
 				PostingItem *posting_item = GinDataPageGetPostingItem(page, i);
 
-				/* ItemPointerGetOffsetNumber expects a valid pointer */
+				/* ItemPointerGetOffsetNumber expects a valid pointer
+				 *
+				 * ItemPointerGetOffsetNumber 需要一个有效的指针
+				 */
 				if (!(i == maxoff &&
 					  rightlink == InvalidBlockNumber))
 					elog(DEBUG3, "key (%u, %u) -> %u",
@@ -319,6 +358,8 @@ gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting
 					/*
 					 * The rightmost item in the tree level has (0, 0) as the
 					 * key
+					 *
+					 * 树级别中最右边的项以 (0, 0) 作为键
 					 */
 					if (ItemPointerGetBlockNumberNoCheck(&posting_item->key) != 0 ||
 						ItemPointerGetOffsetNumberNoCheck(&posting_item->key) != 0)
@@ -344,6 +385,8 @@ gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting
 				/*
 				 * Check if this tuple is consistent with the downlink in the
 				 * parent.
+				 *
+				 * 检查该元组与父元组中的下行链路是否一致。
 				 */
 				if (i == maxoff && ItemPointerIsValid(&stack->parentkey) &&
 					ItemPointerCompare(&stack->parentkey, &posting_item->key) < 0)
@@ -353,13 +396,18 @@ gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting
 									RelationGetRelationName(rel),
 									stack->blkno, i)));
 
-				/* This is an internal page, recurse into the child. */
+				/* This is an internal page, recurse into the child.
+				 *
+				 * 这是一个内部页面，递归到子页面。
+				 */
 				ptr = (GinPostingTreeScanItem *) palloc(sizeof(GinPostingTreeScanItem));
 				ptr->depth = stack->depth + 1;
 
 				/*
 				 * The rightmost parent key is always invalid item pointer.
 				 * Its value is 'Infinity' and not explicitly stored.
+				 *
+				 * 最右边的父键始终是无效的项目指针。它的值为“Infinity”并且未显式存储。
 				 */
 				ptr->parentkey = posting_item->key;
 				ptr->parentblk = stack->blkno;
@@ -371,7 +419,10 @@ gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting
 		LockBuffer(buffer, GIN_UNLOCK);
 		ReleaseBuffer(buffer);
 
-		/* Step to next item in the queue */
+		/* Step to next item in the queue
+		 *
+		 * 进入队列中的下一个项目
+		 */
 		stack_next = stack->next;
 		pfree(stack);
 		stack = stack_next;
@@ -384,7 +435,11 @@ gin_check_posting_tree_parent_keys_consistency(Relation rel, BlockNumber posting
 /*
  * Main entry point for GIN checks.
  *
+ * GIN 检查的主要入口点。
+ *
  * Allocates memory context and scans through the whole GIN graph.
+ *
+ * 分配内存上下文并扫描整个 GIN 图。
  */
 static void
 gin_check_parent_keys_consistency(Relation rel,
@@ -408,10 +463,15 @@ gin_check_parent_keys_consistency(Relation rel,
 	/*
 	 * We don't know the height of the tree yet, but as soon as we encounter a
 	 * leaf page, we will set 'leafdepth' to its depth.
+	 *
+	 * 我们还不知道树的高度，但是一旦遇到叶子页面，我们就会将 'leafdepth' 设置为它的深度。
 	 */
 	leafdepth = -1;
 
-	/* Start the scan at the root page */
+	/* Start the scan at the root page
+	 *
+	 * 从根页面开始扫描
+	 */
 	stack = (GinScanItem *) palloc0(sizeof(GinScanItem));
 	stack->depth = 0;
 	stack->parenttup = NULL;
@@ -438,7 +498,10 @@ gin_check_parent_keys_consistency(Relation rel,
 		maxoff = PageGetMaxOffsetNumber(page);
 		rightlink = GinPageGetOpaque(page)->rightlink;
 
-		/* Do basic sanity checks on the page headers */
+		/* Do basic sanity checks on the page headers
+		 *
+		 * 对页眉进行基本的健全性检查
+		 */
 		check_index_page(rel, buffer, stack->blkno);
 
 		elog(DEBUG3, "processing entry tree page at blk %u, maxoff: %u", stack->blkno, maxoff);
@@ -448,6 +511,8 @@ gin_check_parent_keys_consistency(Relation rel,
 		 * parent, so that we didn't missed the downlink of the right sibling
 		 * when we scanned the parent.  If so, add the right sibling to the
 		 * stack now.
+		 *
+		 * 可能是因为我们查看了父级，所以页面被分割了，这样我们在扫描父级时就不会错过右兄弟的下行链路。  如果是这样，请立即将右侧同级添加到堆栈中。
 		 */
 		if (stack->parenttup != NULL)
 		{
@@ -468,7 +533,10 @@ gin_check_parent_keys_consistency(Relation rel,
 									 page_max_key_category, parent_key_attnum,
 									 parent_key, parent_key_category) < 0)
 			{
-				/* split page detected, install right link to the stack */
+				/* split page detected, install right link to the stack
+				 *
+				 * 检测到拆分页面，安装堆栈的正确链接
+				 */
 				GinScanItem *ptr;
 
 				elog(DEBUG3, "split detected for blk: %u, parent blk: %u", stack->blkno, stack->parentblk);
@@ -483,7 +551,10 @@ gin_check_parent_keys_consistency(Relation rel,
 			}
 		}
 
-		/* Check that the tree has the same height in all branches */
+		/* Check that the tree has the same height in all branches
+		 *
+		 * 检查树的所有分支的高度是否相同
+		 */
 		if (GinPageIsLeaf(page))
 		{
 			if (leafdepth == -1)
@@ -498,6 +569,8 @@ gin_check_parent_keys_consistency(Relation rel,
 		/*
 		 * Check that tuples in each page are properly ordered and consistent
 		 * with parent high key
+		 *
+		 * 检查每个页面中的元组是否正确排序并与父高键一致
 		 */
 		prev_tuple = NULL;
 		prev_attnum = InvalidAttrNumber;
@@ -520,11 +593,17 @@ gin_check_parent_keys_consistency(Relation rel,
 			/*
 			 * Compare the entry to the preceding one.
 			 *
+			 * 将条目与前一个条目进行比较。
+			 *
 			 * Don't check for high key on the rightmost inner page, as this
 			 * key is not really stored explicitly.
 			 *
+			 * 不要检查最右侧内页上的高键，因为该键并未真正显式存储。
+			 *
 			 * The entries may be for different attributes, so make sure to
 			 * use ginCompareAttEntries for comparison.
+			 *
+			 * 这些条目可能用于不同的属性，因此请确保使用 ginCompareAttEntries 进行比较。
 			 */
 			if ((i != FirstOffsetNumber) &&
 				!(i == maxoff && rightlink == InvalidBlockNumber && !GinPageIsLeaf(page)))
@@ -545,6 +624,8 @@ gin_check_parent_keys_consistency(Relation rel,
 			/*
 			 * Check if this tuple is consistent with the downlink in the
 			 * parent.
+			 *
+			 * 检查该元组与父元组中的下行链路是否一致。
 			 */
 			if (stack->parenttup &&
 				i == maxoff)
@@ -565,12 +646,17 @@ gin_check_parent_keys_consistency(Relation rel,
 					 * concurrent call of gistplacetopage(). So, lock parent
 					 * and try to find downlink for current page. It may be
 					 * missing due to concurrent page split, this is OK.
+					 *
+					 * 父元组和子元组之间存在差异。我们需要验证它不是并发调用 gistplacetopage() 的结果。因此，锁定父级并尝试查找当前页面的下行链接。可能是由于并发页面分割而丢失，这是可以的。
 					 */
 					pfree(stack->parenttup);
 					stack->parenttup = gin_refind_parent(rel, stack->parentblk,
 														 stack->blkno, strategy);
 
-					/* We found it - make a final check before failing */
+					/* We found it - make a final check before failing
+					 *
+					 * 我们找到了 - 在失败之前进行最后检查
+					 */
 					if (!stack->parenttup)
 						elog(NOTICE, "Unable to find parent tuple for block %u on block %u due to concurrent split",
 							 stack->blkno, stack->parentblk);
@@ -584,6 +670,8 @@ gin_check_parent_keys_consistency(Relation rel,
 						/*
 						 * Check if it is properly adjusted. If succeed,
 						 * proceed to the next key.
+						 *
+						 * 检查是否调整正确。如果成功，则继续执行下一个键。
 						 */
 						if (ginCompareAttEntries(&state, current_attnum, current_key,
 												 current_key_category, parent_key_attnum,
@@ -596,14 +684,20 @@ gin_check_parent_keys_consistency(Relation rel,
 				}
 			}
 
-			/* If this is an internal page, recurse into the child */
+			/* If this is an internal page, recurse into the child
+			 *
+			 * 如果这是一个内部页面，则递归到子页面
+			 */
 			if (!GinPageIsLeaf(page))
 			{
 				GinScanItem *ptr;
 
 				ptr = (GinScanItem *) palloc(sizeof(GinScanItem));
 				ptr->depth = stack->depth + 1;
-				/* last tuple in layer has no high key */
+				/* last tuple in layer has no high key
+				 *
+				 * 层中的最后一个元组没有高调
+				 */
 				if (i == maxoff && rightlink == InvalidBlockNumber)
 					ptr->parenttup = NULL;
 				else
@@ -613,7 +707,10 @@ gin_check_parent_keys_consistency(Relation rel,
 				ptr->next = stack->next;
 				stack->next = ptr;
 			}
-			/* If this item is a pointer to a posting tree, recurse into it */
+			/* If this item is a pointer to a posting tree, recurse into it
+			 *
+			 * 如果此项是指向发布树的指针，则递归到它
+			 */
 			else if (GinIsPostingTree(idxtuple))
 			{
 				BlockNumber rootPostingTree = GinGetPostingTree(idxtuple);
@@ -645,7 +742,10 @@ gin_check_parent_keys_consistency(Relation rel,
 		LockBuffer(buffer, GIN_UNLOCK);
 		ReleaseBuffer(buffer);
 
-		/* Step to next item in the queue */
+		/* Step to next item in the queue
+		 *
+		 * 进入队列中的下一个项目
+		 */
 		stack_next = stack->next;
 		if (stack->parenttup)
 			pfree(stack->parenttup);
@@ -659,6 +759,8 @@ gin_check_parent_keys_consistency(Relation rel,
 
 /*
  * Verify that a freshly-read page looks sane.
+ *
+ * 验证新阅读的页面看起来是否正常。
  */
 static void
 check_index_page(Relation rel, Buffer buffer, BlockNumber blockNo)
@@ -670,6 +772,8 @@ check_index_page(Relation rel, Buffer buffer, BlockNumber blockNo)
 	 * PageHeaderIsValid, which means it either contains a reasonably sane
 	 * page header or is all-zero.  We have to defend against the all-zero
 	 * case, however.
+	 *
+	 * ReadBuffer 验证每个新读取的页面是否通过 PageHeaderIsValid，这意味着它要么包含合理的页面标题，要么全为零。  然而，我们必须防范全零的情况。
 	 */
 	if (PageIsNew(page))
 		ereport(ERROR,
@@ -681,6 +785,8 @@ check_index_page(Relation rel, Buffer buffer, BlockNumber blockNo)
 
 	/*
 	 * Additionally check that the special area looks sane.
+	 *
+	 * 另外检查特殊区域是否看起来正常。
 	 */
 	if (PageGetSpecialSize(page) != MAXALIGN(sizeof(GinPageOpaqueData)))
 		ereport(ERROR,
@@ -713,8 +819,12 @@ check_index_page(Relation rel, Buffer buffer, BlockNumber blockNo)
 /*
  * Try to re-find downlink pointing to 'blkno', in 'parentblkno'.
  *
+ * 尝试在“parentblkno”中重新查找指向“blkno”的下行链路。
+ *
  * If found, returns a palloc'd copy of the downlink tuple. Otherwise,
  * returns NULL.
+ *
+ * 如果找到，则返回下行链路元组的 palloc 副本。否则，返回 NULL。
  */
 static IndexTuple
 gin_refind_parent(Relation rel, BlockNumber parentblkno,
@@ -746,7 +856,10 @@ gin_refind_parent(Relation rel, BlockNumber parentblkno,
 
 		if (GinGetDownlink(itup) == childblkno)
 		{
-			/* Found it! Make copy and return it */
+			/* Found it! Make copy and return it
+			 *
+			 * 找到了！复印并退回
+			 */
 			result = CopyIndexTuple(itup);
 			break;
 		}
@@ -778,6 +891,8 @@ PageGetItemIdCareful(Relation rel, BlockNumber block, Page page,
 	 * Verify that line pointer isn't LP_REDIRECT or LP_UNUSED or LP_DEAD,
 	 * since GIN never uses all three.  Verify that line pointer has storage,
 	 * too.
+	 *
+	 * 验证行指针不是 LP_REDIRECT 或 LP_UNUSED 或 LP_DEAD，因为 GIN 从未使用这三个指针。  验证行指针也有存储空间。
 	 */
 	if (ItemIdIsRedirected(itemid) || !ItemIdIsUsed(itemid) ||
 		ItemIdIsDead(itemid) || ItemIdGetLength(itemid) == 0)

@@ -26,6 +26,8 @@ endif
 update-unicode: $(srcdir)/unaccent.rules
 
 # Allow running this even without --with-python
+#
+# 即使没有 --with-python 也允许运行它
 ifeq ($(PYTHON),)
 PYTHON = python
 endif
@@ -34,10 +36,14 @@ $(srcdir)/unaccent.rules: generate_unaccent_rules.py ../../src/common/unicode/Un
 	$(PYTHON) $< --unicode-data-file $(word 2,$^) --latin-ascii-file $(word 3,$^) >$@
 
 # Only download it once; dependencies must match src/common/unicode/
+#
+# 只下载一次；依赖项必须匹配 src/common/unicode/
 ../../src/common/unicode/UnicodeData.txt: $(top_builddir)/src/Makefile.global
 	$(MAKE) -C $(@D) $(@F)
 
 # Dependency on Makefile.global is for CLDR_VERSION
+#
+# 对 Makefile.global 的依赖适用于 CLDR_VERSION
 Latin-ASCII.xml: $(top_builddir)/src/Makefile.global
 	$(DOWNLOAD) https://raw.githubusercontent.com/unicode-org/cldr/release-$(subst .,-,$(CLDR_VERSION))/common/transforms/Latin-ASCII.xml
 

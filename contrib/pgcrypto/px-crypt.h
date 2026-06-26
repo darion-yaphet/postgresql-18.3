@@ -32,51 +32,90 @@
 #ifndef _PX_CRYPT_H
 #define _PX_CRYPT_H
 
-/* max room for result */
+/* max room for result
+ *
+ * 结果的最大空间
+ */
 #define PX_MAX_CRYPT  128
 
-/* max salt returned by gen_salt() */
+/* max salt returned by gen_salt()
+ *
+ * gen_salt() 返回的最大盐值
+ */
 #define PX_MAX_SALT_LEN		128
 
-/* default rounds for xdes salt */
-/* NetBSD bin/passwd/local_passwd.c has (29 * 25)*/
+/* default rounds for xdes salt
+ *
+ * xdes salt 的默认轮次
+ */
+/* NetBSD bin/passwd/local_passwd.c has (29 * 25)
+ *
+ * NetBSD bin/passwd/local_passwd.c 有 (29 * 25)
+ */
 #define PX_XDES_ROUNDS		(29 * 25)
 
-/* default for blowfish salt */
+/* default for blowfish salt
+ *
+ * 默认为河豚盐
+ */
 #define PX_BF_ROUNDS		6
 
-/* Maximum salt string length of shacrypt.  */
+/* Maximum salt string length of shacrypt.
+ *
+ * shacrypt 的最大盐字符串长度。
+ */
 #define PX_SHACRYPT_SALT_MAX_LEN 16
 
-/* SHA buffer length */
+/* SHA buffer length
+ *
+ * SHA 缓冲区长度
+ */
 #define PX_SHACRYPT_DIGEST_MAX_LEN 64
 
-/* calculated buffer size of a buffer to store a shacrypt salt string */
+/* calculated buffer size of a buffer to store a shacrypt salt string
+ *
+ * 计算存储 shacrypt salt 字符串的缓冲区的缓冲区大小
+ */
 #define PX_SHACRYPT_SALT_BUF_LEN (3 + 7 + 10 + PX_SHACRYPT_SALT_MAX_LEN + 1)
 
 /*
  * calculated buffer size of a buffer to store complete result of a shacrypt
  * digest including salt
+ *
+ * 计算的缓冲区大小，用于存储 shacrypt 摘要的完整结果（包括盐）
  */
 #define PX_SHACRYPT_BUF_LEN (PX_SHACRYPT_SALT_BUF_LEN + 86 + 1)
 
-/* Default number of rounds of shacrypt if not explicitly specified.  */
+/* Default number of rounds of shacrypt if not explicitly specified.
+ *
+ * 如果未明确指定，则为 shacrypt 的默认轮数。
+ */
 #define PX_SHACRYPT_ROUNDS_DEFAULT 5000
 
-/* Minimum number of rounds of shacrypt.  */
+/* Minimum number of rounds of shacrypt.
+ *
+ * shacrypt 的最小轮数。
+ */
 #define PX_SHACRYPT_ROUNDS_MIN 1000
 
-/* Maximum number of rounds of shacrypt.  */
+/* Maximum number of rounds of shacrypt.
+ *
+ * shacrypt 的最大轮数。
+ */
 #define PX_SHACRYPT_ROUNDS_MAX 999999999
 
 /*
  * main interface
+ *
+ * 主界面
  */
 char	   *px_crypt(const char *psw, const char *salt, char *buf, unsigned len);
 int			px_gen_salt(const char *salt_type, char *buf, int rounds);
 
 /*
  * internal functions
+ *
+ * 内部功能
  */
 
 /* crypt-gensalt.c */
@@ -93,7 +132,10 @@ char	   *_crypt_gensalt_sha256_rn(unsigned long count,
 char	   *_crypt_gensalt_sha512_rn(unsigned long count,
 									 const char *input, int size, char *output, int output_size);
 
-/* disable 'extended DES crypt' */
+/* disable 'extended DES crypt'
+ *
+ * 禁用“扩展 DES 加密”
+ */
 /* #define DISABLE_XDES */
 
 /* crypt-blowfish.c */

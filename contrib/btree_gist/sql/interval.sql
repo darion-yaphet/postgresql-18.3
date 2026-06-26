@@ -1,4 +1,6 @@
 -- interval check
+--
+-- 间隔检查
 
 CREATE TABLE intervaltmp (a interval);
 

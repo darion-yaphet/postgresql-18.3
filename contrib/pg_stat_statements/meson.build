@@ -60,8 +60,14 @@ tests += {
     ],
     'regress_args': ['--temp-config', files('pg_stat_statements.conf')],
     # Disabled because these tests require
+    #
+    # 禁用，因为这些测试需要
     # "shared_preload_libraries=pg_stat_statements", which typical
+    #
+    # “shared_preload_libraries=pg_stat_statements”，典型的
     # runningcheck users do not have (e.g. buildfarm clients).
+    #
+    # runningcheck 用户没有（例如 buildfarm 客户端）。
     'runningcheck': false,
   },
   'tap': {

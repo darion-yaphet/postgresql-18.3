@@ -1,6 +1,8 @@
 /* contrib/btree_gin/btree_gin--1.0.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION btree_gin" to load this file. \quit
 
 CREATE FUNCTION gin_btree_consistent(internal, int2, anyelement, int4, internal, internal)

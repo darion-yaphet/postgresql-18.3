@@ -1,9 +1,13 @@
 CREATE EXTENSION ltree;
 
 -- max length for a label
+--
+-- 标签的最大长度
 \set maxlbl 1000
 
 -- Check whether any of our opclasses fail amvalidate
+--
+-- 检查我们的任何 opclass 是否未通过 amvalidate
 SELECT amname, opcname
 FROM pg_opclass opc LEFT JOIN pg_am am ON am.oid = opcmethod
 WHERE opc.oid >= 16384 AND NOT amvalidate(opc.oid);
@@ -15,6 +19,8 @@ SELECT '1.2.-3'::ltree;
 SELECT '1.2._3'::ltree;
 
 -- empty labels not allowed
+--
+-- 不允许空标签
 SELECT '.2.3'::ltree;
 SELECT '1..3'::ltree;
 SELECT '1.2.'::ltree;
@@ -104,6 +110,8 @@ SELECT 'foo*@@*'::lquery;
 SELECT 'qwerty%@*.tu'::lquery;
 
 -- empty labels not allowed
+--
+-- 不允许空标签
 SELECT '.2.3'::lquery;
 SELECT '1..3'::lquery;
 SELECT '1.2.'::lquery;
@@ -283,7 +291,11 @@ SELECT '{ltree.asd, tree.awdfg}'::ltree[] ?@ 'tree & aWdfg@'::ltxtquery;
 SELECT '{j.k.l.m, g.b.c.d.e}'::ltree[] ?~ 'A*@|g.b.c.d.e';
 
 -- Check that the hash_ltree() and hash_ltree_extended() function's lower
+--
+-- 检查 hash_ltree() 和 hash_ltree_extended() 函数的较低值
 -- 32 bits match when the seed is 0 and do not match when the seed != 0
+--
+-- 32位当种子为0时匹配，当种子!=0时不匹配
 SELECT v as value, hash_ltree(v)::bit(32) as standard,
        hash_ltree_extended(v, 0)::bit(32) as extended0,
        hash_ltree_extended(v, 1)::bit(32) as extended1
@@ -343,6 +355,8 @@ SELECT * FROM ltreetest WHERE t ? '{23.*.1,23.*.2}' order by t asc;
 drop index tstidx;
 
 --- test hash index
+--
+--- 测试哈希索引
 
 create index tstidx on ltreetest using hash (t);
 set enable_seqscan=off;
@@ -356,6 +370,8 @@ reset enable_seqscan;
 reset enable_bitmapscan;
 
 -- test hash aggregate
+--
+-- 测试哈希聚合
 
 set enable_hashagg=on;
 set enable_sort=off;
@@ -375,6 +391,8 @@ reset enable_sort;
 drop index tstidx;
 
 -- test gist index
+--
+-- 测试要点索引
 
 create index tstidx on ltreetest using gist (t gist_ltree_ops(siglen=0));
 create index tstidx on ltreetest using gist (t gist_ltree_ops(siglen=2025));
@@ -439,6 +457,8 @@ SELECT count(*) FROM _ltreetest WHERE t ~ '23.*.2' ;
 SELECT count(*) FROM _ltreetest WHERE t ? '{23.*.1,23.*.2}' ;
 
 -- test non-error-throwing input
+--
+-- 测试不抛出错误的输入
 
 SELECT str as "value", typ as "type",
        pg_input_is_valid(str,typ) as ok,

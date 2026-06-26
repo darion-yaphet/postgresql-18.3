@@ -101,6 +101,8 @@ static uint8 comp_perm[48] = {
 
 /*
  *	No E box is used, as it's replaced by some ANDs, shifts, and ORs.
+ *
+ * 没有使用 E 框，因为它被一些 AND、移位和 OR 所取代。
  */
 
 static uint8 u_sbox[8][64];
@@ -239,6 +241,8 @@ des_init(void)
 
 	/*
 	 * Invert the S-boxes, reordering the input bits.
+	 *
+	 * 反转 S 盒，重新排序输入位。
 	 */
 	for (i = 0; i < 8; i++)
 		for (j = 0; j < 64; j++)
@@ -250,6 +254,8 @@ des_init(void)
 	/*
 	 * Convert the inverted S-boxes into 4 arrays of 8 bits. Each will handle
 	 * 12 bits of the S-box input.
+	 *
+	 * 将反转的 S 盒转换为 4 个 8 位数组。每个将处理 S 盒输入的 12 位。
 	 */
 	for (b = 0; b < 4; b++)
 		for (i = 0; i < 64; i++)
@@ -261,6 +267,8 @@ des_init(void)
 	/*
 	 * Set up the initial & final permutations into a useful form, and
 	 * initialise the inverted key permutation.
+	 *
+	 * 将初始和最终排列设置为有用的形式，并初始化反转的密钥排列。
 	 */
 	for (i = 0; i < 64; i++)
 	{
@@ -271,6 +279,8 @@ des_init(void)
 	/*
 	 * Invert the key permutation and initialise the inverted key compression
 	 * permutation.
+	 *
+	 * 反转密钥排列并初始化反转的密钥压缩排列。
 	 */
 	for (i = 0; i < 56; i++)
 	{
@@ -281,6 +291,8 @@ des_init(void)
 
 	/*
 	 * Invert the key compression permutation.
+	 *
+	 * 反转密钥压缩排列。
 	 */
 	for (i = 0; i < 48; i++)
 		inv_comp_perm[comp_perm[i] - 1] = i;
@@ -288,6 +300,8 @@ des_init(void)
 	/*
 	 * Set up the OR-mask arrays for the initial and final permutations, and
 	 * for the key initial and compression permutations.
+	 *
+	 * 为初始和最终排列以及关键初始和压缩排列设置 OR 掩码数组。
 	 */
 	for (k = 0; k < 8; k++)
 	{
@@ -351,6 +365,8 @@ des_init(void)
 	/*
 	 * Invert the P-box permutation, and convert into OR-masks for handling
 	 * the output of the S-box arrays setup above.
+	 *
+	 * 反转 P 盒排列，并转换为 OR 掩码以处理上面设置的 S 盒数组的输出。
 	 */
 	for (i = 0; i < 32; i++)
 		un_pbox[pbox[i] - 1] = i;
@@ -416,6 +432,8 @@ des_setkey(const char *key)
 		 * Already setup for this key. This optimization fails on a zero key
 		 * (which is weak and has bad parity anyway) in order to simplify the
 		 * starting conditions.
+		 *
+		 * 已经设置了该键。为了简化启动条件，此优化在零键上失败（零键很弱并且奇偶校验很差）。
 		 */
 		return 0;
 	}
@@ -424,6 +442,8 @@ des_setkey(const char *key)
 
 	/*
 	 * Do key permutation and split into two 28-bit subkeys.
+	 *
+	 * 进行密钥排列并分成两个 28 位子密钥。
 	 */
 	k0 = key_perm_maskl[0][rawkey0 >> 25]
 		| key_perm_maskl[1][(rawkey0 >> 17) & 0x7f]
@@ -444,6 +464,8 @@ des_setkey(const char *key)
 
 	/*
 	 * Rotate subkeys and do compression permutation.
+	 *
+	 * 旋转子键并进行压缩排列。
 	 */
 	shifts = 0;
 	for (round = 0; round < 16; round++)
@@ -484,6 +506,8 @@ do_des(uint32 l_in, uint32 r_in, uint32 *l_out, uint32 *r_out, int count)
 {
 	/*
 	 * l_in, r_in, l_out, and r_out are in pseudo-"big-endian" format.
+	 *
+	 * l_in、r_in、l_out 和 r_out 采用伪“big-endian”格式。
 	 */
 	uint32		l,
 				r,
@@ -518,6 +542,8 @@ do_des(uint32 l_in, uint32 r_in, uint32 *l_out, uint32 *r_out, int count)
 
 	/*
 	 * Do initial permutation (IP).
+	 *
+	 * 进行初始排列（IP）。
 	 */
 	l = ip_maskl[0][l_in >> 24]
 		| ip_maskl[1][(l_in >> 16) & 0xff]
@@ -542,6 +568,8 @@ do_des(uint32 l_in, uint32 r_in, uint32 *l_out, uint32 *r_out, int count)
 
 		/*
 		 * Do each round.
+		 *
+		 * 做每一轮。
 		 */
 		kl = kl1;
 		kr = kr1;
@@ -550,6 +578,8 @@ do_des(uint32 l_in, uint32 r_in, uint32 *l_out, uint32 *r_out, int count)
 		{
 			/*
 			 * Expand R to 48 bits (simulate the E-box).
+			 *
+			 * 将 R 扩展至 48 位（模拟 E-box）。
 			 */
 			r48l = ((r & 0x00000001) << 23)
 				| ((r & 0xf8000000) >> 9)
@@ -566,6 +596,8 @@ do_des(uint32 l_in, uint32 r_in, uint32 *l_out, uint32 *r_out, int count)
 			/*
 			 * Do salting for crypt() and friends, and XOR with the permuted
 			 * key.
+			 *
+			 * 对 crypt() 和朋友进行加盐，并与排列后的密钥进行异或。
 			 */
 			f = (r48l ^ r48r) & saltbits;
 			r48l ^= f ^ *kl++;
@@ -574,6 +606,8 @@ do_des(uint32 l_in, uint32 r_in, uint32 *l_out, uint32 *r_out, int count)
 			/*
 			 * Do sbox lookups (which shrink it back to 32 bits) and do the
 			 * pbox permutation at the same time.
+			 *
+			 * 进行 sbox 查找（将其缩小回 32 位）并同时进行 pbox 排列。
 			 */
 			f = psbox[0][m_sbox[0][r48l >> 12]]
 				| psbox[1][m_sbox[1][r48l & 0xfff]]
@@ -582,6 +616,8 @@ do_des(uint32 l_in, uint32 r_in, uint32 *l_out, uint32 *r_out, int count)
 
 			/*
 			 * Now that we've permuted things, complete f().
+			 *
+			 * 现在我们已经排列了一些内容，完成 f()。
 			 */
 			f ^= l;
 			l = r;
@@ -593,6 +629,8 @@ do_des(uint32 l_in, uint32 r_in, uint32 *l_out, uint32 *r_out, int count)
 
 	/*
 	 * Do final permutation (inverse of IP).
+	 *
+	 * 进行最终排列（IP 的逆）。
 	 */
 	*l_out = fp_maskl[0][l >> 24]
 		| fp_maskl[1][(l >> 16) & 0xff]
@@ -628,7 +666,10 @@ des_cipher(const char *in, char *out, long salt, int count)
 
 	setup_salt(salt);
 
-	/* copy data to avoid assuming input is word-aligned */
+	/* copy data to avoid assuming input is word-aligned
+	 *
+	 * 复制数据以避免假设输入是字对齐的
+	 */
 	memcpy(buffer, in, sizeof(buffer));
 
 	rawl = pg_ntoh32(buffer[0]);
@@ -641,7 +682,10 @@ des_cipher(const char *in, char *out, long salt, int count)
 	buffer[0] = pg_hton32(l_out);
 	buffer[1] = pg_hton32(r_out);
 
-	/* copy data to avoid assuming output is word-aligned */
+	/* copy data to avoid assuming output is word-aligned
+	 *
+	 * 复制数据以避免假设输出是字对齐的
+	 */
 	memcpy(out, buffer, sizeof(buffer));
 
 	return retval;
@@ -668,6 +712,8 @@ px_crypt_des(const char *key, const char *setting)
 	/*
 	 * Copy the key, shifting each character up by one bit and padding with
 	 * zeros.
+	 *
+	 * 复制密钥，将每个字符向上移动一位并用零填充。
 	 */
 	q = (uint8 *) keybuf;
 	while (q - (uint8 *) keybuf - 8)
@@ -687,8 +733,12 @@ px_crypt_des(const char *key, const char *setting)
 		 * bytes of count, then 4 bytes of salt) string. See CRYPT(3) under
 		 * the "Extended crypt" heading for further details.
 		 *
+		 * “new”样式：设置必须是 9 个字符（下划线，然后是 4 个字节的计数，然后是 4 个字节的盐）字符串。有关更多详细信息，请参阅“扩展地穴”标题下的 CRYPT(3)。
+		 *
 		 * Unlimited characters of the input key are used. This is known as
 		 * the "Extended crypt" DES method.
+		 *
+		 * 使用输入键的字符不受限制。这称为“扩展加密”DES 方法。
 		 *
 		 */
 		if (strlen(setting) < 9)
@@ -706,12 +756,16 @@ px_crypt_des(const char *key, const char *setting)
 		{
 			/*
 			 * Encrypt the key with itself.
+			 *
+			 * 用自身加密密钥。
 			 */
 			if (des_cipher((char *) keybuf, (char *) keybuf, 0L, 1))
 				return NULL;
 
 			/*
 			 * And XOR with the next 8 characters of the key.
+			 *
+			 * 并与密钥的接下来 8 个字符进行异或。
 			 */
 			q = (uint8 *) keybuf;
 			while (q - (uint8 *) keybuf - 8 && *key)
@@ -727,6 +781,8 @@ px_crypt_des(const char *key, const char *setting)
 		 * above code will probably have created weird values for count and
 		 * salt, but we don't really care. Just make sure the output string
 		 * doesn't have an extra NUL in it.
+		 *
+		 * 仔细检查我们是否没有得到简短的设置。如果是的话，上面的代码可能会为 count 和 salt 创建奇怪的值，但我们并不关心。只需确保输出字符串中没有多余的 NUL 即可。
 		 */
 		p = output + strlen(output);
 	}
@@ -736,6 +792,8 @@ px_crypt_des(const char *key, const char *setting)
 		/*
 		 * "old"-style: setting - 2 bytes of salt key - only up to the first 8
 		 * characters of the input key are used.
+		 *
+		 * “旧”样式：设置 - 2 个字节的盐密钥 - 最多仅使用输入密钥的前 8 个字符。
 		 */
 		count = 25;
 
@@ -753,6 +811,8 @@ px_crypt_des(const char *key, const char *setting)
 		 * If the encrypted password that the salt was extracted from is only
 		 * 1 character long, the salt will be corrupted.  We need to ensure
 		 * that the output string doesn't have an extra NUL in it!
+		 *
+		 * 如果提取盐的加密密码只有 1 个字符长，则盐将被损坏。  我们需要确保输出字符串中没有多余的 NUL！
 		 */
 		output[1] = setting[1] ? setting[1] : output[0];
 
@@ -768,6 +828,8 @@ px_crypt_des(const char *key, const char *setting)
 
 	/*
 	 * Now encode the result...
+	 *
+	 * 现在对结果进行编码...
 	 */
 	l = (r0 >> 8);
 	*p++ = _crypt_a64[(l >> 18) & 0x3f];

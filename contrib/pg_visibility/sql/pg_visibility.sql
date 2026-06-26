@@ -3,6 +3,8 @@ CREATE EXTENSION pg_visibility;
 --
 -- recently-dropped table
 --
+-- 最近删除的表
+--
 \set VERBOSITY sqlstate
 BEGIN;
 CREATE TABLE droppedtest (c int);
@@ -10,22 +12,32 @@ SELECT 'droppedtest'::regclass::oid AS oid \gset
 SAVEPOINT q; DROP TABLE droppedtest; RELEASE q;
 SAVEPOINT q; SELECT * FROM pg_visibility_map(:oid); ROLLBACK TO q;
 -- ERROR:  could not open relation with OID 16xxx
+--
+-- 错误：无法打开与 OID 16xxx 的关系
 SAVEPOINT q; SELECT 1; ROLLBACK TO q;
 SAVEPOINT q; SELECT 1; ROLLBACK TO q;
 SELECT pg_relation_size(:oid), pg_relation_filepath(:oid),
   has_table_privilege(:oid, 'SELECT');
 SELECT * FROM pg_visibility_map(:oid);
 -- ERROR:  could not open relation with OID 16xxx
+--
+-- 错误：无法打开与 OID 16xxx 的关系
 ROLLBACK;
 \set VERBOSITY default
 
 --
 -- check that using the module's functions with unsupported relations will fail
 --
+-- 检查使用具有不受支持的关系的模块功能是否会失败
+--
 
 -- partitioned tables (the parent ones) don't have visibility maps
+--
+-- 分区表（父表）没有可见性映射
 create table test_partitioned (a int) partition by list (a);
 -- these should all fail
+--
+-- 这些都应该失败
 select pg_visibility('test_partitioned', 0);
 select pg_visibility_map('test_partitioned');
 select pg_visibility_map_summary('test_partitioned');
@@ -35,6 +47,8 @@ select pg_truncate_visibility_map('test_partitioned');
 create table test_partition partition of test_partitioned for values in (1);
 create index test_index on test_partition (a);
 -- indexes do not, so these all fail
+--
+-- 索引没有，所以这些都失败了
 select pg_visibility('test_index', 0);
 select pg_visibility_map('test_index');
 select pg_visibility_map_summary('test_index');
@@ -43,6 +57,8 @@ select pg_truncate_visibility_map('test_index');
 
 create view test_view as select 1;
 -- views do not have VMs, so these all fail
+--
+-- 视图没有虚拟机，所以这些都会失败
 select pg_visibility('test_view', 0);
 select pg_visibility_map('test_view');
 select pg_visibility_map_summary('test_view');
@@ -51,6 +67,8 @@ select pg_truncate_visibility_map('test_view');
 
 create sequence test_sequence;
 -- sequences do not have VMs, so these all fail
+--
+-- 序列没有虚拟机，所以这些都会失败
 select pg_visibility('test_sequence', 0);
 select pg_visibility_map('test_sequence');
 select pg_visibility_map_summary('test_sequence');
@@ -61,6 +79,8 @@ create foreign data wrapper dummy;
 create server dummy_server foreign data wrapper dummy;
 create foreign table test_foreign_table () server dummy_server;
 -- foreign tables do not have VMs, so these all fail
+--
+-- 外部表没有虚拟机，所以这些都会失败
 select pg_visibility('test_foreign_table', 0);
 select pg_visibility_map('test_foreign_table');
 select pg_visibility_map_summary('test_foreign_table');
@@ -68,6 +88,8 @@ select pg_check_frozen('test_foreign_table');
 select pg_truncate_visibility_map('test_foreign_table');
 
 -- check some of the allowed relkinds
+--
+-- 检查一些允许的亲属
 create table regular_table (a int, b text);
 alter table regular_table alter column b set storage external;
 insert into regular_table values (1, repeat('one', 1000)), (2, repeat('two', 1000));
@@ -86,6 +108,8 @@ refresh materialized view matview_visibility_test;
 select count(*) > 0 from pg_visibility('matview_visibility_test');
 
 -- regular tables which are part of a partition *do* have visibility maps
+--
+-- 作为分区一部分的常规表*确实*具有可见性映射
 insert into test_partition values (1);
 vacuum (disable_page_skipping) test_partition;
 select count(*) > 0 from pg_visibility('test_partition', 0);
@@ -95,10 +119,16 @@ select * from pg_check_frozen('test_partition'); -- hopefully none
 select pg_truncate_visibility_map('test_partition');
 
 -- test copy freeze
+--
+-- 测试副本冻结
 create table copyfreeze (a int, b char(1500));
 
 -- load all rows via COPY FREEZE and ensure that all pages are set all-visible
+--
+-- 通过 COPY FREEZE 加载所有行并确保所有页面均设置为全部可见
 -- and all-frozen.
+--
+-- 并全部冻结。
 begin;
 truncate copyfreeze;
 copy copyfreeze from stdin freeze;
@@ -114,8 +144,14 @@ select * from pg_visibility_map('copyfreeze');
 select * from pg_check_frozen('copyfreeze');
 
 -- load half the rows via regular COPY and rest via COPY FREEZE. The pages
+--
+-- 通过常规 COPY 加载一半行，并通过 COPY FREEZE 加载其余行。页面
 -- which are touched by regular COPY must not be set all-visible/all-frozen. On
+--
+-- 常规 COPY 触及的内容不得设置为全部可见/全部冻结。在
 -- the other hand, pages allocated by COPY FREEZE should be marked
+--
+-- 另一方面，由 COPY FREEZE 分配的页面应该被标记
 -- all-frozen/all-visible.
 begin;
 truncate copyfreeze;
@@ -140,6 +176,8 @@ select * from pg_visibility_map('copyfreeze');
 select * from pg_check_frozen('copyfreeze');
 
 -- Try a mix of regular COPY and COPY FREEZE.
+--
+-- 尝试混合使用常规复制和复制冻结。
 begin;
 truncate copyfreeze;
 copy copyfreeze from stdin freeze;

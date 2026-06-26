@@ -3,7 +3,11 @@
  *
  * XSLT processing functions (requiring libxslt)
  *
+ * XSLT 处理函数（需要 libxslt）
+ *
  * John Gray, for Torchbox 2003-04-01
+ *
+ * 约翰·格雷，火炬盒 2003-04-01
  */
 #include "postgres.h"
 
@@ -13,13 +17,19 @@
 
 #ifdef USE_LIBXSLT
 
-/* libxml includes */
+/* libxml includes
+ *
+ * libxml 包括
+ */
 
 #include <libxml/xpath.h>
 #include <libxml/tree.h>
 #include <libxml/xmlmemory.h>
 
-/* libxslt includes */
+/* libxslt includes
+ *
+ * libxslt 包括
+ */
 
 #include <libxslt/xslt.h>
 #include <libxslt/xsltInternals.h>
@@ -31,10 +41,16 @@
 
 #ifdef USE_LIBXSLT
 
-/* declarations to come from xpath.c */
+/* declarations to come from xpath.c
+ *
+ * 来自 xpath.c 的声明
+ */
 extern PgXmlErrorContext *pgxml_parser_init(PgXmlStrictness strictness);
 
-/* local defs */
+/* local defs
+ *
+ * 本地定义
+ */
 static const char **parse_params(text *paramstr);
 #endif							/* USE_LIBXSLT */
 
@@ -68,12 +84,18 @@ xslt_process(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* No parameters */
+		/* No parameters
+		 *
+		 * 无参数
+		 */
 		params = (const char **) palloc(sizeof(char *));
 		params[0] = NULL;
 	}
 
-	/* Setup parser */
+	/* Setup parser
+	 *
+	 * 设置解析器
+	 */
 	xmlerrcxt = pgxml_parser_init(PG_XML_STRICTNESS_LEGACY);
 
 	PG_TRY();
@@ -81,7 +103,10 @@ xslt_process(PG_FUNCTION_ARGS)
 		xmlDocPtr	ssdoc;
 		bool		xslt_sec_prefs_error;
 
-		/* Parse document */
+		/* Parse document
+		 *
+		 * 解析文档
+		 */
 		doctree = xmlReadMemory((char *) VARDATA_ANY(doct),
 								VARSIZE_ANY_EXHDR(doct), NULL, NULL,
 								XML_PARSE_NOENT);
@@ -90,7 +115,10 @@ xslt_process(PG_FUNCTION_ARGS)
 			xml_ereport(xmlerrcxt, ERROR, ERRCODE_INVALID_XML_DOCUMENT,
 						"error parsing XML document");
 
-		/* Same for stylesheet */
+		/* Same for stylesheet
+		 *
+		 * 样式表也一样
+		 */
 		ssdoc = xmlReadMemory((char *) VARDATA_ANY(ssheet),
 							  VARSIZE_ANY_EXHDR(ssheet), NULL, NULL,
 							  XML_PARSE_NOENT);
@@ -99,7 +127,10 @@ xslt_process(PG_FUNCTION_ARGS)
 			xml_ereport(xmlerrcxt, ERROR, ERRCODE_INVALID_XML_DOCUMENT,
 						"error parsing stylesheet as XML document");
 
-		/* After this call we need not free ssdoc separately */
+		/* After this call we need not free ssdoc separately
+		 *
+		 * 在此调用之后，我们不需要单独释放 ssdoc
+		 */
 		stylesheet = xsltParseStylesheetDoc(ssdoc);
 
 		if (stylesheet == NULL)
@@ -172,7 +203,10 @@ xslt_process(PG_FUNCTION_ARGS)
 
 	pg_xml_done(xmlerrcxt, false);
 
-	/* XXX this is pretty dubious, really ought to throw error instead */
+	/* XXX this is pretty dubious, really ought to throw error instead
+	 *
+	 * XXX 这非常可疑，真的应该抛出错误
+	 */
 	if (resstat < 0)
 		PG_RETURN_NULL();
 
@@ -229,12 +263,18 @@ parse_params(text *paramstr)
 		}
 		else
 		{
-			/* No equal sign, so ignore this "parameter" */
+			/* No equal sign, so ignore this "parameter"
+			 *
+			 * 没有等号，所以忽略这个“参数”
+			 */
 			nparams--;
 			break;
 		}
 
-		/* since max_params is even, we still have nparams < max_params */
+		/* since max_params is even, we still have nparams < max_params
+		 *
+		 * 由于 max_params 是偶数，我们仍然有 nparams < max_params
+		 */
 		params[nparams++] = pos;
 		pos = strstr(pos, itsep);
 		if (pos != NULL)
@@ -246,7 +286,10 @@ parse_params(text *paramstr)
 			break;
 	}
 
-	/* Add the terminator marker; we left room for it in the palloc's */
+	/* Add the terminator marker; we left room for it in the palloc's
+	 *
+	 * 添加终止符标记；我们在帕洛克的房间里给它留了空间
+	 */
 	params[nparams] = NULL;
 
 	return params;

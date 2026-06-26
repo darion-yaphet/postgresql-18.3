@@ -1,23 +1,35 @@
 /* contrib/citext/citext--1.4.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION citext" to load this file. \quit
 
 --
 --  PostgreSQL code for CITEXT.
 --
+-- CITEXT 的 PostgreSQL 代码。
+--
 -- Most I/O functions, and a few others, piggyback on the "text" type
+--
+-- 大多数 I/O 函数以及其他一些函数都依赖于“文本”类型
 -- functions via the implicit cast to text.
+--
+-- 通过隐式转换为文本的函数。
 --
 
 --
 -- Shell type to keep things a bit quieter.
+--
+-- 外壳式让事情变得更安静。
 --
 
 CREATE TYPE citext;
 
 --
 --  Input and output functions.
+--
+-- 输入和输出功能。
 --
 CREATE FUNCTION citextin(cstring)
 RETURNS citext
@@ -42,6 +54,8 @@ LANGUAGE internal STABLE STRICT PARALLEL SAFE;
 --
 --  The type itself.
 --
+-- 类型本身。
+--
 
 CREATE TYPE citext (
     INPUT          = citextin,
@@ -51,6 +65,8 @@ CREATE TYPE citext (
     INTERNALLENGTH = VARIABLE,
     STORAGE        = extended,
     -- make it a non-preferred member of string type category
+    --
+    -- 使其成为字符串类型类别的非首选成员
     CATEGORY       = 'S',
     PREFERRED      = false,
     COLLATABLE     = true
@@ -58,7 +74,11 @@ CREATE TYPE citext (
 
 --
 -- Type casting functions for those situations where the I/O casts don't
+--
+-- 适用于 I/O 转换不适用的情况的类型转换函数
 -- automatically kick in.
+--
+-- 自动踢进去。
 --
 
 CREATE FUNCTION citext(bpchar)
@@ -79,6 +99,8 @@ LANGUAGE internal IMMUTABLE STRICT PARALLEL SAFE;
 --
 --  Implicit and assignment type casts.
 --
+-- 隐式和赋值类型转换。
+--
 
 CREATE CAST (citext AS text)    WITHOUT FUNCTION AS IMPLICIT;
 CREATE CAST (citext AS varchar) WITHOUT FUNCTION AS IMPLICIT;
@@ -91,6 +113,8 @@ CREATE CAST (inet AS citext)    WITH FUNCTION citext(inet)    AS ASSIGNMENT;
 
 --
 -- Operator Functions.
+--
+-- 操作员功能。
 --
 
 CREATE FUNCTION citext_eq( citext, citext )
@@ -192,6 +216,8 @@ CREATE OPERATOR > (
 --
 -- Support functions for indexing.
 --
+-- 支持索引功能。
+--
 
 CREATE FUNCTION citext_cmp(citext, citext)
 RETURNS int4
@@ -206,6 +232,8 @@ LANGUAGE C STRICT IMMUTABLE PARALLEL SAFE;
 --
 -- The btree indexing operator class.
 --
+-- btree 索引运算符类。
+--
 
 CREATE OPERATOR CLASS citext_ops
 DEFAULT FOR TYPE CITEXT USING btree AS
@@ -218,6 +246,8 @@ DEFAULT FOR TYPE CITEXT USING btree AS
 
 --
 -- The hash indexing operator class.
+--
+-- 哈希索引运算符类。
 --
 
 CREATE OPERATOR CLASS citext_ops
@@ -257,6 +287,8 @@ CREATE AGGREGATE max(citext)  (
 
 --
 -- CITEXT pattern matching.
+--
+-- CITEXT 模式匹配。
 --
 
 CREATE FUNCTION texticlike(citext, citext)
@@ -350,6 +382,8 @@ CREATE OPERATOR !~~* (
 --
 -- Matching citext to text.
 --
+-- 将 citext 与文本匹配。
+--
 
 CREATE FUNCTION texticlike(citext, text)
 RETURNS bool AS 'texticlike'
@@ -441,7 +475,11 @@ CREATE OPERATOR !~~* (
 
 --
 -- Matching citext in string comparison functions.
+--
+-- 在字符串比较函数中匹配 citext。
 -- XXX TODO Ideally these would be implemented in C.
+--
+-- XXX TODO 理想情况下，这些将在 C 中实现。
 --
 
 CREATE FUNCTION regexp_match( citext, citext ) RETURNS TEXT[] AS $$

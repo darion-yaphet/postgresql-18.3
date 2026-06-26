@@ -42,6 +42,8 @@
 
 /*
  * Max lengths we might want to handle.
+ *
+ * 我们可能想要处理的最大长度。
  */
 #define MAX_KEY		(512/8)
 #define MAX_IV		(128/8)
@@ -53,6 +55,8 @@
 /*
  * To make sure we don't leak OpenSSL handles, we use the ResourceOwner
  * mechanism to free them on abort.
+ *
+ * 为了确保我们不会泄漏 OpenSSL 句柄，我们使用 ResourceOwner 机制在中止时释放它们。
  */
 typedef struct OSSLDigest
 {
@@ -62,7 +66,10 @@ typedef struct OSSLDigest
 	ResourceOwner owner;
 } OSSLDigest;
 
-/* ResourceOwner callbacks to hold OpenSSL digest handles */
+/* ResourceOwner callbacks to hold OpenSSL digest handles
+ *
+ * ResourceOwner 回调以保存 OpenSSL 摘要句柄
+ */
 static void ResOwnerReleaseOSSLDigest(Datum res);
 
 static const ResourceOwnerDesc ossldigest_resowner_desc =
@@ -74,7 +81,10 @@ static const ResourceOwnerDesc ossldigest_resowner_desc =
 	.DebugPrint = NULL,			/* default message is fine */
 };
 
-/* Convenience wrappers over ResourceOwnerRemember/Forget */
+/* Convenience wrappers over ResourceOwnerRemember/Forget
+ *
+ * ResourceOwnerRemember/Forget 的便捷包装
+ */
 static inline void
 ResourceOwnerRememberOSSLDigest(ResourceOwner owner, OSSLDigest *digest)
 {
@@ -155,7 +165,10 @@ digest_free(PX_MD *h)
 	pfree(h);
 }
 
-/* PUBLIC functions */
+/* PUBLIC functions
+ *
+ * 公共功能
+ */
 
 int
 px_find_digest(const char *name, PX_MD **res)
@@ -175,6 +188,8 @@ px_find_digest(const char *name, PX_MD **res)
 	 * Create an OSSLDigest object, an OpenSSL MD object, and a PX_MD object.
 	 * The order is crucial, to make sure we don't leak anything on
 	 * out-of-memory or other error.
+	 *
+	 * 创建 OSSLDigest 对象、OpenSSL MD 对象和 PX_MD 对象。该顺序至关重要，以确保我们不会因内存不足或其他错误而泄漏任何内容。
 	 */
 	digest = MemoryContextAlloc(TopMemoryContext, sizeof(*digest));
 
@@ -196,7 +211,10 @@ px_find_digest(const char *name, PX_MD **res)
 	digest->owner = CurrentResourceOwner;
 	ResourceOwnerRememberOSSLDigest(digest->owner, digest);
 
-	/* The PX_MD object is allocated in the current memory context. */
+	/* The PX_MD object is allocated in the current memory context.
+	 *
+	 * PX_MD 对象在当前内存上下文中分配。
+	 */
 	h = palloc(sizeof(*h));
 	h->result_size = digest_result_size;
 	h->block_size = digest_block_size;
@@ -210,7 +228,10 @@ px_find_digest(const char *name, PX_MD **res)
 	return 0;
 }
 
-/* ResourceOwner callbacks for OSSLDigest */
+/* ResourceOwner callbacks for OSSLDigest
+ *
+ * OSSLDigest 的 ResourceOwner 回调
+ */
 
 static void
 ResOwnerReleaseOSSLDigest(Datum res)
@@ -225,16 +246,22 @@ ResOwnerReleaseOSSLDigest(Datum res)
  * Ciphers
  *
  * We use OpenSSL's EVP* family of functions for these.
+ *
+ * 我们使用 OpenSSL 的 EVP* 系列函数来实现这些。
  */
 
 /*
  * prototype for the EVP functions that return an algorithm, e.g.
  * EVP_aes_128_cbc().
+ *
+ * 返回算法的 EVP 函数的原型，例如EVP_aes_128_cbc()。
  */
 typedef const EVP_CIPHER *(*ossl_EVP_cipher_func) (void);
 
 /*
  * ossl_cipher contains the static information about each cipher.
+ *
+ * ossl_cipher 包含每个密码的静态信息。
  */
 struct ossl_cipher
 {
@@ -248,8 +275,12 @@ struct ossl_cipher
  * OSSLCipher contains the state for using a cipher. A separate OSSLCipher
  * object is allocated in each px_find_cipher() call.
  *
+ * OSSLCipher 包含使用密码的状态。在每个 px_find_cipher() 调用中分配一个单独的 OSSLCipher 对象。
+ *
  * To make sure we don't leak OpenSSL handles, we use the ResourceOwner
  * mechanism to free them on abort.
+ *
+ * 为了确保我们不会泄漏 OpenSSL 句柄，我们使用 ResourceOwner 机制在中止时释放它们。
  */
 typedef struct OSSLCipher
 {
@@ -264,7 +295,10 @@ typedef struct OSSLCipher
 	ResourceOwner owner;
 } OSSLCipher;
 
-/* ResourceOwner callbacks to hold OpenSSL cipher state */
+/* ResourceOwner callbacks to hold OpenSSL cipher state
+ *
+ * ResourceOwner 回调以保存 OpenSSL 密码状态
+ */
 static void ResOwnerReleaseOSSLCipher(Datum res);
 
 static const ResourceOwnerDesc osslcipher_resowner_desc =
@@ -276,7 +310,10 @@ static const ResourceOwnerDesc osslcipher_resowner_desc =
 	.DebugPrint = NULL,			/* default message is fine */
 };
 
-/* Convenience wrappers over ResourceOwnerRemember/Forget */
+/* Convenience wrappers over ResourceOwnerRemember/Forget
+ *
+ * ResourceOwnerRemember/Forget 的便捷包装
+ */
 static inline void
 ResourceOwnerRememberOSSLCipher(ResourceOwner owner, OSSLCipher *od)
 {
@@ -297,7 +334,10 @@ free_openssl_cipher(OSSLCipher *od)
 	pfree(od);
 }
 
-/* Common routines for all algorithms */
+/* Common routines for all algorithms
+ *
+ * 所有算法的通用例程
+ */
 
 static unsigned
 gen_ossl_block_size(PX_Cipher *c)
@@ -400,6 +440,8 @@ gen_ossl_encrypt(PX_Cipher *c, int padding, const uint8 *data, unsigned dlen,
  * Check if strong crypto is supported. Some OpenSSL installations
  * support only short keys and unfortunately BF_set_key does not return any
  * error value. This function tests if is possible to use strong key.
+ *
+ * 检查是否支持强加密。某些 OpenSSL 安装仅支持短密钥，不幸的是 BF_set_key 不会返回任何错误值。该功能测试是否可以使用强密钥。
  */
 static int
 bf_check_supported_key_len(void)
@@ -420,7 +462,10 @@ bf_check_supported_key_len(void)
 	int			outlen;
 	int			status = 0;
 
-	/* encrypt with 448bits key and verify output */
+	/* encrypt with 448bits key and verify output
+	 *
+	 * 使用 448 位密钥加密并验证输出
+	 */
 	evp_ctx = EVP_CIPHER_CTX_new();
 	if (!evp_ctx)
 		return 0;
@@ -455,6 +500,8 @@ bf_init(PX_Cipher *c, const uint8 *key, unsigned klen, const uint8 *iv)
 	 * Test if key len is supported. BF_set_key silently cut large keys and it
 	 * could be a problem when user transfer encrypted data from one server to
 	 * another.
+	 *
+	 * 测试是否支持 key len。 BF_set_key 默默地剪切大密钥，当用户将加密数据从一台服务器传输到另一台服务器时，这可能会出现问题。
 	 */
 
 	if (bf_is_strong == -1)
@@ -463,7 +510,10 @@ bf_init(PX_Cipher *c, const uint8 *key, unsigned klen, const uint8 *iv)
 	if (!bf_is_strong && klen > 16)
 		return PXE_KEY_TOO_BIG;
 
-	/* Key len is supported. We can use it. */
+	/* Key len is supported. We can use it.
+	 *
+	 * 支持密钥长度。我们可以使用它。
+	 */
 	od->klen = klen;
 	memcpy(od->key, key, klen);
 
@@ -579,7 +629,10 @@ ossl_aes_ecb_init(PX_Cipher *c, const uint8 *key, unsigned klen, const uint8 *iv
 			od->evp_ciph = EVP_aes_256_ecb();
 			break;
 		default:
-			/* shouldn't happen */
+			/* shouldn't happen
+			 *
+			 * 不应该发生
+			 */
 			err = PXE_CIPHER_INIT;
 			break;
 	}
@@ -609,7 +662,10 @@ ossl_aes_cbc_init(PX_Cipher *c, const uint8 *key, unsigned klen, const uint8 *iv
 			od->evp_ciph = EVP_aes_256_cbc();
 			break;
 		default:
-			/* shouldn't happen */
+			/* shouldn't happen
+			 *
+			 * 不应该发生
+			 */
 			err = PXE_CIPHER_INIT;
 			break;
 	}
@@ -639,7 +695,10 @@ ossl_aes_cfb_init(PX_Cipher *c, const uint8 *key, unsigned klen, const uint8 *iv
 			od->evp_ciph = EVP_aes_256_cfb();
 			break;
 		default:
-			/* shouldn't happen */
+			/* shouldn't happen
+			 *
+			 * 不应该发生
+			 */
 			err = PXE_CIPHER_INIT;
 			break;
 	}
@@ -747,6 +806,8 @@ static const struct ossl_cipher ossl_aes_cfb = {
 
 /*
  * Special handlers
+ *
+ * 特殊处理人员
  */
 struct ossl_cipher_lookup
 {
@@ -770,7 +831,10 @@ static const struct ossl_cipher_lookup ossl_cipher_types[] = {
 	{NULL}
 };
 
-/* PUBLIC functions */
+/* PUBLIC functions
+ *
+ * 公共功能
+ */
 
 int
 px_find_cipher(const char *name, PX_Cipher **res)
@@ -793,11 +857,16 @@ px_find_cipher(const char *name, PX_Cipher **res)
 	 * Create an OSSLCipher object, an EVP_CIPHER_CTX object and a PX_Cipher.
 	 * The order is crucial, to make sure we don't leak anything on
 	 * out-of-memory or other error.
+	 *
+	 * 创建一个 OSSLCipher 对象、一个 EVP_CIPHER_CTX 对象和一个 PX_Cipher。该顺序至关重要，以确保我们不会因内存不足或其他错误而泄漏任何内容。
 	 */
 	od = MemoryContextAllocZero(TopMemoryContext, sizeof(*od));
 	od->ciph = i->ciph;
 
-	/* Allocate an EVP_CIPHER_CTX object. */
+	/* Allocate an EVP_CIPHER_CTX object.
+	 *
+	 * 分配 EVP_CIPHER_CTX 对象。
+	 */
 	ctx = EVP_CIPHER_CTX_new();
 	if (!ctx)
 	{
@@ -812,7 +881,10 @@ px_find_cipher(const char *name, PX_Cipher **res)
 	if (i->ciph->cipher_func)
 		od->evp_ciph = i->ciph->cipher_func();
 
-	/* The PX_Cipher is allocated in current memory context */
+	/* The PX_Cipher is allocated in current memory context
+	 *
+	 * PX_Cipher 分配在当前内存上下文中
+	 */
 	c = palloc(sizeof(*c));
 	c->block_size = gen_ossl_block_size;
 	c->key_size = gen_ossl_key_size;
@@ -827,7 +899,10 @@ px_find_cipher(const char *name, PX_Cipher **res)
 	return 0;
 }
 
-/* ResourceOwner callbacks for OSSLCipher */
+/* ResourceOwner callbacks for OSSLCipher
+ *
+ * OSSLCipher 的 ResourceOwner 回调
+ */
 
 static void
 ResOwnerReleaseOSSLCipher(Datum res)
@@ -839,6 +914,8 @@ ResOwnerReleaseOSSLCipher(Datum res)
  * CheckFIPSMode
  *
  * Returns the FIPS mode of the underlying OpenSSL installation.
+ *
+ * 返回底层 OpenSSL 安装的 FIPS 模式。
  */
 bool
 CheckFIPSMode(void)
@@ -851,6 +928,8 @@ CheckFIPSMode(void)
 	 * upstream OpenSSL version before 3.0 which supported FIPS was 1.0.2, but
 	 * there are forks of 1.1.1 which are FIPS validated so we still need to
 	 * test with FIPS_mode() even though we don't support 1.0.2.
+	 *
+	 * 在使用 FIPS_mode() 测试是否启用 FIPS 之前，OpenSSL 3.0 中添加了 EVP_default_properties_is_fips_enabled。  3.0 之前支持 FIPS 的最后一个上游 OpenSSL 版本是 1.0.2，但是 1.1.1 的分支经过了 FIPS 验证，因此即使我们不支持 1.0.2，我们仍然需要使用 FIPS_mode() 进行测试。
 	 */
 	fips_enabled =
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
@@ -869,6 +948,8 @@ CheckFIPSMode(void)
  * has disabled it. If builtin_crypto_enabled is set to BC_OFF or BC_FIPS and
  * OpenSSL is operating in FIPS mode the function will error out, else the
  * query executing built-in crypto can proceed.
+ *
+ * 当用户禁用内置加密时，该函数会在执行内置加密时出错。如果builtin_crypto_enabled 设置为BC_OFF 或BC_FIPS 并且OpenSSL 在FIPS 模式下运行，则该函数将出错，否则执行内置加密的查询可以继续。
  */
 void
 CheckBuiltinCryptoMode(void)

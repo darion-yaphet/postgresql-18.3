@@ -3,6 +3,8 @@
  * pg_freespacemap.c
  *	  display contents of a free space map
  *
+ * pg_freespacemap.c 显示自由空间映射的内容
+ *
  *	  contrib/pg_freespacemap/pg_freespacemap.c
  *-------------------------------------------------------------------------
  */
@@ -21,6 +23,8 @@ PG_MODULE_MAGIC_EXT(
 /*
  * Returns the amount of free space on a given page, according to the
  * free space map.
+ *
+ * 根据可用空间映射，返回给定页面上的可用空间量。
  */
 PG_FUNCTION_INFO_V1(pg_freespace);
 

@@ -1,6 +1,8 @@
 /* contrib/sslinfo/sslinfo--1.2.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION sslinfo" to load this file. \quit
 
 CREATE FUNCTION ssl_client_serial() RETURNS numeric

@@ -1,6 +1,8 @@
 /* contrib/jsonb_plperl/jsonb_plperlu--1.0.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION jsonb_plperlu" to load this file. \quit
 
 CREATE FUNCTION jsonb_to_plperlu(val internal) RETURNS internal

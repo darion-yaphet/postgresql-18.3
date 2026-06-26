@@ -1,9 +1,13 @@
 /* contrib/pg_walinspect/pg_walinspect--1.0--1.1.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION pg_walinspect UPDATE TO '1.1'" to load this file. \quit
 
 -- Unsupported functions after 1.1.
+--
+-- 1.1之后不支持的功能。
 DROP FUNCTION pg_get_wal_records_info_till_end_of_wal(pg_lsn);
 DROP FUNCTION pg_get_wal_stats_till_end_of_wal(pg_lsn, boolean);
 

@@ -2,6 +2,8 @@
 # Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 # Test CREATE INDEX CONCURRENTLY with concurrent modifications
+#
+# 测试 CREATE INDEX CONCURRENTLY 和并发修改
 use strict;
 use warnings FATAL => 'all';
 
@@ -14,6 +16,8 @@ my $node;
 
 #
 # Test set-up
+#
+# 测试设置
 #
 $node = PostgreSQL::Test::Cluster->new('CIC_test');
 $node->init;
@@ -28,9 +32,17 @@ $node->safe_psql('postgres', q(CREATE INDEX ginidx ON tbl USING gin(j)));
 #
 # Stress CIC with pgbench.
 #
+# 使用 pgbench 对 CIC 进行压力。
+#
 # pgbench might try to launch more than one instance of the CIC
+#
+# pgbench 可能会尝试启动多个 CIC 实例
 # transaction concurrently.  That would deadlock, so use an advisory
+#
+# 交易同时进行。  这会陷入僵局，因此请使用建议
 # lock to ensure only one CIC runs at a time.
+#
+# 锁以确保一次只有一个 CIC 运行。
 #
 $node->pgbench(
 	'--no-vacuum --client=5 --transactions=100',
@@ -65,23 +77,37 @@ $node->pgbench(
 	});
 
 # Test bt_index_parent_check() with indexes created with
+#
+# 使用创建的索引测试 bt_index_parent_check()
 # CREATE INDEX CONCURRENTLY.
+#
+# 同时创建索引。
 $node->safe_psql('postgres', q(CREATE TABLE quebec(i int primary key)));
 # Insert two rows into index
+#
+# 将两行插入索引
 $node->safe_psql('postgres',
 	q(INSERT INTO quebec SELECT i FROM generate_series(1, 2) s(i);));
 
 # start background transaction
+#
+# 启动后台事务
 my $in_progress_h = $node->background_psql('postgres');
 $in_progress_h->query_safe(q(BEGIN; SELECT pg_current_xact_id();));
 
 # delete one row from table, while background transaction is in progress
+#
+# 当后台事务正在进行时，从表中删除一行
 $node->safe_psql('postgres', q(DELETE FROM quebec WHERE i = 1;));
 # create index concurrently, which will skip the deleted row
+#
+# 同时创建索引，这将跳过已删除的行
 $node->safe_psql('postgres',
 	q(CREATE INDEX CONCURRENTLY oscar ON quebec(i);));
 
 # check index using bt_index_parent_check
+#
+# 使用 bt_index_parent_check 检查索引
 my $result = $node->psql('postgres',
 	q(SELECT bt_index_parent_check('oscar', heapallindexed => true)));
 is($result, '0', 'bt_index_parent_check for CIC after removed row');

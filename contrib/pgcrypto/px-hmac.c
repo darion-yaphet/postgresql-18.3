@@ -136,7 +136,10 @@ hmac_free(PX_HMAC *h)
 }
 
 
-/* PUBLIC FUNCTIONS */
+/* PUBLIC FUNCTIONS
+ *
+ * 公共职能
+ */
 
 int
 px_find_hmac(const char *name, PX_HMAC **res)

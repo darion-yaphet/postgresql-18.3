@@ -21,6 +21,8 @@
 
 /*
  *	uint64 is the internal storage format for ISNs.
+ *
+ * uint64 是 ISN 的内部存储格式。
  */
 typedef uint64 ean13;
 

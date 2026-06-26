@@ -17,6 +17,8 @@
 
 /*
  * Estimate cost of bloom index scan.
+ *
+ * 估计布隆索引扫描的成本。
  */
 void
 blcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
@@ -27,10 +29,16 @@ blcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	IndexOptInfo *index = path->indexinfo;
 	GenericCosts costs = {0};
 
-	/* We have to visit all index tuples anyway */
+	/* We have to visit all index tuples anyway
+	 *
+	 * 无论如何我们必须访问所有索引元组
+	 */
 	costs.numIndexTuples = index->tuples;
 
-	/* Use generic estimate */
+	/* Use generic estimate
+	 *
+	 * 使用通用估计
+	 */
 	genericcostestimate(root, path, loop_count, &costs);
 
 	*indexStartupCost = costs.indexStartupCost;

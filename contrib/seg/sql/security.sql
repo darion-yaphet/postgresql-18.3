@@ -1,6 +1,8 @@
 --
 --  Test extension script protection against search path overriding
 --
+-- 测试扩展脚本针对搜索路径覆盖的保护
+--
 
 CREATE ROLE regress_seg_role;
 SELECT current_database() AS datname \gset

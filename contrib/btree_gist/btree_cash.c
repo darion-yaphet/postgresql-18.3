@@ -15,7 +15,10 @@ typedef struct
 	Cash		upper;
 } cashKEY;
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_cash_compress);
 PG_FUNCTION_INFO_V1(gbt_cash_fetch);
 PG_FUNCTION_INFO_V1(gbt_cash_union);
@@ -114,6 +117,8 @@ cash_dist(PG_FUNCTION_ARGS)
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 Datum
@@ -139,12 +144,18 @@ gbt_cash_consistent(PG_FUNCTION_ARGS)
 	Cash		query = PG_GETARG_CASH(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	cashKEY    *kkk = (cashKEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	key.lower = (GBT_NUMKEY *) &kkk->lower;
@@ -161,7 +172,10 @@ gbt_cash_distance(PG_FUNCTION_ARGS)
 	GISTENTRY  *entry = (GISTENTRY *) PG_GETARG_POINTER(0);
 	Cash		query = PG_GETARG_CASH(1);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	cashKEY    *kkk = (cashKEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
@@ -219,7 +233,10 @@ gbt_cash_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	cashKEY    *arg1 = (cashKEY *) DatumGetPointer(x);
 	cashKEY    *arg2 = (cashKEY *) DatumGetPointer(y);
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	if (arg1->lower > arg2->lower)
 		return 1;
 	else if (arg1->lower < arg2->lower)

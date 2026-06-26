@@ -43,26 +43,37 @@ enum isn_type
 
 static const char *const isn_names[] = {"EAN13/UPC/ISxN", "EAN13/UPC/ISxN", "EAN13", "ISBN", "ISMN", "ISSN", "UPC"};
 
-/* GUC value */
+/* GUC value
+ *
+ * GUC值
+ */
 static bool g_weak = false;
 
 
 /***********************************************************************
  **
  **		Routines for EAN13/UPC/ISxNs.
+ *
+ * * EAN13/UPC/ISxN 例程。
  **
  ** Note:
  **  In this code, a normalized string is one that is known to be a valid
  **  ISxN number containing only digits and hyphens and with enough space
  **  to hold the full 13 digits plus the maximum of four hyphens.
+ *
+ * * 注意： * 在此代码中，规范化字符串是已知有效的 ISxN 数字，仅包含数字和连字符，并且有足够的空间 * 容纳完整的 13 个数字加上最多四个连字符。
  ***********************************************************************/
 
 /*----------------------------------------------------------
  * Debugging routines.
+ *
+ * 调试例程。
  *---------------------------------------------------------*/
 
 /*
  * Check if the table and its index is correct (just for debugging)
+ *
+ * 检查表及其索引是否正确（仅用于调试）
  */
 pg_attribute_unused()
 static bool
@@ -86,13 +97,19 @@ check_table(const char *(*TABLE)[2], const unsigned TABLE_index[10][2])
 		aux1 = TABLE[i][0];
 		aux2 = TABLE[i][1];
 
-		/* must always start with a digit: */
+		/* must always start with a digit:
+		 *
+		 * 必须始终以数字开头：
+		 */
 		if (!isdigit((unsigned char) *aux1) || !isdigit((unsigned char) *aux2))
 			goto invalidtable;
 		a = *aux1 - '0';
 		b = *aux2 - '0';
 
-		/* must always have the same format and length: */
+		/* must always have the same format and length:
+		 *
+		 * 必须始终具有相同的格式和长度：
+		 */
 		while (*aux1 && *aux2)
 		{
 			if (!(isdigit((unsigned char) *aux1) &&
@@ -105,10 +122,16 @@ check_table(const char *(*TABLE)[2], const unsigned TABLE_index[10][2])
 		if (*aux1 != *aux2)
 			goto invalidtable;
 
-		/* found a new range */
+		/* found a new range
+		 *
+		 * 找到了一个新的范围
+		 */
 		if (a > y)
 		{
-			/* check current range in the index: */
+			/* check current range in the index:
+			 *
+			 * 检查索引中的当前范围：
+			 */
 			for (j = x; j <= y; j++)
 			{
 				if (TABLE_index[j][0] != init)
@@ -120,7 +143,10 @@ check_table(const char *(*TABLE)[2], const unsigned TABLE_index[10][2])
 			x = a;
 		}
 
-		/* Always get the new limit */
+		/* Always get the new limit
+		 *
+		 * 总是得到新的限制
+		 */
 		y = b;
 		if (y < x)
 			goto invalidtable;
@@ -141,6 +167,8 @@ invalidindex:
 
 /*----------------------------------------------------------
  * Formatting and conversion routines.
+ *
+ * 格式化和转换例程。
  *---------------------------------------------------------*/
 
 static unsigned
@@ -166,7 +194,11 @@ dehyphenate(char *bufO, char *bufI)
  *				  into bufO using the given hyphenation range TABLE.
  *				  Assumes the input string to be used is of only digits.
  *
+ * hyphenate --- 尝试使用给定的连字符范围 TABLE 将从 bufI 开始的字符串就地连接到 bufO 中。假设要使用的输入字符串仅包含数字。
+ *
  * Returns the number of characters actually hyphenated.
+ *
+ * 返回实际连字的字符数。
  */
 static unsigned
 hyphenate(char *bufO, char *bufI, const char *(*TABLE)[2], const unsigned TABLE_index[10][2])
@@ -185,7 +217,10 @@ hyphenate(char *bufO, char *bufI, const char *(*TABLE)[2], const unsigned TABLE_
 	bool		ean_in1,
 				ean_in2;
 
-	/* just compress the string if no further hyphenation is required */
+	/* just compress the string if no further hyphenation is required
+	 *
+	 * 如果不需要进一步连字符，只需压缩字符串
+	 */
 	if (TABLE == NULL || TABLE_index == NULL)
 	{
 		while (*bufI)
@@ -197,7 +232,10 @@ hyphenate(char *bufO, char *bufI, const char *(*TABLE)[2], const unsigned TABLE_
 		return (ret + 1);
 	}
 
-	/* add remaining hyphenations */
+	/* add remaining hyphenations
+	 *
+	 * 添加剩余的连字符
+	 */
 
 	search = *bufI - '0';
 	upper = lower = TABLE_index[search][0];
@@ -235,6 +273,8 @@ hyphenate(char *bufO, char *bufI, const char *(*TABLE)[2], const unsigned TABLE_
 			/*
 			 * check in what direction we should go and move the pointer
 			 * accordingly
+			 *
+			 * 检查我们应该朝哪个方向移动并相应地移动指针
 			 */
 			if (*firstdig < *ean_aux1 && !ean_in1)
 				upper = search;
@@ -244,7 +284,10 @@ hyphenate(char *bufO, char *bufI, const char *(*TABLE)[2], const unsigned TABLE_
 			step = (upper - lower) / 2;
 			search = lower + step;
 
-			/* Initialize stuff again: */
+			/* Initialize stuff again:
+			 *
+			 * 再次初始化东西：
+			 */
 			firstdig = bufI;
 			ean_in1 = ean_in2 = false;
 			ean_aux1 = TABLE[search][0];
@@ -276,7 +319,11 @@ hyphenate(char *bufO, char *bufI, const char *(*TABLE)[2], const unsigned TABLE_
  * weight_checkdig -- Receives a buffer with a normalized ISxN string number,
  *					   and the length to weight.
  *
+ * Weight_checkdig —— 接收一个带有标准化 ISxN 字符串编号和重量长度的缓冲区。
+ *
  * Returns the weight of the number (the check digit value, 0-10)
+ *
+ * 返回数字的权重（校验位值，0-10）
  */
 static unsigned
 weight_checkdig(char *isn, unsigned size)
@@ -302,7 +349,11 @@ weight_checkdig(char *isn, unsigned size)
  * checkdig --- Receives a buffer with a normalized ISxN string number,
  *				 and the length to check.
  *
+ * checkdig --- 接收带有标准化 ISxN 字符串编号和要检查的长度的缓冲区。
+ *
  * Returns the check digit value (0-9)
+ *
+ * 返回校验位值 (0-9)
  */
 static unsigned
 checkdig(char *num, unsigned size)
@@ -338,8 +389,12 @@ checkdig(char *num, unsigned size)
  * ean2isn --- Try to convert an ean13 number to a UPC/ISxN number.
  *			   This doesn't verify for a valid check digit.
  *
+ * ean2isn --- 尝试将 ean13 数字转换为 UPC/ISxN 数字。这不会验证有效的校验位。
+ *
  * If errorOK is false, ereport a useful error message if the ean13 is bad.
  * If errorOK is true, just return "false" for bad input.
+ *
+ * 如果 errorOK 为 false，则在 ean13 损坏时报告有用的错误消息。如果 errorOK 为 true，则对于错误输入仅返回“false”。
  */
 static bool
 ean2isn(ean13 ean, bool errorOK, ean13 *result, enum isn_type accept)
@@ -353,11 +408,17 @@ ean2isn(ean13 ean, bool errorOK, ean13 *result, enum isn_type accept)
 	ean13		ret = ean;
 
 	ean >>= 1;
-	/* verify it's in the EAN13 range */
+	/* verify it's in the EAN13 range
+	 *
+	 * 验证它是否在 EAN13 范围内
+	 */
 	if (ean > UINT64CONST(9999999999999))
 		goto eantoobig;
 
-	/* convert the number */
+	/* convert the number
+	 *
+	 * 转换数字
+	 */
 	search = 0;
 	aux = buf + 13;
 	*aux = '\0';				/* terminate string; aux points to last digit */
@@ -370,7 +431,10 @@ ean2isn(ean13 ean, bool errorOK, ean13 *result, enum isn_type accept)
 	while (search++ < 12)
 		*--aux = '0';			/* fill the remaining EAN13 with '0' */
 
-	/* find out the data type: */
+	/* find out the data type:
+	 *
+	 * 找出数据类型：
+	 */
 	if (strncmp("978", buf, 3) == 0)
 	{							/* ISBN */
 		type = ISBN;
@@ -429,6 +493,8 @@ eantoobig:
 		/*
 		 * Format the number separately to keep the machine-dependent format
 		 * code out of the translatable message text
+		 *
+		 * 单独格式化数字，以将与机器相关的格式代码排除在可翻译的消息文本之外
 		 */
 		snprintf(eanbuf, sizeof(eanbuf), EAN13_FORMAT, ean);
 		ereport(ERROR,
@@ -442,6 +508,8 @@ eantoobig:
 /*
  * ean2UPC/ISxN --- Convert in-place a normalized EAN13 string to the corresponding
  *					UPC/ISxN string number. Assumes the input string is normalized.
+ *
+ * ean2UPC/ISxN --- 将规范化的 EAN13 字符串就地转换为相应的 UPC/ISxN 字符串编号。假设输入字符串已标准化。
  */
 static inline void
 ean2ISBN(char *isn)
@@ -453,10 +521,15 @@ ean2ISBN(char *isn)
 	 * The number should come in this format: 978-0-000-00000-0 or may be an
 	 * ISBN-13 number, 979-..., which does not have a short representation. Do
 	 * the short output version if possible.
+	 *
+	 * 该号码应采用以下格式：978-0-000-00000-0，或者可以是 ISBN-13 号码，979-...，它没有简短的表示形式。如果可能的话，做短输出版本。
 	 */
 	if (strncmp("978-", isn, 4) == 0)
 	{
-		/* Strip the first part and calculate the new check digit */
+		/* Strip the first part and calculate the new check digit
+		 *
+		 * 剥离第一部分并计算新的校验位
+		 */
 		hyphenate(isn, isn + 4, NULL, NULL);
 		check = weight_checkdig(isn, 10);
 		aux = strchr(isn, '\0');
@@ -471,8 +544,14 @@ ean2ISBN(char *isn)
 static inline void
 ean2ISMN(char *isn)
 {
-	/* the number should come in this format: 979-0-000-00000-0 */
-	/* Just strip the first part and change the first digit ('0') to 'M' */
+	/* the number should come in this format: 979-0-000-00000-0
+	 *
+	 * 该号码应采用以下格式：979-0-000-00000-0
+	 */
+	/* Just strip the first part and change the first digit ('0') to 'M'
+	 *
+	 * 只需删除第一部分并将第一个数字（“0”）更改为“M”
+	 */
 	hyphenate(isn, isn + 4, NULL, NULL);
 	isn[0] = 'M';
 }
@@ -482,8 +561,14 @@ ean2ISSN(char *isn)
 {
 	unsigned	check;
 
-	/* the number should come in this format: 977-0000-000-00-0 */
-	/* Strip the first part, crop, and calculate the new check digit */
+	/* the number should come in this format: 977-0000-000-00-0
+	 *
+	 * 该号码应采用以下格式：977-0000-000-00-0
+	 */
+	/* Strip the first part, crop, and calculate the new check digit
+	 *
+	 * 剥离第一部分，裁剪并计算新的校验位
+	 */
 	hyphenate(isn, isn + 4, NULL, NULL);
 	check = weight_checkdig(isn, 8);
 	if (check == 10)
@@ -496,8 +581,14 @@ ean2ISSN(char *isn)
 static inline void
 ean2UPC(char *isn)
 {
-	/* the number should come in this format: 000-000000000-0 */
-	/* Strip the first part, crop, and dehyphenate */
+	/* the number should come in this format: 000-000000000-0
+	 *
+	 * 该号码应采用以下格式：000-000000000-0
+	 */
+	/* Strip the first part, crop, and dehyphenate
+	 *
+	 * 剥离第一部分、裁剪并去掉连字符
+	 */
 	dehyphenate(isn, isn + 1);
 	isn[12] = '\0';
 }
@@ -507,7 +598,11 @@ ean2UPC(char *isn)
  *			  Assumes the input string is a string with only digits
  *			  on it, and that it's within the range of ean13.
  *
+ * ean2* --- 将数字字符串转换为 ean13 数字。假设输入字符串是一个只有数字的字符串，并且它在 ean13 的范围内。
+ *
  * Returns the ean13 value of the string.
+ *
+ * 返回字符串的 ean13 值。
  */
 static ean13
 str2ean(const char *num)
@@ -529,9 +624,13 @@ str2ean(const char *num)
  *				  the string (maximum MAXEAN13LEN+1 bytes)
  *				  This doesn't verify for a valid check digit.
  *
+ * ean2string --- 尝试将 ean13 数字转换为带连字符的字符串。假设结果中有足够的空间来保存字符串（最大 MAXEAN13LEN+1 字节），这不会验证有效的校验位。
+ *
  * If shortType is true, the returned string is in the old ISxN short format.
  * If errorOK is false, ereport a useful error message if the string is bad.
  * If errorOK is true, just return "false" for bad input.
+ *
+ * 如果shortType 为true，则返回的字符串采用旧的ISxN 短格式。如果 errorOK 为 false，则在字符串错误时报告有用的错误消息。如果 errorOK 为 true，则对于错误输入仅返回“false”。
  */
 static bool
 ean2string(ean13 ean, bool errorOK, char *result, bool shortType)
@@ -551,11 +650,17 @@ ean2string(ean13 ean, bool errorOK, char *result, bool shortType)
 	if ((ean & 1) != 0)
 		valid = '!';
 	ean >>= 1;
-	/* verify it's in the EAN13 range */
+	/* verify it's in the EAN13 range
+	 *
+	 * 验证它是否在 EAN13 范围内
+	 */
 	if (ean > UINT64CONST(9999999999999))
 		goto eantoobig;
 
-	/* convert the number */
+	/* convert the number
+	 *
+	 * 转换数字
+	 */
 	search = 0;
 	aux = result + MAXEAN13LEN;
 	*aux = '\0';				/* terminate string; aux points to last digit */
@@ -572,48 +677,72 @@ ean2string(ean13 ean, bool errorOK, char *result, bool shortType)
 	while (search++ < 13)
 		*--aux = '0';			/* fill the remaining EAN13 with '0' */
 
-	/* The string should be in this form: ???DDDDDDDDDDDD-D" */
+	/* The string should be in this form: ???DDDDDDDDDDDD-D"
+	 *
+	 * 该字符串应采用以下形式：???DDDDDDDDDDDD-D”
+	 */
 	search = hyphenate(result, result + 3, EAN13_range, EAN13_index);
 
-	/* verify it's a logically valid EAN13 */
+	/* verify it's a logically valid EAN13
+	 *
+	 * 验证它是逻辑上有效的 EAN13
+	 */
 	if (search == 0)
 	{
 		search = hyphenate(result, result + 3, NULL, NULL);
 		goto okay;
 	}
 
-	/* find out what type of hyphenation is needed: */
+	/* find out what type of hyphenation is needed:
+	 *
+	 * 找出需要什么类型的连字符：
+	 */
 	if (strncmp("978-", result, search) == 0)
 	{							/* ISBN -13 978-range */
-		/* The string should be in this form: 978-??000000000-0" */
+		/* The string should be in this form: 978-??000000000-0"
+		 *
+		 * 该字符串应采用以下形式：978-??000000000-0"
+		 */
 		type = ISBN;
 		TABLE = ISBN_range;
 		TABLE_index = ISBN_index;
 	}
 	else if (strncmp("977-", result, search) == 0)
 	{							/* ISSN */
-		/* The string should be in this form: 977-??000000000-0" */
+		/* The string should be in this form: 977-??000000000-0"
+		 *
+		 * 该字符串应采用以下形式：977-??000000000-0"
+		 */
 		type = ISSN;
 		TABLE = ISSN_range;
 		TABLE_index = ISSN_index;
 	}
 	else if (strncmp("979-0", result, search + 1) == 0)
 	{							/* ISMN */
-		/* The string should be in this form: 979-0?000000000-0" */
+		/* The string should be in this form: 979-0?000000000-0"
+		 *
+		 * 该字符串应采用以下形式：979-0?000000000-0"
+		 */
 		type = ISMN;
 		TABLE = ISMN_range;
 		TABLE_index = ISMN_index;
 	}
 	else if (strncmp("979-", result, search) == 0)
 	{							/* ISBN-13 979-range */
-		/* The string should be in this form: 979-??000000000-0" */
+		/* The string should be in this form: 979-??000000000-0"
+		 *
+		 * 该字符串应采用以下形式：979-??000000000-0"
+		 */
 		type = ISBN;
 		TABLE = ISBN_range_new;
 		TABLE_index = ISBN_index_new;
 	}
 	else if (*result == '0')
 	{							/* UPC */
-		/* The string should be in this form: 000-00000000000-0" */
+		/* The string should be in this form: 000-00000000000-0"
+		 *
+		 * 该字符串应采用以下形式：000-00000000000-0”
+		 */
 		type = UPC;
 		TABLE = UPC_range;
 		TABLE_index = UPC_index;
@@ -625,11 +754,17 @@ ean2string(ean13 ean, bool errorOK, char *result, bool shortType)
 		TABLE_index = NULL;
 	}
 
-	/* verify it's a logically valid EAN13/UPC/ISxN */
+	/* verify it's a logically valid EAN13/UPC/ISxN
+	 *
+	 * 验证它是逻辑上有效的 EAN13/UPC/ISxN
+	 */
 	digval = search;
 	search = hyphenate(result + digval, result + digval + 2, TABLE, TABLE_index);
 
-	/* verify it's a valid EAN13 */
+	/* verify it's a valid EAN13
+	 *
+	 * 验证它是有效的 EAN13
+	 */
 	if (search == 0)
 	{
 		search = hyphenate(result + digval, result + digval + 2, NULL, NULL);
@@ -637,7 +772,10 @@ ean2string(ean13 ean, bool errorOK, char *result, bool shortType)
 	}
 
 okay:
-	/* convert to the old short type: */
+	/* convert to the old short type:
+	 *
+	 * 转换为旧的短类型：
+	 */
 	if (shortType)
 		switch (type)
 		{
@@ -666,6 +804,8 @@ eantoobig:
 		/*
 		 * Format the number separately to keep the machine-dependent format
 		 * code out of the translatable message text
+		 *
+		 * 单独格式化数字，以将与机器相关的格式代码排除在可翻译的消息文本之外
 		 */
 		snprintf(eanbuf, sizeof(eanbuf), EAN13_FORMAT, ean);
 		ereport(ERROR,
@@ -679,11 +819,17 @@ eantoobig:
 /*
  * string2ean --- try to parse a string into an ean13.
  *
+ * string2ean --- 尝试将字符串解析为 ean13。
+ *
  * ereturn false with a useful error message if the string is bad.
  * Otherwise return true.
  *
+ * 如果字符串错误，则返回 false 并显示有用的错误消息。否则返回真。
+ *
  * if the input string ends with '!' it will always be treated as invalid
  * (even if the check digit is valid)
+ *
+ * 如果输入字符串以 '!' 结尾它将始终被视为无效（即使校验位有效）
  */
 static bool
 string2ean(const char *str, struct Node *escontext, ean13 *result,
@@ -702,7 +848,10 @@ string2ean(const char *str, struct Node *escontext, ean13 *result,
 	bool		magic = false,
 				valid = true;
 
-	/* recognize and validate the number: */
+	/* recognize and validate the number:
+	 *
+	 * 识别并验证号码：
+	 */
 	while (*aux2 && length <= 13)
 	{
 		last = (*(aux2 + 1) == '!' || *(aux2 + 1) == '\0'); /* is the last character */
@@ -713,7 +862,10 @@ string2ean(const char *str, struct Node *escontext, ean13 *result,
 			magic = digit = true;
 		if (length == 0 && (*aux2 == 'M' || *aux2 == 'm'))
 		{
-			/* only ISMN can be here */
+			/* only ISMN can be here
+			 *
+			 * 只有 ISMN 可以在这里
+			 */
 			if (type != INVALID)
 				goto eaninvalid;
 			type = ISMN;
@@ -722,7 +874,10 @@ string2ean(const char *str, struct Node *escontext, ean13 *result,
 		}
 		else if (length == 7 && (digit || *aux2 == 'X' || *aux2 == 'x') && last)
 		{
-			/* only ISSN can be here */
+			/* only ISSN can be here
+			 *
+			 * 这里只能有 ISSN
+			 */
 			if (type != INVALID)
 				goto eaninvalid;
 			type = ISSN;
@@ -731,7 +886,10 @@ string2ean(const char *str, struct Node *escontext, ean13 *result,
 		}
 		else if (length == 9 && (digit || *aux2 == 'X' || *aux2 == 'x') && last)
 		{
-			/* only ISBN and ISMN can be here */
+			/* only ISBN and ISMN can be here
+			 *
+			 * 此处只能显示 ISBN 和 ISMN
+			 */
 			if (type != INVALID && type != ISMN)
 				goto eaninvalid;
 			if (type == INVALID)
@@ -741,7 +899,10 @@ string2ean(const char *str, struct Node *escontext, ean13 *result,
 		}
 		else if (length == 11 && digit && last)
 		{
-			/* only UPC can be here */
+			/* only UPC can be here
+			 *
+			 * 这里只能有UPC
+			 */
 			if (type != INVALID)
 				goto eaninvalid;
 			type = UPC;
@@ -750,11 +911,17 @@ string2ean(const char *str, struct Node *escontext, ean13 *result,
 		}
 		else if (*aux2 == '-' || *aux2 == ' ')
 		{
-			/* skip, we could validate but I think it's worthless */
+			/* skip, we could validate but I think it's worthless
+			 *
+			 * 跳过，我们可以验证，但我认为它毫无价值
+			 */
 		}
 		else if (*aux2 == '!' && *(aux2 + 1) == '\0')
 		{
-			/* the invalid check digit suffix was found, set it */
+			/* the invalid check digit suffix was found, set it
+			 *
+			 * 发现无效的校验位后缀，请设置
+			 */
 			if (!magic)
 				valid = false;
 			magic = true;
@@ -773,10 +940,16 @@ string2ean(const char *str, struct Node *escontext, ean13 *result,
 	}
 	*aux1 = '\0';				/* terminate the string */
 
-	/* find the current check digit value */
+	/* find the current check digit value
+	 *
+	 * 查找当前校验位值
+	 */
 	if (length == 13)
 	{
-		/* only EAN13 can be here */
+		/* only EAN13 can be here
+		 *
+		 * 这里只有 EAN13 可以
+		 */
 		if (type != INVALID)
 			goto eaninvalid;
 		type = EAN13;
@@ -784,7 +957,10 @@ string2ean(const char *str, struct Node *escontext, ean13 *result,
 	}
 	else if (length == 12)
 	{
-		/* only UPC can be here */
+		/* only UPC can be here
+		 *
+		 * 这里只能有UPC
+		 */
 		if (type != UPC)
 			goto eaninvalid;
 		check = buf[14] - '0';
@@ -814,7 +990,10 @@ string2ean(const char *str, struct Node *escontext, ean13 *result,
 	if (type == INVALID)
 		goto eaninvalid;
 
-	/* obtain the real check digit value, validate, and convert to ean13: */
+	/* obtain the real check digit value, validate, and convert to ean13:
+	 *
+	 * 获取真实的校验位值，验证并转换为ean13：
+	 */
 	if (accept == EAN13 && type != accept)
 		goto eanwrongtype;
 	if (accept != ANY && type != EAN13 && type != accept)
@@ -823,7 +1002,10 @@ string2ean(const char *str, struct Node *escontext, ean13 *result,
 	{
 		case EAN13:
 			valid = (valid && ((rcheck = checkdig(buf + 3, 13)) == check || magic));
-			/* now get the subtype of EAN13: */
+			/* now get the subtype of EAN13:
+			 *
+			 * 现在获取 EAN13 的子类型：
+			 */
 			if (buf[3] == '0')
 				type = UPC;
 			else if (strncmp("977", buf + 3, 3) == 0)
@@ -859,7 +1041,10 @@ string2ean(const char *str, struct Node *escontext, ean13 *result,
 			break;
 	}
 
-	/* fix the check digit: */
+	/* fix the check digit:
+	 *
+	 * 修复校验位：
+	 */
 	for (aux1 = buf; *aux1 && *aux1 <= ' '; aux1++);
 	aux1[12] = checkdig(aux1, 13) + '0';
 	aux1[13] = '\0';
@@ -874,7 +1059,10 @@ string2ean(const char *str, struct Node *escontext, ean13 *result,
 eanbadcheck:
 	if (g_weak)
 	{							/* weak input mode is activated: */
-		/* set the "invalid-check-digit-on-input" flag */
+		/* set the "invalid-check-digit-on-input" flag
+		 *
+		 * 设置“输入时无效校验位”标志
+		 */
 		*result = str2ean(aux1);
 		*result |= 1;
 		return true;
@@ -916,6 +1104,8 @@ eantoobig:
 
 /*----------------------------------------------------------
  * Exported routines.
+ *
+ * 导出的例程。
  *---------------------------------------------------------*/
 
 void
@@ -935,7 +1125,10 @@ _PG_init(void)
 			elog(ERROR, "UPC failed check");
 	}
 
-	/* Define a GUC variable for weak mode. */
+	/* Define a GUC variable for weak mode.
+	 *
+	 * 为弱模式定义 GUC 变量。
+	 */
 	DefineCustomBoolVariable("isn.weak",
 							 "Accept input with invalid ISN check digits.",
 							 NULL,
@@ -1128,6 +1321,8 @@ make_valid(PG_FUNCTION_ARGS)
 
 /* this function temporarily sets weak input flag
  * (to lose the strictness of check digit acceptance)
+ *
+ * （失去校验位接受的严格性）
  */
 PG_FUNCTION_INFO_V1(accept_weak_input);
 Datum

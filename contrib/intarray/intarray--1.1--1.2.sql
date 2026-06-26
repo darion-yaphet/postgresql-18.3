@@ -1,12 +1,22 @@
 /* contrib/intarray/intarray--1.1--1.2.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION intarray UPDATE TO '1.2'" to load this file. \quit
 
 -- Update procedure signatures the hard way.
+--
+-- 以困难的方式更新过程签名。
 -- We use to_regprocedure() so that query doesn't fail if run against 9.6beta1 definitions,
+--
+-- 我们使用 to_regprocedure() 以便查询在针对 9.6beta1 定义运行时不会失败，
 -- wherein the signatures have been updated already.  In that case to_regprocedure() will
+--
+-- 其中签名已经更新。  在这种情况下 to_regprocedure() 将
 -- return NULL and no updates will happen.
+--
+-- 返回 NULL 并且不会发生任何更新。
 DO LANGUAGE plpgsql
 $$
 DECLARE
@@ -14,6 +24,8 @@ DECLARE
   old_path pg_catalog.text := pg_catalog.current_setting('search_path');
 BEGIN
 -- for safety, transiently set search_path to just pg_catalog+pg_temp
+--
+-- 为了安全起见，暂时将 search_path 设置为 pg_catalog+pg_temp
 PERFORM pg_catalog.set_config('search_path', 'pg_catalog, pg_temp', true);
 
 UPDATE pg_catalog.pg_proc SET

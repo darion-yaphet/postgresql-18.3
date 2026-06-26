@@ -27,7 +27,10 @@ PG_MODULE_MAGIC_EXT(
 					.version = PG_VERSION
 );
 
-/* GUC variables */
+/* GUC variables
+ *
+ * GUC变量
+ */
 static int	auto_explain_log_min_duration = -1; /* msec or -1 */
 static int	auto_explain_log_parameter_max_length = -1; /* bytes or -1 */
 static bool auto_explain_log_analyze = false;
@@ -64,10 +67,16 @@ static const struct config_enum_entry loglevel_options[] = {
 	{NULL, 0, false}
 };
 
-/* Current nesting depth of ExecutorRun calls */
+/* Current nesting depth of ExecutorRun calls
+ *
+ * ExecutorRun 调用的当前嵌套深度
+ */
 static int	nesting_level = 0;
 
-/* Is the current top-level query to be sampled? */
+/* Is the current top-level query to be sampled?
+ *
+ * 是否对当前顶级查询进行采样？
+ */
 static bool current_query_sampled = false;
 
 #define auto_explain_enabled() \
@@ -75,7 +84,10 @@ static bool current_query_sampled = false;
 	 (nesting_level == 0 || auto_explain_log_nested_statements) && \
 	 current_query_sampled)
 
-/* Saved hook values */
+/* Saved hook values
+ *
+ * 保存的挂钩值
+ */
 static ExecutorStart_hook_type prev_ExecutorStart = NULL;
 static ExecutorRun_hook_type prev_ExecutorRun = NULL;
 static ExecutorFinish_hook_type prev_ExecutorFinish = NULL;
@@ -91,11 +103,16 @@ static void explain_ExecutorEnd(QueryDesc *queryDesc);
 
 /*
  * Module load callback
+ *
+ * 模块加载回调
  */
 void
 _PG_init(void)
 {
-	/* Define custom GUC variables. */
+	/* Define custom GUC variables.
+	 *
+	 * 定义自定义 GUC 变量。
+	 */
 	DefineCustomIntVariable("auto_explain.log_min_duration",
 							"Sets the minimum execution time above which plans will be logged.",
 							"-1 disables logging plans. 0 means log all plans.",
@@ -247,7 +264,10 @@ _PG_init(void)
 
 	MarkGUCPrefixReserved("auto_explain");
 
-	/* Install hooks. */
+	/* Install hooks.
+	 *
+	 * 安装挂钩。
+	 */
 	prev_ExecutorStart = ExecutorStart_hook;
 	ExecutorStart_hook = explain_ExecutorStart;
 	prev_ExecutorRun = ExecutorRun_hook;
@@ -260,6 +280,8 @@ _PG_init(void)
 
 /*
  * ExecutorStart hook: start up logging if needed
+ *
+ * ExecutorStart 钩子：如果需要启动日志记录
  */
 static void
 explain_ExecutorStart(QueryDesc *queryDesc, int eflags)
@@ -269,10 +291,14 @@ explain_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	 * sample this statement.  If nested-statement explaining is enabled,
 	 * either all nested statements will be explained or none will.
 	 *
+	 * 在每个顶级语句的开头，决定我们是否对该语句进行采样。  如果启用嵌套语句解释，则要么解释所有嵌套语句，要么不解释任何嵌套语句。
+	 *
 	 * When in a parallel worker, we should do nothing, which we can implement
 	 * cheaply by pretending we decided not to sample the current statement.
 	 * If EXPLAIN is active in the parent session, data will be collected and
 	 * reported back to the parent, and it's no business of ours to interfere.
+	 *
+	 * 当在并行工作者中时，我们不应该做任何事情，我们可以通过假装我们决定不对当前语句进行采样来廉价地实现这一点。如果 EXPLAIN 在父会话中处于活动状态，数据将被收集并发回给父会话，我们无权干涉。
 	 */
 	if (nesting_level == 0)
 	{
@@ -284,7 +310,10 @@ explain_ExecutorStart(QueryDesc *queryDesc, int eflags)
 
 	if (auto_explain_enabled())
 	{
-		/* Enable per-node instrumentation iff log_analyze is required. */
+		/* Enable per-node instrumentation iff log_analyze is required.
+		 *
+		 * 如果需要 log_analyze，则启用每节点检测。
+		 */
 		if (auto_explain_log_analyze && (eflags & EXEC_FLAG_EXPLAIN_ONLY) == 0)
 		{
 			if (auto_explain_log_timing)
@@ -309,6 +338,8 @@ explain_ExecutorStart(QueryDesc *queryDesc, int eflags)
 		 * Set up to track total elapsed time in ExecutorRun.  Make sure the
 		 * space is allocated in the per-query context so it will go away at
 		 * ExecutorEnd.
+		 *
+		 * 设置为跟踪 ExecutorRun 中的总运行时间。  确保在每个查询上下文中分配空间，以便它在 ExecutorEnd 时消失。
 		 */
 		if (queryDesc->totaltime == NULL)
 		{
@@ -323,6 +354,8 @@ explain_ExecutorStart(QueryDesc *queryDesc, int eflags)
 
 /*
  * ExecutorRun hook: all we need do is track nesting depth
+ *
+ * ExecutorRun 钩子：我们需要做的就是跟踪嵌套深度
  */
 static void
 explain_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
@@ -345,6 +378,8 @@ explain_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
 
 /*
  * ExecutorFinish hook: all we need do is track nesting depth
+ *
+ * ExecutorFinish 钩子：我们需要做的就是跟踪嵌套深度
  */
 static void
 explain_ExecutorFinish(QueryDesc *queryDesc)
@@ -366,6 +401,8 @@ explain_ExecutorFinish(QueryDesc *queryDesc)
 
 /*
  * ExecutorEnd hook: log results if needed
+ *
+ * ExecutorEnd 钩子：如果需要则记录结果
  */
 static void
 explain_ExecutorEnd(QueryDesc *queryDesc)
@@ -378,16 +415,23 @@ explain_ExecutorEnd(QueryDesc *queryDesc)
 		/*
 		 * Make sure we operate in the per-query context, so any cruft will be
 		 * discarded later during ExecutorEnd.
+		 *
+		 * 确保我们在每个查询上下文中进行操作，以便稍后在 ExecutorEnd 期间丢弃任何残渣。
 		 */
 		oldcxt = MemoryContextSwitchTo(queryDesc->estate->es_query_cxt);
 
 		/*
 		 * Make sure stats accumulation is done.  (Note: it's okay if several
 		 * levels of hook all do this.)
+		 *
+		 * 确保统计数据积累已完成。  （注意：如果几个级别的钩子都这样做也没关系。）
 		 */
 		InstrEndLoop(queryDesc->totaltime);
 
-		/* Log plan if duration is exceeded. */
+		/* Log plan if duration is exceeded.
+		 *
+		 * 如果超过持续时间，则记录计划。
+		 */
 		msec = queryDesc->totaltime->total * 1000.0;
 		if (msec >= auto_explain_log_min_duration)
 		{
@@ -399,8 +443,14 @@ explain_ExecutorEnd(QueryDesc *queryDesc)
 			es->wal = (es->analyze && auto_explain_log_wal);
 			es->timing = (es->analyze && auto_explain_log_timing);
 			es->summary = es->analyze;
-			/* No support for MEMORY */
-			/* es->memory = false; */
+			/* No support for MEMORY
+			 *
+			 * 不支持内存
+			 */
+			/* es->memory = false;
+			 *
+			 * es->内存=假；
+			 */
 			es->format = auto_explain_log_format;
 			es->settings = auto_explain_log_settings;
 
@@ -414,11 +464,17 @@ explain_ExecutorEnd(QueryDesc *queryDesc)
 				ExplainPrintJITSummary(es, queryDesc);
 			ExplainEndOutput(es);
 
-			/* Remove last line break */
+			/* Remove last line break
+			 *
+			 * 删除最后一个换行符
+			 */
 			if (es->str->len > 0 && es->str->data[es->str->len - 1] == '\n')
 				es->str->data[--es->str->len] = '\0';
 
-			/* Fix JSON to output an object */
+			/* Fix JSON to output an object
+			 *
+			 * 修复 JSON 以输出对象
+			 */
 			if (auto_explain_log_format == EXPLAIN_FORMAT_JSON)
 			{
 				es->str->data[0] = '{';
@@ -430,6 +486,8 @@ explain_ExecutorEnd(QueryDesc *queryDesc)
 			 * debug_query_string to identify just which statement is being
 			 * reported.  This isn't ideal but trying to do it here would
 			 * often result in duplication.
+			 *
+			 * 注意：我们依靠上下文或 debug_query_string 的现有日志记录来识别正在报告的语句。  这并不理想，但尝试在这里这样做通常会导致重复。
 			 */
 			ereport(auto_explain_log_level,
 					(errmsg("duration: %.3f ms  plan:\n%s",

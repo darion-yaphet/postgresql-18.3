@@ -26,7 +26,10 @@ PG_MODULE_MAGIC_EXT(
 					.version = PG_VERSION
 );
 
-/* old names for C functions */
+/* old names for C functions
+ *
+ * C 函数的旧名称
+ */
 HSTORE_POLLUTE(hstore_from_text, tconvert);
 
 
@@ -69,7 +72,10 @@ prssyntaxerror(HSParser *state)
 			 errmsg("syntax error in hstore, near \"%.*s\" at position %d",
 					pg_mblen_cstr(state->ptr), state->ptr,
 					(int) (state->ptr - state->begin))));
-	/* In soft error situation, return false as convenience for caller */
+	/* In soft error situation, return false as convenience for caller
+	 *
+	 * 在软错误情况下，返回 false 以方便调用者
+	 */
 	return false;
 }
 
@@ -81,7 +87,10 @@ prseof(HSParser *state)
 	errsave(state->escontext,
 			(errcode(ERRCODE_SYNTAX_ERROR),
 			 errmsg("syntax error in hstore: unexpected end of string")));
-	/* In soft error situation, return false as convenience for caller */
+	/* In soft error situation, return false as convenience for caller
+	 *
+	 * 在软错误情况下，返回 false 以方便调用者
+	 */
 	return false;
 }
 
@@ -338,7 +347,10 @@ comparePairs(const void *a, const void *b)
 		if (res)
 			return res;
 
-		/* guarantee that needfree will be later */
+		/* guarantee that needfree will be later
+		 *
+		 * 保证needfree会稍后
+		 */
 		if (pb->needfree == pa->needfree)
 			return 0;
 		else if (pa->needfree)
@@ -354,6 +366,8 @@ comparePairs(const void *a, const void *b)
  * it should never be called in a context where anything needs freeing.
  * we keep it because (a) those calls are in a rare code path anyway,
  * and (b) who knows whether they might be needed by some caller.
+ *
+ * 这段代码仍然遵循pairs.needfree，尽管一般来说它不应该在任何东西需要释放的上下文中调用。我们保留它是因为（a）这些调用无论如何都在罕见的代码路径中，并且（b）谁知道某些调用者是否需要它们。
  */
 int
 hstoreUniquePairs(Pairs *a, int32 l, int32 *buflen)
@@ -374,6 +388,8 @@ hstoreUniquePairs(Pairs *a, int32 l, int32 *buflen)
 	/*
 	 * We can't use qunique here because we have some clean-up code to run on
 	 * removed elements.
+	 *
+	 * 我们不能在这里使用qunique，因为我们有一些清理代码要在删除的元素上运行。
 	 */
 	ptr = a + 1;
 	res = a;
@@ -625,6 +641,8 @@ hstore_from_arrays(PG_FUNCTION_ARGS)
 	/*
 	 * must check >1 rather than != 1 because empty arrays have 0 dimensions,
 	 * not 1
+	 *
+	 * 必须检查 >1 而不是 != 1，因为空数组的维度为 0，而不是 1
 	 */
 
 	if (ARR_NDIM(key_array) > 1)
@@ -634,14 +652,20 @@ hstore_from_arrays(PG_FUNCTION_ARGS)
 
 	deconstruct_array_builtin(key_array, TEXTOID, &key_datums, &key_nulls, &key_count);
 
-	/* see discussion in hstoreArrayToPairs() */
+	/* see discussion in hstoreArrayToPairs()
+	 *
+	 * 请参阅 hstoreArrayToPairs() 中的讨论
+	 */
 	if (key_count > MaxAllocSize / sizeof(Pairs))
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("number of pairs (%d) exceeds the maximum allowed (%d)",
 						key_count, (int) (MaxAllocSize / sizeof(Pairs)))));
 
-	/* value_array might be NULL */
+	/* value_array might be NULL
+	 *
+	 * value_array 可能为 NULL
+	 */
 
 	if (PG_ARGISNULL(1))
 	{
@@ -761,7 +785,10 @@ hstore_from_array(PG_FUNCTION_ARGS)
 
 	count = in_count / 2;
 
-	/* see discussion in hstoreArrayToPairs() */
+	/* see discussion in hstoreArrayToPairs()
+	 *
+	 * 请参阅 hstoreArrayToPairs() 中的讨论
+	 */
 	if (count > MaxAllocSize / sizeof(Pairs))
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -807,10 +834,15 @@ hstore_from_array(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(out);
 }
 
-/* most of hstore_from_record is shamelessly swiped from record_out */
+/* most of hstore_from_record is shamelessly swiped from record_out
+ *
+ * hstore_from_record的大部分内容都是无耻地从record_out中刷出来的
+ */
 
 /*
  * structure to cache metadata needed for record I/O
+ *
+ * 用于缓存记录 I/O 所需元数据的结构
  */
 typedef struct ColumnIOData
 {
@@ -824,7 +856,10 @@ typedef struct RecordIOData
 {
 	Oid			record_type;
 	int32		record_typmod;
-	/* this field is used only if target type is domain over composite: */
+	/* this field is used only if target type is domain over composite:
+	 *
+	 * 仅当目标类型是复合域时才使用此字段：
+	 */
 	void	   *domain_info;	/* opaque cache for domain checks */
 	int			ncolumns;
 	ColumnIOData columns[FLEXIBLE_ARRAY_MEMBER];
@@ -859,6 +894,8 @@ hstore_from_record(PG_FUNCTION_ARGS)
 		 * here, since we have no need to be concerned about domain
 		 * constraints.  The lookup_rowtype_tupdesc_domain call below will
 		 * error out if we don't have a known composite type oid here.
+		 *
+		 * 我们没有元组可供查看，因此类型信息的唯一来源是 argtype --- 它可能是复合领域，但我们在这里并不关心，因为我们不需要担心领域约束。  如果我们这里没有已知的复合类型 oid，下面的lookup_rowtype_tupdesc_domain 调用将会出错。
 		 */
 		tupType = argtype;
 		tupTypmod = -1;
@@ -872,6 +909,8 @@ hstore_from_record(PG_FUNCTION_ARGS)
 		/*
 		 * Extract type info from the tuple itself -- this will work even for
 		 * anonymous record types.
+		 *
+		 * 从元组本身提取类型信息——这甚至适用于匿名记录类型。
 		 */
 		tupType = HeapTupleHeaderGetTypeId(rec);
 		tupTypmod = HeapTupleHeaderGetTypMod(rec);
@@ -883,6 +922,8 @@ hstore_from_record(PG_FUNCTION_ARGS)
 	/*
 	 * We arrange to look up the needed I/O info just once per series of
 	 * calls, assuming the record type doesn't change underneath us.
+	 *
+	 * 我们安排在每个系列调用中只查找一次所需的 I/O 信息，假设记录类型在我们下面没有改变。
 	 */
 	my_extra = (RecordIOData *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL ||
@@ -913,7 +954,10 @@ hstore_from_record(PG_FUNCTION_ARGS)
 
 	if (rec)
 	{
-		/* Build a temporary HeapTuple control structure */
+		/* Build a temporary HeapTuple control structure
+		 *
+		 * 构建临时HeapTuple控制结构
+		 */
 		tuple.t_len = HeapTupleHeaderGetDatumLength(rec);
 		ItemPointerSetInvalid(&(tuple.t_self));
 		tuple.t_tableOid = InvalidOid;
@@ -922,7 +966,10 @@ hstore_from_record(PG_FUNCTION_ARGS)
 		values = (Datum *) palloc(ncolumns * sizeof(Datum));
 		nulls = (bool *) palloc(ncolumns * sizeof(bool));
 
-		/* Break down the tuple into fields */
+		/* Break down the tuple into fields
+		 *
+		 * 将元组分解为字段
+		 */
 		heap_deform_tuple(&tuple, tupdesc, values, nulls);
 	}
 	else
@@ -938,7 +985,10 @@ hstore_from_record(PG_FUNCTION_ARGS)
 		Oid			column_type = att->atttypid;
 		char	   *value;
 
-		/* Ignore dropped columns in datatype */
+		/* Ignore dropped columns in datatype
+		 *
+		 * 忽略数据类型中删除的列
+		 */
 		if (att->attisdropped)
 			continue;
 
@@ -957,6 +1007,8 @@ hstore_from_record(PG_FUNCTION_ARGS)
 
 		/*
 		 * Convert the column value to text
+		 *
+		 * 将列值转换为文本
 		 */
 		if (column_info->column_type != column_type)
 		{
@@ -1025,6 +1077,8 @@ hstore_populate_record(PG_FUNCTION_ARGS)
 		 * We have no tuple to look at, so the only source of type info is the
 		 * argtype.  The lookup_rowtype_tupdesc_domain call below will error
 		 * out if we don't have a known composite type oid here.
+		 *
+		 * 我们没有元组可供查看，因此类型信息的唯一来源是 argtype。  如果我们这里没有已知的复合类型 oid，下面的lookup_rowtype_tupdesc_domain 调用将会出错。
 		 */
 		tupType = argtype;
 		tupTypmod = -1;
@@ -1039,6 +1093,8 @@ hstore_populate_record(PG_FUNCTION_ARGS)
 		/*
 		 * Extract type info from the tuple itself -- this will work even for
 		 * anonymous record types.
+		 *
+		 * 从元组本身提取类型信息——这甚至适用于匿名记录类型。
 		 */
 		tupType = HeapTupleHeaderGetTypeId(rec);
 		tupTypmod = HeapTupleHeaderGetTypMod(rec);
@@ -1052,6 +1108,8 @@ hstore_populate_record(PG_FUNCTION_ARGS)
 	 * if the input hstore is empty, we can only skip the rest if we were
 	 * passed in a non-null record, since otherwise there may be issues with
 	 * domain nulls.
+	 *
+	 * 如果输入 hstore 为空，如果传入非空记录，我们只能跳过其余部分，否则可能会出现域空值问题。
 	 */
 
 	if (HS_COUNT(hs) == 0 && rec)
@@ -1060,13 +1118,18 @@ hstore_populate_record(PG_FUNCTION_ARGS)
 	/*
 	 * Lookup the input record's tupdesc.  For the moment, we don't worry
 	 * about whether it is a domain over composite.
+	 *
+	 * 查找输入记录的 tupdesc。  目前，我们不担心它是否是复合域。
 	 */
 	tupdesc = lookup_rowtype_tupdesc_domain(tupType, tupTypmod, false);
 	ncolumns = tupdesc->natts;
 
 	if (rec)
 	{
-		/* Build a temporary HeapTuple control structure */
+		/* Build a temporary HeapTuple control structure
+		 *
+		 * 构建临时HeapTuple控制结构
+		 */
 		tuple.t_len = HeapTupleHeaderGetDatumLength(rec);
 		ItemPointerSetInvalid(&(tuple.t_self));
 		tuple.t_tableOid = InvalidOid;
@@ -1076,6 +1139,8 @@ hstore_populate_record(PG_FUNCTION_ARGS)
 	/*
 	 * We arrange to look up the needed I/O info just once per series of
 	 * calls, assuming the record type doesn't change underneath us.
+	 *
+	 * 我们安排在每个系列调用中只查找一次所需的 I/O 信息，假设记录类型在我们下面没有改变。
 	 */
 	my_extra = (RecordIOData *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL ||
@@ -1107,7 +1172,10 @@ hstore_populate_record(PG_FUNCTION_ARGS)
 
 	if (rec)
 	{
-		/* Break down the tuple into fields */
+		/* Break down the tuple into fields
+		 *
+		 * 将元组分解为字段
+		 */
 		heap_deform_tuple(&tuple, tupdesc, values, nulls);
 	}
 	else
@@ -1128,7 +1196,10 @@ hstore_populate_record(PG_FUNCTION_ARGS)
 		int			idx;
 		int			vallen;
 
-		/* Ignore dropped columns in datatype */
+		/* Ignore dropped columns in datatype
+		 *
+		 * 忽略数据类型中删除的列
+		 */
 		if (att->attisdropped)
 		{
 			nulls[i] = true;
@@ -1146,12 +1217,16 @@ hstore_populate_record(PG_FUNCTION_ARGS)
 		 * not, then it's not our fault), but if we were passed in a null,
 		 * then every field which we don't populate needs to be run through
 		 * the input function just in case it's a domain type.
+		 *
+		 * 如果没有找到密钥，我们不能直接跳过这里，因为我们可能有一个域需要处理。如果我们传入一个非空记录数据，我们假设现有值是有效的（如果不是，那么这不是我们的错），但如果我们传入一个空值，那么我们不填充的每个字段都需要通过输入函数运行，以防万一它是域类型。
 		 */
 		if (idx < 0 && rec)
 			continue;
 
 		/*
 		 * Prepare to convert the column value from text
+		 *
+		 * 准备从文本转换列值
 		 */
 		if (column_info->column_type != column_type)
 		{
@@ -1168,6 +1243,8 @@ hstore_populate_record(PG_FUNCTION_ARGS)
 			/*
 			 * need InputFunctionCall to happen even for nulls, so that domain
 			 * checks are done
+			 *
+			 * 即使对于 null 也需要发生 InputFunctionCall，以便完成域检查
 			 */
 			values[i] = InputFunctionCall(&column_info->proc, NULL,
 										  column_info->typioparam,
@@ -1194,6 +1271,8 @@ hstore_populate_record(PG_FUNCTION_ARGS)
 	 * If the target type is domain over composite, all we know at this point
 	 * is that we've made a valid value of the base composite type.  Must
 	 * check domain constraints before deciding we're done.
+	 *
+	 * 如果目标类型是域而不是复合类型，那么此时我们所知道的就是我们已经为基本复合类型创建了一个有效值。  在决定完成之前必须检查域约束。
 	 */
 	if (argtype != tupdesc->tdtypeid)
 		domain_check(HeapTupleGetDatum(rettuple), false,
@@ -1245,13 +1324,21 @@ hstore_out(PG_FUNCTION_ARGS)
 	 * many other data types probably have the same issue. This replaced code
 	 * that used the original varlena size for calculations, which was wrong
 	 * in some subtle ways.
+	 *
+	 * 由于对转义的悲观假设，该循环会高估，因此无法输出非常大的 hstore 值。这个问题可以解决，但许多其他数据类型可能也有同样的问题。这替换了使用原始 varlena 大小进行计算的代码，这在某些微妙的方面是错误的。
 	 */
 
 	for (i = 0; i < count; i++)
 	{
-		/* include "" and => and comma-space */
+		/* include "" and => and comma-space
+		 *
+		 * 包括“”和=>以及逗号空格
+		 */
 		buflen += 6 + 2 * HSTORE_KEYLEN(entries, i);
-		/* include "" only if nonnull */
+		/* include "" only if nonnull
+		 *
+		 * 仅当非空时才包含“”
+		 */
 		buflen += 2 + (HSTORE_VALISNULL(entries, i)
 					   ? 2
 					   : 2 * HSTORE_VALLEN(entries, i));
@@ -1337,6 +1424,8 @@ hstore_send(PG_FUNCTION_ARGS)
  * 't' and 'f' as booleans and strings that look like numbers as numbers,
  * as long as they don't start with a leading zero followed by another digit
  * (think zip codes or phone numbers starting with 0).
+ *
+ * 这是对 json 的启发式转换，它将“t”和“f”视为布尔值，将看起来像数字的字符串视为数字，只要它们不以前导零开头，后跟另一个数字（例如以 0 开头的邮政编码或电话号码）。
  */
 PG_FUNCTION_INFO_V1(hstore_to_json_loose);
 Datum
@@ -1364,7 +1453,10 @@ hstore_to_json_loose(PG_FUNCTION_ARGS)
 		appendStringInfoString(&dst, ": ");
 		if (HSTORE_VALISNULL(entries, i))
 			appendStringInfoString(&dst, "null");
-		/* guess that values of 't' or 'f' are booleans */
+		/* guess that values of 't' or 'f' are booleans
+		 *
+		 * 猜测“t”或“f”的值为布尔值
+		 */
 		else if (HSTORE_VALLEN(entries, i) == 1 &&
 				 *(HSTORE_VAL(entries, base, i)) == 't')
 			appendStringInfoString(&dst, "true");
@@ -1506,7 +1598,10 @@ hstore_to_jsonb_loose(PG_FUNCTION_ARGS)
 		{
 			val.type = jbvNull;
 		}
-		/* guess that values of 't' or 'f' are booleans */
+		/* guess that values of 't' or 'f' are booleans
+		 *
+		 * 猜测“t”或“f”的值为布尔值
+		 */
 		else if (HSTORE_VALLEN(entries, i) == 1 &&
 				 *(HSTORE_VAL(entries, base, i)) == 't')
 		{

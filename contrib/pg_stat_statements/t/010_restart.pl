@@ -1,7 +1,11 @@
 # Copyright (c) 2023-2025, PostgreSQL Global Development Group
 
 # Tests for checking that pg_stat_statements contents are preserved
+#
+# 检查 pg_stat_statements 内容是否被保留的测试
 # across restarts.
+#
+# 跨重新启动。
 
 use strict;
 use warnings FATAL => 'all';

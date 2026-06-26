@@ -63,7 +63,10 @@ gin_metapage_info(PG_FUNCTION_ARGS)
 				 errdetail("Flags %04X, expected %04X",
 						   opaq->flags, GIN_META)));
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
@@ -77,7 +80,10 @@ gin_metapage_info(PG_FUNCTION_ARGS)
 	values[3] = Int64GetDatum(metadata->nPendingPages);
 	values[4] = Int64GetDatum(metadata->nPendingHeapTuples);
 
-	/* statistics, updated by VACUUM */
+	/* statistics, updated by VACUUM
+	 *
+	 * 统计数据，由 VACUUM 更新
+	 */
 	values[5] = Int64GetDatum(metadata->nTotalPages);
 	values[6] = Int64GetDatum(metadata->nEntryPages);
 	values[7] = Int64GetDatum(metadata->nDataPages);
@@ -85,7 +91,10 @@ gin_metapage_info(PG_FUNCTION_ARGS)
 
 	values[9] = Int32GetDatum(metadata->ginVersion);
 
-	/* Build and return the result tuple. */
+	/* Build and return the result tuple.
+	 *
+	 * 构建并返回结果元组。
+	 */
 	resultTuple = heap_form_tuple(tupdesc, values, nulls);
 
 	return HeapTupleGetDatum(resultTuple);
@@ -126,11 +135,17 @@ gin_page_opaque_info(PG_FUNCTION_ARGS)
 
 	opaq = GinPageGetOpaque(page);
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
-	/* Convert the flags bitmask to an array of human-readable names */
+	/* Convert the flags bitmask to an array of human-readable names
+	 *
+	 * 将标志位掩码转换为人类可读名称的数组
+	 */
 	flagbits = opaq->flags;
 	if (flagbits & GIN_DATA)
 		flags[nflags++] = CStringGetTextDatum("data");
@@ -152,7 +167,10 @@ gin_page_opaque_info(PG_FUNCTION_ARGS)
 				  GIN_LIST_FULLROW | GIN_INCOMPLETE_SPLIT | GIN_COMPRESSED);
 	if (flagbits)
 	{
-		/* any flags we don't recognize are printed in hex */
+		/* any flags we don't recognize are printed in hex
+		 *
+		 * 我们无法识别的任何标志均以十六进制打印
+		 */
 		flags[nflags++] = DirectFunctionCall1(to_hex32, Int32GetDatum(flagbits));
 	}
 
@@ -162,7 +180,10 @@ gin_page_opaque_info(PG_FUNCTION_ARGS)
 	values[1] = Int32GetDatum(opaq->maxoff);
 	values[2] = PointerGetDatum(construct_array_builtin(flags, nflags, TEXTOID));
 
-	/* Build and return the result tuple. */
+	/* Build and return the result tuple.
+	 *
+	 * 构建并返回结果元组。
+	 */
 	resultTuple = heap_form_tuple(tupdesc, values, nulls);
 
 	return HeapTupleGetDatum(resultTuple);
@@ -224,7 +245,10 @@ gin_leafpage_items(PG_FUNCTION_ARGS)
 
 		inter_call_data = palloc(sizeof(gin_leafpage_items_state));
 
-		/* Build a tuple descriptor for our result type */
+		/* Build a tuple descriptor for our result type
+		 *
+		 * 为我们的结果类型构建一个元组描述符
+		 */
 		if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 			elog(ERROR, "return type must be a row type");
 
@@ -260,7 +284,10 @@ gin_leafpage_items(PG_FUNCTION_ARGS)
 		values[0] = ItemPointerGetDatum(&cur->first);
 		values[1] = UInt16GetDatum(cur->nbytes);
 
-		/* build an array of decoded item pointers */
+		/* build an array of decoded item pointers
+		 *
+		 * 构建已解码项指针的数组
+		 */
 		tids = ginPostingListDecode(cur, &ndecoded);
 		tids_datum = (Datum *) palloc(ndecoded * sizeof(Datum));
 		for (i = 0; i < ndecoded; i++)
@@ -269,7 +296,10 @@ gin_leafpage_items(PG_FUNCTION_ARGS)
 		pfree(tids_datum);
 		pfree(tids);
 
-		/* Build and return the result tuple. */
+		/* Build and return the result tuple.
+		 *
+		 * 构建并返回结果元组。
+		 */
 		resultTuple = heap_form_tuple(inter_call_data->tupd, values, nulls);
 		result = HeapTupleGetDatum(resultTuple);
 

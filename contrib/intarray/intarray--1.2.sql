@@ -1,13 +1,19 @@
 /* contrib/intarray/intarray--1.2.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION intarray" to load this file. \quit
 
 --
 -- Create the user-defined type for the 1-D integer arrays (_int4)
 --
+-- 为一维整数数组创建用户定义类型 (_int4)
+--
 
 -- Query type
+--
+-- 查询类型
 CREATE FUNCTION bqarr_in(cstring)
 RETURNS query_int
 AS 'MODULE_PATHNAME'
@@ -25,6 +31,8 @@ CREATE TYPE query_int (
 );
 
 --only for debug
+--
+--仅用于调试
 CREATE FUNCTION querytree(query_int)
 RETURNS text
 AS 'MODULE_PATHNAME'
@@ -72,8 +80,12 @@ CREATE OPERATOR ~~ (
 --
 -- External C-functions for R-tree methods
 --
+-- R 树方法的外部 C 函数
+--
 
 -- Comparison methods
+--
+-- 比较方法
 
 CREATE FUNCTION _int_contains(_int4, _int4)
 RETURNS bool
@@ -111,6 +123,8 @@ LANGUAGE C STRICT IMMUTABLE PARALLEL SAFE;
 COMMENT ON FUNCTION _int_different(_int4, _int4) IS 'different';
 
 -- support routines for indexing
+--
+-- 支持索引例程
 
 CREATE FUNCTION _int_union(_int4, _int4)
 RETURNS _int4
@@ -166,25 +180,67 @@ CREATE OPERATOR && (
 );
 
 --CREATE OPERATOR = (
+--
+--创建运算符 = (
 --	LEFTARG = _int4,
+--
+--	左键 = _int4,
 --	RIGHTARG = _int4,
+--
+--	右参数 = _int4,
 --	PROCEDURE = _int_same,
+--
+--	过程=_int_same，
 --	COMMUTATOR = '=',
+--
+--	换向器 = '=',
 --	NEGATOR = '<>',
+--
+--	否定符 = '<>',
 --	RESTRICT = eqsel,
+--
+--	限制 = eqsel,
+--	JOIN = eqjoinsel,
+--
+--	JOIN = eqjoinsel,
+--
 --	JOIN = eqjoinsel,
 --	SORT1 = '<',
+--
+--	排序1 = '<',
 --	SORT2 = '<'
+--
+--	排序2 = '<'
 --);
 
 --CREATE OPERATOR <> (
+--
+--创建运算符 <> (
 --	LEFTARG = _int4,
+--
+--	左键 = _int4,
 --	RIGHTARG = _int4,
+--
+--	右参数 = _int4,
 --	PROCEDURE = _int_different,
+--
+--	过程=_int_difference，
 --	COMMUTATOR = '<>',
+--
+--	换向器 = '<>',
 --	NEGATOR = '=',
+--
+--	否定符 = '=',
 --	RESTRICT = neqsel,
+--
+--	限制 = neqsel,
 --	JOIN = neqjoinsel
+--
+--	JOIN=neqjoinsel
+--
+--	JOIN=neqjoinsel
+--
+--	加入=neqjoinsel
 --);
 
 CREATE OPERATOR @> (
@@ -358,6 +414,8 @@ CREATE OPERATOR & (
 --------------
 
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION g_int_consistent(internal,_int4,smallint,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -395,6 +453,8 @@ LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 
 -- Create the operator class for indexing
+--
+-- 创建用于索引的运算符类
 
 CREATE OPERATOR CLASS gist__int_ops
 DEFAULT FOR TYPE _int4 USING gist AS
@@ -418,6 +478,8 @@ DEFAULT FOR TYPE _int4 USING gist AS
 -- intbig
 ---------------------------------------------
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 
 CREATE FUNCTION _intbig_in(cstring)
 RETURNS intbig_gkey
@@ -471,6 +533,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 -- register the opclass for indexing (not as default)
+--
+-- 注册 opclass 以进行索引（不是默认值）
 
 CREATE OPERATOR CLASS gist__intbig_ops
 FOR TYPE _int4 USING gist

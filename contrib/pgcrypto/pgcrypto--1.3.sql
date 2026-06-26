@@ -1,6 +1,8 @@
 /* contrib/pgcrypto/pgcrypto--1.3.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION pgcrypto" to load this file. \quit
 
 CREATE FUNCTION digest(text, text)
@@ -71,6 +73,8 @@ LANGUAGE C VOLATILE PARALLEL SAFE;
 --
 -- pgp_sym_encrypt(data, key)
 --
+-- pgp_sym_encrypt（数据，密钥）
+--
 CREATE FUNCTION pgp_sym_encrypt(text, text)
 RETURNS bytea
 AS 'MODULE_PATHNAME', 'pgp_sym_encrypt_text'
@@ -83,6 +87,8 @@ LANGUAGE C STRICT PARALLEL SAFE;
 
 --
 -- pgp_sym_encrypt(data, key, args)
+--
+-- pgp_sym_encrypt（数据，密钥，参数）
 --
 CREATE FUNCTION pgp_sym_encrypt(text, text, text)
 RETURNS bytea
@@ -97,6 +103,8 @@ LANGUAGE C STRICT PARALLEL SAFE;
 --
 -- pgp_sym_decrypt(data, key)
 --
+-- pgp_sym_decrypt（数据，密钥）
+--
 CREATE FUNCTION pgp_sym_decrypt(bytea, text)
 RETURNS text
 AS 'MODULE_PATHNAME', 'pgp_sym_decrypt_text'
@@ -109,6 +117,8 @@ LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 --
 -- pgp_sym_decrypt(data, key, args)
+--
+-- pgp_sym_decrypt（数据，密钥，参数）
 --
 CREATE FUNCTION pgp_sym_decrypt(bytea, text, text)
 RETURNS text
@@ -123,6 +133,8 @@ LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 --
 -- pgp_pub_encrypt(data, key)
 --
+-- pgp_pub_encrypt（数据，密钥）
+--
 CREATE FUNCTION pgp_pub_encrypt(text, bytea)
 RETURNS bytea
 AS 'MODULE_PATHNAME', 'pgp_pub_encrypt_text'
@@ -135,6 +147,8 @@ LANGUAGE C STRICT PARALLEL SAFE;
 
 --
 -- pgp_pub_encrypt(data, key, args)
+--
+-- pgp_pub_encrypt（数据，密钥，参数）
 --
 CREATE FUNCTION pgp_pub_encrypt(text, bytea, text)
 RETURNS bytea
@@ -149,6 +163,8 @@ LANGUAGE C STRICT PARALLEL SAFE;
 --
 -- pgp_pub_decrypt(data, key)
 --
+-- pgp_pub_decrypt（数据，密钥）
+--
 CREATE FUNCTION pgp_pub_decrypt(bytea, bytea)
 RETURNS text
 AS 'MODULE_PATHNAME', 'pgp_pub_decrypt_text'
@@ -161,6 +177,8 @@ LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 --
 -- pgp_pub_decrypt(data, key, psw)
+--
+-- pgp_pub_decrypt（数据，密钥，密码）
 --
 CREATE FUNCTION pgp_pub_decrypt(bytea, bytea, text)
 RETURNS text
@@ -175,6 +193,8 @@ LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 --
 -- pgp_pub_decrypt(data, key, psw, arg)
 --
+-- pgp_pub_decrypt（数据，密钥，psw，arg）
+--
 CREATE FUNCTION pgp_pub_decrypt(bytea, bytea, text, text)
 RETURNS text
 AS 'MODULE_PATHNAME', 'pgp_pub_decrypt_text'
@@ -188,6 +208,8 @@ LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 --
 -- PGP key ID
 --
+-- PGP 密钥 ID
+--
 CREATE FUNCTION pgp_key_id(bytea)
 RETURNS text
 AS 'MODULE_PATHNAME', 'pgp_key_id_w'
@@ -195,6 +217,8 @@ LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 --
 -- pgp armor
+--
+-- PGP装甲
 --
 CREATE FUNCTION armor(bytea)
 RETURNS text

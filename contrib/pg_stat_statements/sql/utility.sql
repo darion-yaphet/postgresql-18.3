@@ -1,12 +1,18 @@
 --
 -- Utility commands
 --
+-- 实用命令
+--
 
 -- These tests require track_utility to be enabled.
+--
+-- 这些测试需要启用 track_utility。
 SET pg_stat_statements.track_utility = TRUE;
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- Tables, indexes, triggers
+--
+-- 表、索引、触发器
 CREATE TEMP TABLE tab_stats (a int, b char(20));
 CREATE INDEX index_stats ON tab_stats(b, (b || 'data1'), (b || 'data2')) WHERE a > 0;
 ALTER TABLE tab_stats ALTER COLUMN b set default 'a';
@@ -15,6 +21,8 @@ ALTER TABLE tab_stats ADD CONSTRAINT a_nonzero CHECK (a <> 0);
 DROP TABLE tab_stats \;
 DROP TABLE IF EXISTS tab_stats \;
 -- This DROP query uses two different strings, still they count as one entry.
+--
+-- 此 DROP 查询使用两个不同的字符串，但它们仍算作一个条目。
 DROP TABLE IF EXISTS tab_stats \;
 Drop Table If Exists tab_stats \;
 SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
@@ -36,6 +44,8 @@ ALTER VIEW view_stats ALTER COLUMN a SET DEFAULT 2;
 DROP VIEW view_stats;
 
 -- Foreign tables
+--
+-- 国外表
 CREATE FOREIGN DATA WRAPPER wrapper_stats;
 CREATE SERVER server_stats FOREIGN DATA WRAPPER wrapper_stats;
 CREATE FOREIGN TABLE foreign_stats (a int) SERVER server_stats;
@@ -87,6 +97,8 @@ SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- Transaction statements
+--
+-- 交易报表
 BEGIN;
 ABORT;
 BEGIN;
@@ -102,6 +114,8 @@ COMMIT TRANSACTION;
 BEGIN TRANSACTION;
 ABORT TRANSACTION;
 -- More isolation levels
+--
+-- 更多隔离级别
 BEGIN TRANSACTION DEFERRABLE;
 COMMIT TRANSACTION AND NO CHAIN;
 BEGIN ISOLATION LEVEL SERIALIZABLE;
@@ -109,6 +123,8 @@ COMMIT;
 BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 COMMIT;
 -- List of A_Const nodes, same lists.
+--
+-- A_Const 节点列表，相同的列表。
 BEGIN TRANSACTION READ ONLY, READ WRITE, DEFERRABLE, NOT DEFERRABLE;
 COMMIT;
 BEGIN TRANSACTION NOT DEFERRABLE, READ ONLY, READ WRITE, DEFERRABLE;
@@ -117,6 +133,8 @@ SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- Two-phase transactions
+--
+-- 两阶段交易
 BEGIN;
 PREPARE TRANSACTION 'stat_trans1';
 COMMIT PREPARED 'stat_trans1';
@@ -144,7 +162,11 @@ SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- EXPLAIN statements
+--
+-- 解释语句
 -- A Query is used, normalized by the query jumbling.
+--
+-- 使用查询，通过查询混乱进行规范化。
 EXPLAIN (costs off) SELECT 1;
 EXPLAIN (costs off) SELECT 2;
 EXPLAIN (costs off) SELECT a FROM generate_series(1,10) AS tab(a) WHERE a = 3;
@@ -166,6 +188,8 @@ BEGIN
   SELECT (i + j)::int INTO r;
 END; $$ LANGUAGE plpgsql;
 -- Overloaded functions.
+--
+-- 功能超载。
 CREATE OR REPLACE PROCEDURE overload(i int) AS $$
 DECLARE
   r int;
@@ -179,6 +203,8 @@ BEGIN
   SELECT i::text INTO r;
 END; $$ LANGUAGE plpgsql;
 -- Mix of IN/OUT parameters.
+--
+-- 输入/输出参数的混合。
 CREATE OR REPLACE PROCEDURE in_out(i int, i2 OUT int, i3 INOUT int) AS $$
 DECLARE
   r int;
@@ -201,6 +227,8 @@ SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
 CREATE TABLE copy_stats (a int, b int);
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 -- Some queries with A_Const nodes.
+--
+-- 一些带有 A_Const 节点的查询。
 COPY (SELECT 1) TO STDOUT;
 COPY (SELECT 2) TO STDOUT;
 COPY (INSERT INTO copy_stats VALUES (1, 1) RETURNING *) TO STDOUT;
@@ -214,7 +242,11 @@ DROP TABLE copy_stats;
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- CREATE TABLE AS
+--
+-- 创建表为
 -- SELECT queries are normalized, creating matching query IDs.
+--
+-- SELECT 查询被规范化，创建匹配的查询 ID。
 CREATE TABLE ctas_stats_1 AS SELECT 1 AS a;
 DROP TABLE ctas_stats_1;
 CREATE TABLE ctas_stats_1 AS SELECT 2 AS a;
@@ -231,7 +263,11 @@ SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- CREATE MATERIALIZED VIEW
+--
+-- 创建物化视图
 -- SELECT queries are normalized, creating matching query IDs.
+--
+-- SELECT 查询被规范化，创建匹配的查询 ID。
 CREATE MATERIALIZED VIEW matview_stats_1 AS
   SELECT a AS col1, 2::int AS col2
     FROM generate_series(1, 10) AS tab(a) WHERE a < 5 AND a > 2;
@@ -244,6 +280,8 @@ SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- CREATE VIEW
+--
+-- 创建视图
 CREATE VIEW view_stats_1 AS
   SELECT a AS col1, 2::int AS col2
     FROM generate_series(1, 10) AS tab(a) WHERE a < 5 AND a > 2;
@@ -264,6 +302,8 @@ SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- Execution statements
+--
+-- 执行语句
 SELECT 1 as a;
 PREPARE stat_select AS SELECT $1 AS a;
 EXECUTE stat_select (1);
@@ -277,7 +317,11 @@ SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- SET statements.
+--
+-- SET 语句。
 -- These use two different strings, still they count as one entry.
+--
+-- 它们使用两个不同的字符串，但它们仍然算作一个条目。
 CREATE ROLE regress_stat_set_1;
 CREATE ROLE regress_stat_set_2;
 SET work_mem = '1MB';
@@ -300,12 +344,16 @@ SET SESSION work_mem = '300kB';
 SET SESSION work_mem = '400kB';
 RESET enable_seqscan;
 -- SET TRANSACTION ISOLATION
+--
+-- 设置事务隔离
 BEGIN;
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 COMMIT;
 -- SET SESSION AUTHORIZATION
+--
+-- 设置会话授权
 SET SESSION SESSION AUTHORIZATION DEFAULT;
 SET SESSION AUTHORIZATION 'regress_stat_set_1';
 SET SESSION AUTHORIZATION 'regress_stat_set_2';
@@ -317,13 +365,19 @@ SET LOCAL SESSION AUTHORIZATION 'regress_stat_set_2';
 RESET SESSION AUTHORIZATION;
 COMMIT;
 -- SET SESSION CHARACTERISTICS
+--
+-- 设置会话特征
 SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY;
 SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY, READ ONLY;
 SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY, READ WRITE;
 -- SET XML OPTION
+--
+-- 设置 XML 选项
 SET XML OPTION DOCUMENT;
 SET XML OPTION CONTENT;
 -- SET TIME ZONE
+--
+-- 设置时区
 SET TIME ZONE 'America/New_York';
 SET TIME ZONE 'Asia/Tokyo';
 SET TIME ZONE DEFAULT;
@@ -338,8 +392,14 @@ SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 --
 -- Track the total number of rows retrieved or affected by the utility
+--
+-- 跟踪实用程序检索或影响的总行数
 -- commands of COPY, FETCH, CREATE TABLE AS, CREATE MATERIALIZED VIEW,
+--
+-- COPY、FETCH、CREATE TABLE AS、CREATE MATERIALIZED VIEW 命令，
 -- REFRESH MATERIALIZED VIEW and SELECT INTO
+--
+-- 刷新物化视图并选择进入
 --
 CREATE TABLE pgss_ctas AS SELECT a, 'ctas' b FROM generate_series(1, 10) a;
 SELECT generate_series(1, 10) c INTO pgss_select_into;
@@ -366,6 +426,8 @@ DROP TABLE pgss_select_into;
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- Special cases.  Keep these ones at the end to avoid conflicts.
+--
+-- 特殊情况。  将这些保留在最后以避免冲突。
 SET SCHEMA 'foo';
 SET SCHEMA 'public';
 RESET ALL;

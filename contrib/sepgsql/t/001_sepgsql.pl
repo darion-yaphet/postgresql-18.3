@@ -18,6 +18,8 @@ if (!$ENV{PG_TEST_EXTRA} || $ENV{PG_TEST_EXTRA} !~ /\bsepgsql\b/)
 note "checking selinux environment";
 
 # matchpathcon must be present to assess whether the installation environment
+#
+# matchpathcon 必须存在以评估安装环境是否
 # is OK.
 note "checking for matchpathcon";
 if (system('matchpathcon -n . >/dev/null 2>&1') != 0)
@@ -33,6 +35,8 @@ EOS
 }
 
 # runcon must be present to launch psql using the correct environment
+#
+# 必须存在 runco​​n 才能使用正确的环境启动 psql
 note "checking for runcon";
 if (system('runcon --help >/dev/null 2>&1') != 0)
 {
@@ -45,6 +49,8 @@ EOS
 }
 
 # check sestatus too, since that lives in yet another package
+#
+# 也检查 sestatus，因为它位于另一个包中
 note "checking for sestatus";
 if (system('sestatus >/dev/null 2>&1') != 0)
 {
@@ -57,6 +63,8 @@ EOS
 }
 
 # check that the user is running in the unconfined_t domain
+#
+# 检查用户是否在 unconfined_t 域中运行
 note "checking current user domain";
 my $DOMAIN = (split /:/, `id -Z 2>/dev/null`)[2];
 note "current user domain is '$DOMAIN'";
@@ -81,6 +89,8 @@ EOS
 }
 
 # SELinux must be configured in enforcing mode
+#
+# SELinux 必须配置为强制模式
 note "checking selinux operating mode";
 my $CURRENT_MODE =
   (split /: */, `LANG=C sestatus | grep '^Current mode:'`)[1];
@@ -118,6 +128,8 @@ EOS
 }
 
 # 'sepgsql-regtest' policy module must be loaded
+#
+# 必须加载“sepgsql-regtest”策略模块
 note "checking for sepgsql-regtest policy";
 my $SELINUX_MNT = (split /: */, `sestatus | grep '^SELinuxfs mount:'`)[1];
 chomp $SELINUX_MNT;
@@ -152,6 +164,8 @@ EOS
 }
 
 # Verify that sepgsql_regression_test_mode is active.
+#
+# 验证 sepgsql_regression_test_mode 是否处于活动状态。
 note "checking whether policy is enabled";
 foreach
   my $policy ('sepgsql_regression_test_mode', 'sepgsql_enable_users_ddl')
@@ -197,6 +211,8 @@ EOS
 #
 # checking complete - let's run the tests
 #
+# 检查完成 - 让我们运行测试
+#
 
 note "running sepgsql regression tests";
 
@@ -226,13 +242,27 @@ $node->start;
 my @tests = qw(label dml ddl alter misc);
 
 # Check if the truncate permission exists in the loaded policy, and if so,
+#
+# 检查加载的策略中是否存在截断权限，如果存在，
 # run the truncate test
 #
+# 运行截断测试
+#
 # Testing the TRUNCATE regression test can be done by manually adding
+#
+# 测试 TRUNCATE 回归测试可以通过手动添加来完成
 # the permission with CIL if necessary:
+#
+# 如有必要，请获得 CIL 的许可：
 #     sudo semodule -cE base
+#
+# sudo semodule -cE 基础
 #     sudo sed -i -E 's/(class db_table.*?) \)/\1 truncate\)/' base.cil
+#
+# sudo sed -i -E 's/(class db_table.*?) \)/\1 截断\)/' base.cil
 #     sudo semodule -i base.cil
+#
+# sudo semodule -i base.cil
 push @tests, 'truncate' if -f '/sys/fs/selinux/class/db_table/perms/truncate';
 
 $node->command_ok(

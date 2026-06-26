@@ -1,6 +1,8 @@
 /* contrib/pageinspect/pageinspect--1.11--1.12.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION pageinspect UPDATE TO '1.12'" to load this file. \quit
 
 --
@@ -24,6 +26,8 @@ LANGUAGE C STRICT PARALLEL RESTRICTED;
 
 --
 -- add information about BRIN empty ranges
+--
+-- 添加有关 BRIN 空范围的信息
 --
 DROP FUNCTION brin_page_items(IN page bytea, IN index_oid regclass);
 CREATE FUNCTION brin_page_items(IN page bytea, IN index_oid regclass,

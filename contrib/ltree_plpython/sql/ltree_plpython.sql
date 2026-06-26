@@ -31,6 +31,10 @@ return ['foo', 'bar', 'baz']
 $$;
 
 -- plpython to ltree is not yet implemented, so this will fail,
+--
+-- plpython 到 ltree 尚未实现，所以这会失败，
 -- because it will try to parse the Python list as an ltree input
+--
+-- 因为它会尝试将 Python 列表解析为 ltree 输入
 -- string.
 SELECT test2();

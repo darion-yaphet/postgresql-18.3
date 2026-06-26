@@ -1,4 +1,6 @@
 -- cidr check
+--
+-- CIDR 检查
 
 CREATE TABLE cidrtmp AS
   SELECT cidr(a) AS a FROM inettmp ;

@@ -1,9 +1,15 @@
 --
 -- PGP Public Key Encryption
 --
+-- PGP 公钥加密
+--
 
 -- As most of the low-level stuff is tested in symmetric key
+--
+-- 由于大多数低级内容都是在对称密钥中测试的
 -- tests, here's only public-key specific tests
+--
+-- 测试，这里只是针对公钥的特定测试
 
 create table keytbl (
 	id int4,
@@ -19,6 +25,8 @@ create table encdata (
 insert into keytbl (id, name, pubkey, seckey)
 values (1, 'elg1024', '
 -----BEGIN PGP PUBLIC KEY BLOCK-----
+--
+-----开始 PGP 公钥块-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 mQGiBELIIUgRBACp401L6jXrLB28c3YA4sM3OJKnxM1GT9YTkWyE3Vyte65H8WU9
@@ -42,8 +50,12 @@ iWc4DilhiEkEGBECAAkFAkLIIUoCGwwACgkQHCm8DRgXc2TtrwCfdPom+HlNVE9F
 ig3hGY1Rb4NEk1gAn1u9IuQB+BgDP40YHHz6bKWS/x80
 =RWci
 -----END PGP PUBLIC KEY BLOCK-----
+--
+-----结束 PGP 公钥块-----
 ', '
 -----BEGIN PGP PRIVATE KEY BLOCK-----
+--
+-----开始 PGP 私钥块-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 lQG7BELIIUgRBACp401L6jXrLB28c3YA4sM3OJKnxM1GT9YTkWyE3Vyte65H8WU9
@@ -68,11 +80,15 @@ m9VmsGjaQZV4teB0R/q3W8sRIYhJBBgRAgAJBQJCyCFKAhsMAAoJEBwpvA0YF3Nk
 7a8AniFFotw1x2X+oryu3Q3nNtmxoKHpAJ9HU7jw7ydg33dI9J8gVkrmsSZ2/w==
 =nvqq
 -----END PGP PRIVATE KEY BLOCK-----
+--
+-----PGP 私钥块结束-----
 ');
 
 insert into keytbl (id, name, pubkey, seckey)
 values (2, 'elg2048', '
 -----BEGIN PGP PUBLIC KEY BLOCK-----
+--
+-----开始 PGP 公钥块-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 mQGiBELIIgoRBAC1onBpxKYgDvrgCaUWPY34947X3ogxGOfCN0p6Eqrx+2PUhm4n
@@ -102,8 +118,12 @@ Yn2qL+X/qBJTInAl7/hgPz2D1Yd7d5/RdWaISQQYEQIACQUCQsgiIgIbDAAKCRBI
 1kNTmEU=
 =8QM5
 -----END PGP PUBLIC KEY BLOCK-----
+--
+-----结束 PGP 公钥块-----
 ', '
 -----BEGIN PGP PRIVATE KEY BLOCK-----
+--
+-----开始 PGP 私钥块-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 lQG7BELIIgoRBAC1onBpxKYgDvrgCaUWPY34947X3ogxGOfCN0p6Eqrx+2PUhm4n
@@ -134,11 +154,15 @@ EwyISQQYEQIACQUCQsgiIgIbDAAKCRBI6c1W/qZo25ZSAJ4sgUfHTVsG/x3p3fcM
 3b5R86qKEACggYKSwPWCs0YVRHOWqZY0pnHtLH8=
 =3Dgk
 -----END PGP PRIVATE KEY BLOCK-----
+--
+-----PGP 私钥块结束-----
 ');
 
 insert into keytbl (id, name, pubkey, seckey)
 values (3, 'elg4096', '
 -----BEGIN PGP PUBLIC KEY BLOCK-----
+--
+-----开始 PGP 公钥块-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 mQGiBELII7wRBACFuaAvb11cIvjJK9LkZr4cYuYhLWh3DJdojNNnLNiym5OEksvY
@@ -178,8 +202,12 @@ ul0LExUTCXSjeIhJBBgRAgAJBQJCyCR2AhsMAAoJEGP4dfY/Z3Sg19sAn0NDS8pb
 qrMpQAxSb7zRTmcXEFd9AJ435H0ttP/NhLHXC9ezgbCMmpXMOQ==
 =kRxT
 -----END PGP PUBLIC KEY BLOCK-----
+--
+-----结束 PGP 公钥块-----
 ', '
 -----BEGIN PGP PRIVATE KEY BLOCK-----
+--
+-----开始 PGP 私钥块-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 lQG7BELII7wRBACFuaAvb11cIvjJK9LkZr4cYuYhLWh3DJdojNNnLNiym5OEksvY
@@ -221,11 +249,15 @@ ICeISQQYEQIACQUCQsgkdgIbDAAKCRBj+HX2P2d0oNfbAJ9+G3SeXrk+dWwo9EGi
 hqMi2GVTsgCfeoQJPsc8FLYUgfymc/3xqAVLUtg=
 =Gjq6
 -----END PGP PRIVATE KEY BLOCK-----
+--
+-----PGP 私钥块结束-----
 ');
 
 insert into keytbl (id, name, pubkey, seckey)
 values (4, 'rsa2048', '
 -----BEGIN PGP PUBLIC KEY BLOCK-----
+--
+-----开始 PGP 公钥块-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 mQELBELIJbEBCADAIdtcoLAmQfl8pb73pPRuEYx8qW9klLfCGG5A4OUOi00JHNwP
@@ -243,8 +275,12 @@ D3dnU4uzKPhMcjnSN00pzjusP7C9NZd3OLkAx2vw/dmb4Q+/QxeZhVYYsAUuR2hv
 S3NZKoJ/1DrGgoDAu1mGkM4KvLAxfDs/qQ9dZhtEmDbKPLTVEA==
 =lR4n
 -----END PGP PUBLIC KEY BLOCK-----
+--
+-----结束 PGP 公钥块-----
 ', '
 -----BEGIN PGP PRIVATE KEY BLOCK-----
+--
+-----开始 PGP 私钥块-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 lQOWBELIJbEBCADAIdtcoLAmQfl8pb73pPRuEYx8qW9klLfCGG5A4OUOi00JHNwP
@@ -276,11 +312,15 @@ rPI7pJ1jHbeE+q/29hWJQtS8Abx82AcOkzhvS3NZKoJ/1DrGgoDAu1mGkM4KvLAx
 fDs/qQ9dZhtEmDbKPLTVEA==
 =WKAv
 -----END PGP PRIVATE KEY BLOCK-----
+--
+-----PGP 私钥块结束-----
 ');
 
 insert into keytbl (id, name, pubkey, seckey)
 values (5, 'psw-elg1024', '
 -----BEGIN PGP PUBLIC KEY BLOCK-----
+--
+-----开始 PGP 公钥块-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 mQGiBELIIUgRBACp401L6jXrLB28c3YA4sM3OJKnxM1GT9YTkWyE3Vyte65H8WU9
@@ -304,8 +344,12 @@ iWc4DilhiEkEGBECAAkFAkLIIUoCGwwACgkQHCm8DRgXc2TtrwCfdPom+HlNVE9F
 ig3hGY1Rb4NEk1gAn1u9IuQB+BgDP40YHHz6bKWS/x80
 =RWci
 -----END PGP PUBLIC KEY BLOCK-----
+--
+-----结束 PGP 公钥块-----
 ', '
 -----BEGIN PGP PRIVATE KEY BLOCK-----
+--
+-----开始 PGP 私钥块-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 lQHpBELIIUgRBACp401L6jXrLB28c3YA4sM3OJKnxM1GT9YTkWyE3Vyte65H8WU9
@@ -332,11 +376,15 @@ f631VOVanGEz7TyqOkWQiEkEGBECAAkFAkLIIUoCGwwACgkQHCm8DRgXc2TtrwCe
 IUWi3DXHZf6ivK7dDec22bGgoekAn0dTuPDvJ2Dfd0j0nyBWSuaxJnb/
 =SNvr
 -----END PGP PRIVATE KEY BLOCK-----
+--
+-----PGP 私钥块结束-----
 ');
 
 insert into keytbl (id, name, pubkey, seckey)
 values (6, 'rsaenc2048', '
 -----BEGIN PGP PUBLIC KEY BLOCK-----
+--
+-----开始 PGP 公钥块-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 mQELBELr2m0BCADOrnknlnXI0EzRExf/TgoHvK7Xx/E0keWqV3KrOyC3/tY2KOrj
@@ -366,8 +414,12 @@ PYZGO7R8+1O9R22WrK6BYDT5j/1JwMZqbOESjNvDEVT0yOHClCHRN4CChbt6LhKh
 CLUNdz/udIt0JAC6c/HdPLSW3HnmM3+iNj+Kug==
 =pwU2
 -----END PGP PUBLIC KEY BLOCK-----
+--
+-----结束 PGP 公钥块-----
 ', '
 -----BEGIN PGP PRIVATE KEY BLOCK-----
+--
+-----开始 PGP 私钥块-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 lQOWBELr2m0BCADOrnknlnXI0EzRExf/TgoHvK7Xx/E0keWqV3KrOyC3/tY2KOrj
@@ -424,6 +476,8 @@ la+wJdroPYZGO7R8+1O9R22WrK6BYDT5j/1JwMZqbOESjNvDEVT0yOHClCHRN4CC
 hbt6LhKhCLUNdz/udIt0JAC6c/HdPLSW3HnmM3+iNj+Kug==
 =UKh3
 -----END PGP PRIVATE KEY BLOCK-----
+--
+-----PGP 私钥块结束-----
 ');
 
 insert into keytbl (id, name, pubkey, seckey)
@@ -431,6 +485,8 @@ values (7, 'rsaenc2048-psw', '
 same key with password
 ', '
 -----BEGIN PGP PRIVATE KEY BLOCK-----
+--
+-----开始 PGP 私钥块-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
 lQPEBELr2m0BCADOrnknlnXI0EzRExf/TgoHvK7Xx/E0keWqV3KrOyC3/tY2KOrj
@@ -489,12 +545,18 @@ T5d2Z5iwY6I2AOKYKt4kZhzXgbt5j2O3biDDXSfWwwAojWqbqVygepn047KVr7Al
 EqEItQ13P+50i3QkALpz8d08tJbceeYzf6I2P4q6
 =QFm5
 -----END PGP PRIVATE KEY BLOCK-----
+--
+-----PGP 私钥块结束-----
 ');
 
 
 -- elg1024 / aes128
+--
+-- elg1024/aes128
 insert into encdata (id, data) values (1, '
 -----BEGIN PGP MESSAGE-----
+--
+-----开始 PGP 消息-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 hQEOA9k2z2S7c/RmEAQAgVWW0DeLrZ+1thWJGBPp2WRFL9HeNqqWHbKJCXJbz1Uy
@@ -506,11 +568,17 @@ uBMwkW4AdNxY/mzJZELteTL8Tr0s7PISk+owb4URpG3n0jsBc0CVULxrjh5Ejkdw
 wCM195J6+KbQxOOFQ0b3uOVvv4dEgd/hRERCOq5EPaFhlHegyYJ7YO842vnSDA==
 =PABx
 -----END PGP MESSAGE-----
+--
+-----PGP 消息结束-----
 ');
 
 -- elg2048 / blowfish
+--
+-- elg2048 / 河豚
 insert into encdata (id, data) values (2, '
 -----BEGIN PGP MESSAGE-----
+--
+-----开始 PGP 消息-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 hQIOAywibh/+XMfUEAf+OINhBngEsw4a/IJIeJvUgv1gTQzBwOdQEuc/runr4Oa8
@@ -528,11 +596,17 @@ p1DIDaXIcUFV2ztmcKxh9gt2sXRz1W+x6D8O0k3nanU5yGG4miLKaq18fbcA0BD1
 G2pAE+3k
 =TBHV
 -----END PGP MESSAGE-----
+--
+-----PGP 消息结束-----
 ');
 
 -- elg4096 / aes256
+--
+-- elg4096/aes256
 insert into encdata (id, data) values (3, '
 -----BEGIN PGP MESSAGE-----
+--
+-----开始 PGP 消息-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 hQQOA7aFBP0Sjh/5EA/+JCgncc8IZmmRjPStWnGf9tVJhgHTn+smIclibGzs0deS
@@ -560,11 +634,17 @@ exz9oewtel6GOmsZQSYWT/vJzbYMmvHNmNpVwwoKrLV6oI3kyQ80GHBwI1WlwHoK
 DYKcOy60/OHMWVvpw6trAoA+iP+cVWPtrbRvLglTVTfYmi1ToZDDipkALBhndQ==
 =L/M/
 -----END PGP MESSAGE-----
+--
+-----PGP 消息结束-----
 ');
 
 -- rsaenc2048 / aes128
+--
+-- rsaenc2048/aes128
 insert into encdata (id, data) values (4, '
 -----BEGIN PGP MESSAGE-----
+--
+-----开始 PGP 消息-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
 hQEMA/0CBsQJt0h1AQf+JyYnCiortj26P11zk28MKOGfWpWyAhuIgwbJXsdQ+e6r
@@ -577,11 +657,17 @@ eRGOCkao12pvPyFTFnPd5vqmyBbdNpK4Q0hS82ljugMJvM0p3vJZVzW402Kz6iBL
 GQ==
 =XHkF
 -----END PGP MESSAGE-----
+--
+-----PGP 消息结束-----
 ');
 
 -- rsaenc2048 / aes128 (not from gnupg)
+--
+-- rsaenc2048 / aes128（不是来自 gnupg）
 insert into encdata (id, data) values (5, '
 -----BEGIN PGP MESSAGE-----
+--
+-----开始 PGP 消息-----
 
 wcBMA/0CBsQJt0h1AQgAzxZ8j+OTeZ8IlLxfZ/mVd28/gUsCY+xigWBk/anZlK3T
 p2tNU2idHzKdAttH2Hu/PWbZp4kwjl9spezYxMqCeBZqtfGED88Y+rqK0n/ul30A
@@ -599,9 +685,13 @@ Qtrkrhrpkl3Y02qEp/j6M03Yu2t6ZF7dp51aJ5VhO2mmmtHaTnCyCc8Fcf72LmD8
 blH2nKZC9d6fi4YzSYMepZpMOFR65M80MCMiDUGnZBB8sEADu2/iVtqDUeG8mAA=
 =PHJ1
 -----END PGP MESSAGE-----
+--
+-----PGP 消息结束-----
 ');
 
 -- successful decrypt
+--
+-- 解密成功
 select pgp_pub_decrypt(dearmor(data), dearmor(seckey))
 from keytbl, encdata where keytbl.id=1 and encdata.id=1;
 
@@ -615,33 +705,49 @@ select pgp_pub_decrypt(dearmor(data), dearmor(seckey))
 from keytbl, encdata where keytbl.id=6 and encdata.id=4;
 
 -- wrong key
+--
+-- 错误的钥匙
 select pgp_pub_decrypt(dearmor(data), dearmor(seckey))
 from keytbl, encdata where keytbl.id=2 and encdata.id=1;
 
 -- sign-only key
+--
+-- 仅签名密钥
 select pgp_pub_decrypt(dearmor(data), dearmor(seckey))
 from keytbl, encdata where keytbl.id=4 and encdata.id=1;
 
 -- rsa: password-protected secret key, wrong password
+--
+-- rsa：受密码保护的密钥，密码错误
 select pgp_pub_decrypt(dearmor(data), dearmor(seckey), '123')
 from keytbl, encdata where keytbl.id=7 and encdata.id=4;
 
 -- rsa: password-protected secret key, right password
+--
+-- rsa：受密码保护的密钥，正确的密码
 select pgp_pub_decrypt(dearmor(data), dearmor(seckey), 'parool')
 from keytbl, encdata where keytbl.id=7 and encdata.id=4;
 
 -- password-protected secret key, no password
+--
+-- 受密码保护的密钥，无需密码
 select pgp_pub_decrypt(dearmor(data), dearmor(seckey))
 from keytbl, encdata where keytbl.id=5 and encdata.id=1;
 
 -- password-protected secret key, wrong password
+--
+-- 受密码保护的密钥，密码错误
 select pgp_pub_decrypt(dearmor(data), dearmor(seckey), 'foo')
 from keytbl, encdata where keytbl.id=5 and encdata.id=1;
 
 -- password-protected secret key, right password
+--
+-- 受密码保护的密钥，正确的密码
 select pgp_pub_decrypt(dearmor(data), dearmor(seckey), 'parool')
 from keytbl, encdata where keytbl.id=5 and encdata.id=1;
 
 -- test for a short read from prefix_init
+--
+-- 测试从 prefix_init 进行的简短读取
 select pgp_pub_decrypt(dearmor(data), dearmor(seckey))
 from keytbl, encdata where keytbl.id=6 and encdata.id=5;

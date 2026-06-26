@@ -1,6 +1,8 @@
 # Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 # Test integrity of intermediate states by PITR to those states
+#
+# 通过 PITR 测试中间状态的完整性
 use strict;
 use warnings FATAL => 'all';
 use PostgreSQL::Test::Cluster;
@@ -8,14 +10,22 @@ use PostgreSQL::Test::Utils;
 use Test::More;
 
 # origin node: generate WAL records of interest.
+#
+# 起源节点：生成感兴趣的WAL记录。
 my $origin = PostgreSQL::Test::Cluster->new('origin');
 $origin->init(has_archiving => 1, allows_streaming => 1);
 $origin->append_conf('postgresql.conf', 'autovacuum = off');
 $origin->start;
 $origin->backup('my_backup');
 # Create a table with each of 6 PK values spanning 1/4 of a block.  Delete the
+#
+# 创建一个表，其中 6 个 PK 值中的每一个值跨越一个块的 1/4。  删除
 # first four, so one index leaf is eligible for deletion.  Make a replication
+#
+# 前四个，因此一个索引叶符合删除条件。  进行复制
 # slot just so pg_walinspect will always have access to later WAL.
+#
+# slot 只是这样 pg_walinspect 总是可以访问后面的 WAL。
 my $setup = <<EOSQL;
 BEGIN;
 CREATE EXTENSION amcheck;
@@ -33,9 +43,17 @@ $origin->safe_psql('postgres', $setup);
 my $before_vacuum_lsn =
   $origin->safe_psql('postgres', "SELECT pg_current_wal_lsn()");
 # VACUUM to delete the aforementioned leaf page.  Force an XLogFlush() by
+#
+# VACUUM 删除上述叶页。  通过以下方式强制执行 XLogFlush()
 # dropping a permanent table.  That way, the XLogReader infrastructure can
+#
+# 删除永久表。  这样，XLogReader 基础设施就可以
 # always see VACUUM's records, even under synchronous_commit=off.  Finally,
+#
+# 始终会看到 VACUUM 的记录，即使在 synchronous_commit=off 下也是如此。  最后，
 # find the LSN of that VACUUM's last UNLINK_PAGE record.
+#
+# 找到该 VACUUM 的最后一个 UNLINK_PAGE 记录的 LSN。
 my $vacuum = <<EOSQL;
 SET synchronous_commit = off;
 VACUUM (VERBOSE, INDEX_CLEANUP ON) not_leftmost;
@@ -50,6 +68,8 @@ $origin->stop;
 die "did not find UNLINK_PAGE record" unless $unlink_lsn;
 
 # replica node: amcheck at notable points in the WAL stream
+#
+# 副本节点：在 WAL 流中的显着点进行 amcheck
 my $replica = PostgreSQL::Test::Cluster->new('replica');
 $replica->init_from_backup($origin, 'my_backup', has_restoring => 1);
 $replica->append_conf('postgresql.conf',
@@ -60,6 +80,8 @@ $replica->start;
 $replica->poll_query_until('postgres', "SELECT pg_is_in_recovery() = 'f';")
   or die "Timed out while waiting for PITR promotion";
 # recovery done; run amcheck
+#
+# 恢复完成；运行amcheck
 my $debug = "SET client_min_messages = 'debug1'";
 my ($rc, $stderr);
 $rc = $replica->psql(

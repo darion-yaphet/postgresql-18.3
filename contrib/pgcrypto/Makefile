@@ -59,10 +59,16 @@ include $(top_srcdir)/contrib/contrib-global.mk
 endif
 
 # Add libraries that pgcrypto depends (or might depend) on into the
+#
+# 将 pgcrypto 依赖（或可能依赖）的库添加到
 # shared library link.  (The order in which you list them here doesn't
+#
+# 共享库链接。  （此处列出它们的顺序并不
 # matter.)
 SHLIB_LINK += $(filter -lcrypto -lz, $(LIBS))
 ifeq ($(PORTNAME), win32)
 # those must be at the end
+#
+# 那些必须在最后
 SHLIB_LINK += -lws2_32
 endif

@@ -1,8 +1,12 @@
 --
 -- Test for various ALTER statements
 --
+-- 测试各种 ALTER 语句
+--
 
 -- clean-up in case a prior regression run failed
+--
+-- 清理以防先前的回归运行失败
 SET client_min_messages TO 'warning';
 DROP DATABASE IF EXISTS sepgsql_test_regression_1;
 DROP DATABASE IF EXISTS sepgsql_test_regression;
@@ -10,9 +14,13 @@ DROP USER IF EXISTS regress_sepgsql_test_user;
 RESET client_min_messages;
 
 -- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_superuser_t:s0
+--
+-- @SECURITY-CONTEXT=unconfined_u:unconfined_r:sepgsql_regtest_superuser_t:s0
 
 --
 -- CREATE Objects to be altered (with debug_audit being silent)
+--
+-- CREATE 要更改的对象（debug_audit 保持沉默）
 --
 CREATE DATABASE sepgsql_test_regression_1;
 
@@ -34,9 +42,13 @@ CREATE TABLE regtest_table_3 (x int primary key, y text);
 
 ---
 -- partitioned table parent
+--
+-- 分区表父表
 CREATE TABLE regtest_ptable_1 (o int, p text) PARTITION BY RANGE (o);
 
 -- partitioned table children
+--
+-- 分区表子表
 CREATE TABLE regtest_ptable_1_ones PARTITION OF regtest_ptable_1 FOR VALUES FROM ('0') TO ('10');
 CREATE TABLE regtest_ptable_1_tens PARTITION OF regtest_ptable_1 FOR VALUES FROM ('10') TO ('100');
 ---
@@ -49,14 +61,22 @@ CREATE FUNCTION regtest_func_1 (text) RETURNS bool
   AS 'BEGIN RETURN true; END' LANGUAGE 'plpgsql';
 
 -- switch on debug_audit
+--
+-- 打开 debug_audit
 SET sepgsql.debug_audit = true;
 SET client_min_messages = LOG;
 
 --
 -- ALTER xxx OWNER TO
 --
+-- 将 xxx 所有者更改为
+--
 -- XXX: It should take db_xxx:{setattr} permission checks even if
+--
+-- XXX：应该进行 db_xxx:{setattr} 权限检查，即使
 --      owner is not actually changed.
+--
+-- 所有者实际上并没有改变。
 --
 ALTER DATABASE sepgsql_test_regression_1 OWNER TO regress_sepgsql_test_user;
 ALTER DATABASE sepgsql_test_regression_1 OWNER TO regress_sepgsql_test_user;
@@ -76,6 +96,8 @@ ALTER FUNCTION regtest_func_1(text) OWNER TO regress_sepgsql_test_user;
 --
 -- ALTER xxx SET SCHEMA
 --
+-- 更改 xxx 集架构
+--
 ALTER TABLE regtest_table_1 SET SCHEMA regtest_schema_2;
 ALTER TABLE regtest_ptable_1 SET SCHEMA regtest_schema_2;
 ALTER TABLE regtest_ptable_1_ones SET SCHEMA regtest_schema_2;
@@ -86,14 +108,20 @@ ALTER FUNCTION regtest_func_1(text) SET SCHEMA regtest_schema_2;
 --
 -- ALTER xxx RENAME TO
 --
+-- 更改 xxx 重命名为
+--
 ALTER DATABASE sepgsql_test_regression_1 RENAME TO sepgsql_test_regression;
 ALTER SCHEMA regtest_schema_1 RENAME TO regtest_schema;
 ALTER TABLE regtest_table_1 RENAME TO regtest_table;
 
 ---
 -- partitioned table parent
+--
+-- 分区表父表
 ALTER TABLE regtest_ptable_1 RENAME TO regtest_ptable;
 -- partitioned table child
+--
+-- 分区表子表
 ALTER TABLE regtest_ptable_1_ones RENAME TO regtest_table_part;
 ---
 
@@ -105,6 +133,8 @@ SET search_path = regtest_schema, regtest_schema_2, public;
 
 --
 -- misc ALTER commands
+--
+-- 其他 ALTER 命令
 --
 ALTER DATABASE sepgsql_test_regression CONNECTION LIMIT 999;
 ALTER DATABASE sepgsql_test_regression SET search_path TO regtest_schema, public; -- not supported yet
@@ -142,6 +172,8 @@ ALTER TABLE regtest_table SET TABLESPACE pg_default;
 
 ---
 -- partitioned table parent
+--
+-- 分区表父表
 ALTER TABLE regtest_ptable ADD COLUMN d float;
 ALTER TABLE regtest_ptable DROP COLUMN d;
 ALTER TABLE regtest_ptable ALTER p SET DEFAULT 'abcd';   -- not supported by sepgsql
@@ -158,6 +190,8 @@ ALTER TABLE regtest_ptable DROP CONSTRAINT test_ck;      -- not supported by sep
 ALTER TABLE regtest_ptable SET TABLESPACE pg_default;
 
 -- partitioned table child
+--
+-- 分区表子表
 ALTER TABLE regtest_table_part ALTER p SET DEFAULT 'abcd';   -- not supported by sepgsql
 ALTER TABLE regtest_table_part ALTER p SET DEFAULT 'XYZ';    -- not supported by sepgsql
 ALTER TABLE regtest_table_part ALTER p DROP DEFAULT;         -- not supported by sepgsql
@@ -188,6 +222,8 @@ ALTER SEQUENCE regtest_seq INCREMENT BY 10 START WITH 1000;
 
 --
 -- clean-up objects
+--
+-- 清理对象
 --
 RESET sepgsql.debug_audit;
 RESET client_min_messages;

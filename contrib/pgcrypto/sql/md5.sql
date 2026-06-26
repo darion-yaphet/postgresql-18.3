@@ -1,6 +1,8 @@
 --
 -- MD5 message digest
 --
+-- MD5消息摘要
+--
 
 SELECT digest('', 'md5');
 SELECT digest('a', 'md5');

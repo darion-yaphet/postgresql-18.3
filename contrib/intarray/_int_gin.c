@@ -25,7 +25,10 @@ ginint4_queryextract(PG_FUNCTION_ARGS)
 		ITEM	   *items = GETQUERY(query);
 		int			i;
 
-		/* empty query must fail */
+		/* empty query must fail
+		 *
+		 * 空查询必定失败
+		 */
 		if (query->size <= 0)
 			PG_RETURN_POINTER(NULL);
 
@@ -33,6 +36,8 @@ ginint4_queryextract(PG_FUNCTION_ARGS)
 		 * If the query doesn't have any required primitive values (for
 		 * instance, it's something like '! 42'), we have to do a full index
 		 * scan.
+		 *
+		 * 如果查询没有任何必需的原始值（例如，类似于“！42”），我们必须进行完整索引扫描。
 		 */
 		if (query_has_required_values(query))
 			*searchMode = GIN_SEARCH_MODE_DEFAULT;
@@ -41,6 +46,8 @@ ginint4_queryextract(PG_FUNCTION_ARGS)
 
 		/*
 		 * Extract all the VAL items as things we want GIN to check for.
+		 *
+		 * 提取所有 VAL 项作为我们想要 GIN 检查的内容。
 		 */
 		res = (Datum *) palloc(sizeof(Datum) * query->size);
 		*nentries = 0;
@@ -79,7 +86,10 @@ ginint4_queryextract(PG_FUNCTION_ARGS)
 				break;
 			case RTContainedByStrategyNumber:
 			case RTOldContainedByStrategyNumber:
-				/* empty set is contained in everything */
+				/* empty set is contained in everything
+				 *
+				 * 空集包含在一切中
+				 */
 				*searchMode = GIN_SEARCH_MODE_INCLUDE_EMPTY;
 				break;
 			case RTSameStrategyNumber:
@@ -113,7 +123,10 @@ ginint4_consistent(PG_FUNCTION_ARGS)
 	StrategyNumber strategy = PG_GETARG_UINT16(1);
 	int32		nkeys = PG_GETARG_INT32(3);
 
-	/* Pointer	   *extra_data = (Pointer *) PG_GETARG_POINTER(4); */
+	/* Pointer	   *extra_data = (Pointer *) PG_GETARG_POINTER(4);
+	 *
+	 * 指针 *extra_data = (指针 *) PG_GETARG_POINTER(4);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(5);
 	bool		res = false;
 	int32		i;
@@ -121,22 +134,40 @@ ginint4_consistent(PG_FUNCTION_ARGS)
 	switch (strategy)
 	{
 		case RTOverlapStrategyNumber:
-			/* result is not lossy */
+			/* result is not lossy
+			 *
+			 * 结果没有损失
+			 */
 			*recheck = false;
-			/* at least one element in check[] is true, so result = true */
+			/* at least one element in check[] is true, so result = true
+			 *
+			 * check[] 中至少有一个元素为 true，因此 result = true
+			 */
 			res = true;
 			break;
 		case RTContainedByStrategyNumber:
 		case RTOldContainedByStrategyNumber:
-			/* we will need recheck */
+			/* we will need recheck
+			 *
+			 * 我们需要重新检查
+			 */
 			*recheck = true;
-			/* at least one element in check[] is true, so result = true */
+			/* at least one element in check[] is true, so result = true
+			 *
+			 * check[] 中至少有一个元素为 true，因此 result = true
+			 */
 			res = true;
 			break;
 		case RTSameStrategyNumber:
-			/* we will need recheck */
+			/* we will need recheck
+			 *
+			 * 我们需要重新检查
+			 */
 			*recheck = true;
-			/* Must have all elements in check[] true */
+			/* Must have all elements in check[] true
+			 *
+			 * check[] 中的所有元素必须为 true
+			 */
 			res = true;
 			for (i = 0; i < nkeys; i++)
 			{
@@ -149,9 +180,15 @@ ginint4_consistent(PG_FUNCTION_ARGS)
 			break;
 		case RTContainsStrategyNumber:
 		case RTOldContainsStrategyNumber:
-			/* result is not lossy */
+			/* result is not lossy
+			 *
+			 * 结果没有损失
+			 */
 			*recheck = false;
-			/* Must have all elements in check[] true */
+			/* Must have all elements in check[] true
+			 *
+			 * check[] 中的所有元素必须为 true
+			 */
 			res = true;
 			for (i = 0; i < nkeys; i++)
 			{
@@ -166,7 +203,10 @@ ginint4_consistent(PG_FUNCTION_ARGS)
 			{
 				QUERYTYPE  *query = PG_GETARG_QUERYTYPE_P(2);
 
-				/* result is not lossy */
+				/* result is not lossy
+				 *
+				 * 结果没有损失
+				 */
 				*recheck = false;
 				res = gin_bool_consistent(query, check);
 			}

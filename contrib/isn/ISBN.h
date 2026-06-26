@@ -2,12 +2,18 @@
  * ISBN.h
  *	  PostgreSQL type definitions for ISNs (ISBN, ISMN, ISSN, EAN13, UPC)
  *
+ * ISBN.h ISN 的 PostgreSQL 类型定义（ISBN、ISMN、ISSN、EAN13、UPC）
+ *
  * Information recompiled by Kronuz on June 20, 2006
  * http://www.isbn-international.org/
  * http://www.isbn.org/
  *
+ * Kronuz 于 2006 年 6 月 20 日重新编译的信息 http://www.isbn-international.org/ http://www.isbn.org/
+ *
  * IDENTIFICATION
  *	  contrib/isn/ISBN.h
+ *
+ * 识别 contrib/isn/ISBN.h
  *
  * 0-393-04002-X => 039304002(X) <=> 039304002 <=> (978)039304002 <=> 978039304002(9) <=> 978-0-393-04002-9
  *
@@ -19,6 +25,8 @@
  * Check digit	11 - 1 = 10 = X
  * => 0-393-04002-X
  *
+ * ISBN 0 3 9 3 0 4 0 0 2 重量 10 9 8 7 6 5 4 3 2 产品 0 + 27 + 72 + 21 + 0 + 20 + 0 + 0 + 4 = 144 144 / 11 = 13 余数 1 校验位 11 - 1 = 10 = X => 0-393-04002-X
+ *
  * ISBN			9	7	 8	 0	 3	 9	  3   0   4   0   0   2
  * Weight		1	3	 1	 3	 1	 3	  1   3   1   3   1   3
  * Product		9 + 21 + 8 + 0 + 3 + 27 + 3 + 0 + 4 + 0 + 0 + 6 = 81
@@ -26,14 +34,21 @@
  * Check digit	10 - 1 = 9
  * => 978-0-393-04002-9
  *
+ * ISBN 9 7 8 0 3 9 3 0 4 0 0 2 重量 1 3 1 3 1 3 1 3 1 3 1 3 产品 9 + 21 + 8 + 0 + 3 + 27 + 3 + 0 + 4 + 0 + 0 + 6 = 81 81 / 10 = 8 余数 1 校验位 10 - 1 = 9 => 978-0-393-04002-9
+ *
  */
 
 /*
  * For ISBN with prefix 978
  * Range Table as of 2010-Jul-29
+ *
+ * 对于截至 2010 年 7 月 29 日前缀为 978 的 ISBN 范围表
  */
 
-/* where the digit set begins, and how many of them are in the table */
+/* where the digit set begins, and how many of them are in the table
+ *
+ * 数字集从哪里开始，以及表中有多少个数字
+ */
 static const unsigned ISBN_index[10][2] = {
 	{0, 6},
 	{6, 6},
@@ -964,9 +979,14 @@ static const char *ISBN_range[][2] = {
 /*
  * For ISBN with prefix 979
  * Range Table as of 2010-Jul-29
+ *
+ * 对于截至 2010 年 7 月 29 日前缀为 979 的 ISBN 范围表
  */
 
-/* where the digit set begins, and how many of them are in the table */
+/* where the digit set begins, and how many of them are in the table
+ *
+ * 数字集从哪里开始，以及表中有多少个数字
+ */
 static const unsigned ISBN_index_new[10][2] = {
 	{0, 0},
 	{0, 5},

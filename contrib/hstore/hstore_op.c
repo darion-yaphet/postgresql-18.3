@@ -11,7 +11,10 @@
 #include "utils/builtins.h"
 #include "utils/memutils.h"
 
-/* old names for C functions */
+/* old names for C functions
+ *
+ * C 函数的旧名称
+ */
 HSTORE_POLLUTE(hstore_fetchval, fetchval);
 HSTORE_POLLUTE(hstore_exists, exists);
 HSTORE_POLLUTE(hstore_defined, defined);
@@ -31,6 +34,8 @@ HSTORE_POLLUTE(hstore_each, each);
  * "lowbound" parameter is used to cache lower bounds of searches
  * between calls, based on this assumption. Pass NULL for it for
  * one-off or unordered searches.
+ *
+ * 我们经常会发现按升序排列的键序列。基于此假设，“lowbound”参数用于缓存调用之间的搜索下限。为其传递 NULL 以进行一次性或无序搜索。
  */
 int
 hstoreFindKey(HStore *hs, int *lowbound, char *key, int keylen)
@@ -94,6 +99,8 @@ hstoreArrayToPairs(ArrayType *a, int *npairs)
 	 * However, credible improvements to the array format could invalidate
 	 * that assumption.  Therefore, use an explicit check rather than relying
 	 * on palloc() to complain.
+	 *
+	 * 文本数组每个元素至少使用 8 个字节，因此“key_count * sizeof(Pairs)”中的任何溢出都足够小，足以让 palloc() 捕获。然而，对数组格式的可靠改进可能会使该假设失效。  因此，使用显式检查而不是依赖 palloc() 来抱怨。
 	 */
 	if (key_count > MaxAllocSize / sizeof(Pairs))
 		ereport(ERROR,
@@ -174,6 +181,8 @@ hstore_exists_any(PG_FUNCTION_ARGS)
 	 * increasing order to narrow the hstoreFindKey search; each search can
 	 * start one entry past the previous "found" entry, or at the lower bound
 	 * of the last search.
+	 *
+	 * 我们利用配对列表已按严格递增顺序排序的事实来缩小 hstoreFindKey 搜索范围；每个搜索可以在前一个“找到的”条目之后开始一个条目，或者从最后一个搜索的下限开始。
 	 */
 	for (i = 0; i < nkeys; i++)
 	{
@@ -208,6 +217,8 @@ hstore_exists_all(PG_FUNCTION_ARGS)
 	 * increasing order to narrow the hstoreFindKey search; each search can
 	 * start one entry past the previous "found" entry, or at the lower bound
 	 * of the last search.
+	 *
+	 * 我们利用配对列表已按严格递增顺序排序的事实来缩小 hstoreFindKey 搜索范围；每个搜索可以在前一个“找到的”条目之后开始一个条目，或者从最后一个搜索的下限开始。
 	 */
 	for (i = 0; i < nkeys; i++)
 	{
@@ -316,7 +327,10 @@ hstore_delete_array(PG_FUNCTION_ARGS)
 
 	if (nkeys == 0)
 	{
-		/* return a copy of the input, unchanged */
+		/* return a copy of the input, unchanged
+		 *
+		 * 返回输入的副本，未更改
+		 */
 		memcpy(out, hs, VARSIZE(hs));
 		HS_FIXSIZE(out, hs_count);
 		HS_SETCOUNT(out, hs_count);
@@ -326,6 +340,8 @@ hstore_delete_array(PG_FUNCTION_ARGS)
 	/*
 	 * this is in effect a merge between hs and key_pairs, both of which are
 	 * already sorted by (keylen,key); we take keys from hs only
+	 *
+	 * 这实际上是 hs 和 key_pairs 之间的合并，两者都已按 (keylen,key) 排序；我们只从 hs 拿钥匙
 	 */
 
 	for (i = j = 0; i < hs_count;)
@@ -398,7 +414,10 @@ hstore_delete_hstore(PG_FUNCTION_ARGS)
 
 	if (hs2_count == 0)
 	{
-		/* return a copy of the input, unchanged */
+		/* return a copy of the input, unchanged
+		 *
+		 * 返回输入的副本，未更改
+		 */
 		memcpy(out, hs, VARSIZE(hs));
 		HS_FIXSIZE(out, hs_count);
 		HS_SETCOUNT(out, hs_count);
@@ -409,6 +428,8 @@ hstore_delete_hstore(PG_FUNCTION_ARGS)
 	 * this is in effect a merge between hs and hs2, both of which are already
 	 * sorted by (keylen,key); we take keys from hs only; for equal keys, we
 	 * take the value from hs unless the values are equal
+	 *
+	 * 这实际上是 hs 和 hs2 之间的合并，两者都已按 (keylen,key) 排序；我们只从 hs 拿钥匙；对于相等的键，我们从 hs 中获取值，除非值相等
 	 */
 
 	for (i = j = 0; i < hs_count;)
@@ -491,7 +512,10 @@ hstore_concat(PG_FUNCTION_ARGS)
 
 	if (s1count == 0)
 	{
-		/* return a copy of the input, unchanged */
+		/* return a copy of the input, unchanged
+		 *
+		 * 返回输入的副本，未更改
+		 */
 		memcpy(out, s2, VARSIZE(s2));
 		HS_FIXSIZE(out, s2count);
 		HS_SETCOUNT(out, s2count);
@@ -500,7 +524,10 @@ hstore_concat(PG_FUNCTION_ARGS)
 
 	if (s2count == 0)
 	{
-		/* return a copy of the input, unchanged */
+		/* return a copy of the input, unchanged
+		 *
+		 * 返回输入的副本，未更改
+		 */
 		memcpy(out, s1, VARSIZE(s1));
 		HS_FIXSIZE(out, s1count);
 		HS_SETCOUNT(out, s1count);
@@ -517,6 +544,8 @@ hstore_concat(PG_FUNCTION_ARGS)
 	/*
 	 * this is in effect a merge between s1 and s2, both of which are already
 	 * sorted by (keylen,key); we take s2 for equal keys
+	 *
+	 * 这实际上是 s1 和 s2 之间的合并，两者都已按 (keylen,key) 排序；我们取 s2 作为相等的键
 	 */
 
 	for (s1idx = s2idx = 0; s1idx < s1count || s2idx < s2count; ++outcount)
@@ -648,7 +677,10 @@ hstore_slice_to_hstore(PG_FUNCTION_ARGS)
 		PG_RETURN_POINTER(out);
 	}
 
-	/* hstoreArrayToPairs() checked overflow */
+	/* hstoreArrayToPairs() checked overflow
+	 *
+	 * hstoreArrayToPairs() 检查溢出
+	 */
 	out_pairs = palloc(sizeof(Pairs) * nkeys);
 	bufsiz = 0;
 
@@ -657,6 +689,8 @@ hstore_slice_to_hstore(PG_FUNCTION_ARGS)
 	 * increasing order to narrow the hstoreFindKey search; each search can
 	 * start one entry past the previous "found" entry, or at the lower bound
 	 * of the last search.
+	 *
+	 * 我们利用配对列表已按严格递增顺序排序的事实来缩小 hstoreFindKey 搜索范围；每个搜索可以在前一个“找到的”条目之后开始一个条目，或者从最后一个搜索的下限开始。
 	 */
 
 	for (i = 0; i < nkeys; ++i)
@@ -679,6 +713,8 @@ hstore_slice_to_hstore(PG_FUNCTION_ARGS)
 	/*
 	 * we don't use hstoreUniquePairs here because we know that the pairs list
 	 * is already sorted and uniq'ed.
+	 *
+	 * 我们在这里不使用 hstoreUniquePairs，因为我们知道对列表已经排序和唯一化。
 	 */
 
 	out = hstorePairs(out_pairs, out_count, bufsiz);
@@ -844,6 +880,8 @@ hstore_to_matrix(PG_FUNCTION_ARGS)
  * we stash a copy of the hstore in the multi-call context in
  * case it was originally toasted. (At least I assume that's why;
  * there was no explanatory comment in the original code. --AG)
+ *
+ * 各种设置返回函数的通用初始化函数。仅当函数返回复合值时才传递 fcinfo；它将用于查找返回的 tupledesc。我们将 hstore 的副本存储在多调用上下文中，以防它最初被烘烤。 （至少我认为这就是原因；原始代码中没有解释性注释。--AG）
  */
 
 static void
@@ -864,7 +902,10 @@ setup_firstcall(FuncCallContext *funcctx, HStore *hs,
 	{
 		TupleDesc	tupdesc;
 
-		/* Build a tuple descriptor for our result type */
+		/* Build a tuple descriptor for our result type
+		 *
+		 * 为我们的结果类型构建一个元组描述符
+		 */
 		if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 			elog(ERROR, "return type must be a row type");
 
@@ -936,7 +977,10 @@ hstore_svals(PG_FUNCTION_ARGS)
 		{
 			ReturnSetInfo *rsi;
 
-			/* ugly ugly ugly. why no macro for this? */
+			/* ugly ugly ugly. why no macro for this?
+			 *
+			 * 丑陋丑陋。为什么没有这个宏？
+			 */
 			(funcctx)->call_cntr++;
 			rsi = (ReturnSetInfo *) fcinfo->resultinfo;
 			rsi->isDone = ExprMultipleResult;
@@ -977,6 +1021,8 @@ hstore_contains(PG_FUNCTION_ARGS)
 	 * order to narrow the hstoreFindKey search; each search can start one
 	 * entry past the previous "found" entry, or at the lower bound of the
 	 * search
+	 *
+	 * 我们利用“tmpl”中的键严格按递增顺序排列的事实来缩小 hstoreFindKey 搜索范围；每个搜索可以在上一个“找到的”条目之后或在搜索的下限处开始一个条目
 	 */
 
 	for (i = 0; res && i < tcount; ++i)
@@ -1075,6 +1121,8 @@ hstore_each(PG_FUNCTION_ARGS)
  * btree sort order for hstores isn't intended to be useful; we really only
  * care about equality versus non-equality.  we compare the entire string
  * buffer first, then the entry pos array.
+ *
+ * hstore 的 btree 排序顺序并不是很有用；我们实际上只关心平等与非平等。  我们首先比较整个字符串缓冲区，然后比较条目 pos 数组。
  */
 
 PG_FUNCTION_INFO_V1(hstore_cmp);
@@ -1092,6 +1140,8 @@ hstore_cmp(PG_FUNCTION_ARGS)
 		/*
 		 * if either operand is empty, and the other is nonempty, the nonempty
 		 * one is larger. If both are empty they are equal.
+		 *
+		 * 如果其中一个操作数为空，而另一个操作数非空，则非空操作数较大。如果两者都为空，则它们相等。
 		 */
 		if (hcount1 > 0)
 			res = 1;
@@ -1100,7 +1150,10 @@ hstore_cmp(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* here we know both operands are nonempty */
+		/* here we know both operands are nonempty
+		 *
+		 * 这里我们知道两个操作数都非空
+		 */
 		char	   *str1 = STRPTR(hs1);
 		char	   *str2 = STRPTR(hs2);
 		HEntry	   *ent1 = ARRPTR(hs1);
@@ -1151,6 +1204,8 @@ hstore_cmp(PG_FUNCTION_ARGS)
 	/*
 	 * this is a btree support function; this is one of the few places where
 	 * memory needs to be explicitly freed.
+	 *
+	 * 这是一个 btree 支持函数；这是少数需要显式释放内存的地方之一。
 	 */
 	PG_FREE_IF_COPY(hs1, 0);
 	PG_FREE_IF_COPY(hs2, 1);
@@ -1238,6 +1293,8 @@ hstore_hash(PG_FUNCTION_ARGS)
 	 * that cares whether the overall varlena size exactly matches the true
 	 * data size; this assertion should be maintained by all the other code,
 	 * but we make it explicit here.
+	 *
+	 * 这是代码中唯一关心整个 varlena 大小是否与真实数据大小完全匹配的地方（与 hstore_hash_extended 一起）；这个断言应该由所有其他代码维护，但我们在这里明确说明。
 	 */
 	Assert(VARSIZE(hs) ==
 		   (HS_COUNT(hs) != 0 ?
@@ -1261,7 +1318,10 @@ hstore_hash_extended(PG_FUNCTION_ARGS)
 							 VARSIZE(hs) - VARHDRSZ,
 							 seed);
 
-	/* See comment in hstore_hash */
+	/* See comment in hstore_hash
+	 *
+	 * 请参阅 hstore_hash 中的评论
+	 */
 	Assert(VARSIZE(hs) ==
 		   (HS_COUNT(hs) != 0 ?
 			CALCDATASIZE(HS_COUNT(hs),

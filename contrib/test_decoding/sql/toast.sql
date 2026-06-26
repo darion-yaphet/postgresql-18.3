@@ -15,17 +15,25 @@ CREATE TABLE xpto (
 );
 
 -- uncompressed external toast data
+--
+-- 未压缩的外部 toast 数据
 INSERT INTO xpto (toasted_col1, toasted_col2) SELECT string_agg(g.i::text, ''), string_agg((g.i*2)::text, '') FROM generate_series(1, 2000) g(i);
 
 -- compressed external toast data
+--
+-- 压缩外部 toast 数据
 INSERT INTO xpto (toasted_col2) SELECT repeat(string_agg(to_char(g.i, 'FM0000'), ''), 50) FROM generate_series(1, 500) g(i);
 
 -- update of existing column
+--
+-- 更新现有列
 UPDATE xpto SET toasted_col1 = (SELECT string_agg(g.i::text, '') FROM generate_series(1, 2000) g(i)) WHERE id = 1;
 
 UPDATE xpto SET rand1 = 123.456 WHERE id = 1;
 
 -- updating external via INSERT ... ON CONFLICT DO UPDATE
+--
+-- 通过 INSERT 更新外部...发生冲突时进行更新
 INSERT INTO xpto(id, toasted_col2) VALUES (2, 'toasted2-upsert')
 ON CONFLICT (id)
 DO UPDATE SET toasted_col2 = EXCLUDED.toasted_col2 || xpto.toasted_col2;
@@ -46,14 +54,22 @@ ALTER TABLE toasted_key ALTER COLUMN toasted_col1 SET STORAGE EXTERNAL;
 INSERT INTO toasted_key(toasted_key, toasted_col1) VALUES(repeat('1234567890', 200), repeat('9876543210', 200));
 
 -- test update of a toasted key without changing it
+--
+-- 测试烤密钥的更新而不更改它
 UPDATE toasted_key SET toasted_col2 = toasted_col1;
 -- test update of a toasted key, changing it
+--
+-- 测试烤密钥的更新，更改它
 UPDATE toasted_key SET toasted_key = toasted_key || '1';
 
 DELETE FROM toasted_key;
 
 -- Test that HEAP2_MULTI_INSERT insertions with and without toasted
+--
+-- 测试 HEAP2_MULTI_INSERT 插入是否经过烘烤
 -- columns are handled correctly
+--
+-- 列处理正确
 CREATE TABLE toasted_copy (
     id int primary key, -- no default, copy didn't use to handle that with multi inserts
     data text
@@ -267,6 +283,8 @@ ALTER TABLE toasted_copy ALTER COLUMN data SET STORAGE EXTERNAL;
 SELECT substr(data, 1, 200) FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 -- test we can decode "old" tuples bigger than the max heap tuple size correctly
+--
+-- 测试我们可以正确解码大于最大堆元组大小的“旧”元组
 DROP TABLE IF EXISTS toasted_several;
 CREATE TABLE toasted_several (
     id serial unique not null,
@@ -280,8 +298,14 @@ ALTER TABLE toasted_several ALTER COLUMN toasted_col1 SET STORAGE EXTERNAL;
 ALTER TABLE toasted_several ALTER COLUMN toasted_col2 SET STORAGE EXTERNAL;
 
 -- Change the storage of the index back to EXTENDED, separately from
+--
+-- 将索引的存储更改回 EXTENDED，与
 -- the table.  This is currently not doable via DDL, but it is
+--
+-- 桌子。  目前这无法通过 DDL 实现，但可以
 -- supported internally.
+--
+-- 内部支持。
 UPDATE pg_attribute SET attstorage = 'x' WHERE attrelid = 'toasted_several_pkey'::regclass AND attname = 'toasted_key';
 
 INSERT INTO toasted_several(toasted_key) VALUES(repeat('9876543210', 10000));
@@ -290,6 +314,8 @@ SELECT pg_column_size(toasted_key) > 2^16 FROM toasted_several;
 SELECT regexp_replace(data, '^(.{100}).*(.{100})$', '\1..\2') FROM pg_logical_slot_peek_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 -- test update of a toasted key without changing it
+--
+-- 测试烤密钥的更新而不更改它
 UPDATE toasted_several SET toasted_col1 = toasted_key;
 UPDATE toasted_several SET toasted_col2 = toasted_col1;
 
@@ -297,6 +323,8 @@ SELECT regexp_replace(data, '^(.{100}).*(.{100})$', '\1..\2') FROM pg_logical_sl
 
 /*
  * update with large tuplebuf, in a transaction large enough to force to spool to disk
+ *
+ * 使用大 tuplebuf 进行更新，在一个足够大的事务中强制假脱机到磁盘
  */
 BEGIN;
 INSERT INTO toasted_several(toasted_key) SELECT * FROM generate_series(1, 10234);
@@ -313,6 +341,8 @@ WHERE data NOT LIKE '%INSERT: %';
  * Test decoding relation rewrite with toast. The insert into tbl2 within the
  * same transaction is there to check that there is no remaining toast_hash not
  * being reset.
+ *
+ * 用toast测试解码关系重写。在同一事务中插入 tbl2 是为了检查是否没有剩余的 toast_hash 未被重置。
  */
 CREATE TABLE tbl1 (a INT, b TEXT);
 CREATE TABLE tbl2 (a INT);

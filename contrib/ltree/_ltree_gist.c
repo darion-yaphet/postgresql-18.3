@@ -4,6 +4,8 @@
  *
  * GiST support for ltree[]
  * Teodor Sigaev <teodor@stack.net>
+ *
+ * GiST 对 ltree[] Teodor Sigaev <teodor@stack.net> 的支持
  */
 #include "postgres.h"
 
@@ -193,7 +195,10 @@ hemdistsign(BITVECP a, BITVECP b, int siglen)
 	ALOOPBYTE(siglen)
 	{
 		diff = (unsigned char) (a[i] ^ b[i]);
-		/* Using the popcount functions here isn't likely to win */
+		/* Using the popcount functions here isn't likely to win
+		 *
+		 * 在这里使用 popcount 函数不太可能获胜
+		 */
 		dist += pg_number_of_ones[diff];
 	}
 	return dist;
@@ -299,7 +304,10 @@ _ltree_picksplit(PG_FUNCTION_ARGS)
 		seed_2 = 2;
 	}
 
-	/* form initial .. */
+	/* form initial ..
+	 *
+	 * 形成初始..
+	 */
 	datum_l = ltree_gist_alloc(LTG_ISALLTRUE(GETENTRY(entryvec, seed_1)),
 							   LTG_SIGN(GETENTRY(entryvec, seed_1)),
 							   siglen, NULL, NULL);
@@ -309,7 +317,10 @@ _ltree_picksplit(PG_FUNCTION_ARGS)
 							   siglen, NULL, NULL);
 
 	maxoff = OffsetNumberNext(maxoff);
-	/* sort before ... */
+	/* sort before ...
+	 *
+	 * 排序在...之前
+	 */
 	costvector = (SPLITCOST *) palloc(sizeof(SPLITCOST) * maxoff);
 	for (j = FirstOffsetNumber; j <= maxoff; j = OffsetNumberNext(j))
 	{
@@ -509,13 +520,19 @@ _ltree_consistent(PG_FUNCTION_ARGS)
 	void	   *query = PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	int			siglen = LTREE_GET_ASIGLEN();
 	ltree_gist *key = (ltree_gist *) DatumGetPointer(entry->key);
 	bool		res = false;
 
-	/* All cases served by this function are inexact */
+	/* All cases served by this function are inexact
+	 *
+	 * 该函数提供的所有案例都是不准确的
+	 */
 	*recheck = true;
 
 	switch (strategy)
@@ -537,7 +554,10 @@ _ltree_consistent(PG_FUNCTION_ARGS)
 			res = _arrq_cons(key, (ArrayType *) query, siglen);
 			break;
 		default:
-			/* internal error */
+			/* internal error
+			 *
+			 * 内部错误
+			 */
 			elog(ERROR, "unrecognized StrategyNumber: %d", strategy);
 	}
 	PG_FREE_IF_COPY(query, 1);

@@ -46,7 +46,11 @@ tests += {
       '--temp-config', files('logical.conf'),
     ],
     # Disabled because these tests require "wal_level=logical", which
+    #
+    # 禁用，因为这些测试需要“wal_level=逻辑”，这
     # typical runningcheck users do not have (e.g. buildfarm clients).
+    #
+    # 典型的 runningcheck 用户没有（例如 buildfarm 客户端）。
     'runningcheck': false,
   },
   'isolation': {
@@ -69,6 +73,8 @@ tests += {
       '--temp-config', files('logical.conf'),
     ],
     # see above
+    #
+    # 见上文
     'runningcheck': false,
   },
   'tap': {

@@ -15,7 +15,11 @@ REGRESS = autoinc refint
 DOCS = $(addsuffix .example, $(MODULES))
 
 # this is needed for the regression tests;
+#
+# 这是回归测试所需要的；
 # comment out if you want a quieter refint package for other uses
+#
+# 如果您想要一个更安静的改装包用于其他用途，请注释掉
 PG_CPPFLAGS = -DREFINT_VERBOSE
 
 ifdef USE_PGXS

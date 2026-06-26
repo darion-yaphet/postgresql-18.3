@@ -76,8 +76,12 @@ bn_to_mpi(BIGNUM *bn)
 /*
  * Decide the number of bits in the random component k
  *
+ * 决定随机分量k的位数
+ *
  * It should be in the same range as p for signing (which
  * is deprecated), but can be much smaller for encrypting.
+ *
+ * 对于签名，它应该与 p 处于相同的范围（已弃用），但对于加密，它可以小得多。
  *
  * Until I research it further, I just mimic gpg behaviour.
  * It has a special mapping table, for values <= 5120,
@@ -85,8 +89,12 @@ bn_to_mpi(BIGNUM *bn)
  * algorithm hovers 10-70 bits above gpg values.  And for
  * larger p, it uses gpg's algorithm.
  *
+ * 在我进一步研究之前，我只是模仿 gpg 的行为。它有一个特殊的映射表，用于值 <= 5120，上面它使用“任意高数”。  以下算法在 gpg 值之上徘徊 10-70 位。  而对于更大的p，它使用gpg的算法。
+ *
  * The point is - if k gets large, encryption will be
  * really slow.  It does not matter for decryption.
+ *
+ * 关键是 - 如果 k 变大，加密速度会非常慢。  与解密无关。
  */
 static int
 decide_k_bits(int p_bits)
@@ -118,6 +126,8 @@ pgp_elgamal_encrypt(PGP_PubKey *pk, PGP_MPI *_m,
 
 	/*
 	 * generate k
+	 *
+	 * 生成 k
 	 */
 	k_bits = decide_k_bits(BN_num_bits(p));
 	if (!BN_rand(k, k_bits, 0, 0))

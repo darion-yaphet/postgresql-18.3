@@ -2,8 +2,12 @@
  * oid2name, a PostgreSQL app to map OIDs on the filesystem
  * to table and database names.
  *
+ * oid2name，一个 PostgreSQL 应用程序，用于将文件系统上的 OID 映射到表和数据库名称。
+ *
  * Originally by
  * B. Palmer, bpalmer@crimelabs.net 1-17-2001
+ *
+ * 最初作者：B. Palmer，bpalmer@crimelabs.net 1-17-2001
  *
  * contrib/oid2name/oid2name.c
  */
@@ -17,7 +21,10 @@
 #include "libpq-fe.h"
 #include "pg_getopt.h"
 
-/* an extensible array to keep track of elements to show */
+/* an extensible array to keep track of elements to show
+ *
+ * 一个可扩展数组来跟踪要显示的元素
+ */
 typedef struct
 {
 	char	  **array;
@@ -25,7 +32,10 @@ typedef struct
 	int			alloc;
 } eary;
 
-/* these are the opts structures for command line params */
+/* these are the opts structures for command line params
+ *
+ * 这些是命令行参数的 opts 结构
+ */
 struct options
 {
 	eary	   *tables;
@@ -46,7 +56,10 @@ struct options
 	const char *progname;
 };
 
-/* function prototypes */
+/* function prototypes
+ *
+ * 函数原型
+ */
 static void help(const char *progname);
 void		get_opts(int argc, char **argv, struct options *my_opts);
 void		add_one_elt(char *eltname, eary *eary);
@@ -58,7 +71,10 @@ void		sql_exec_dumpalltables(PGconn *conn, struct options *opts);
 void		sql_exec_searchtables(PGconn *conn, struct options *opts);
 void		sql_exec_dumpalltbspc(PGconn *conn, struct options *opts);
 
-/* function to parse command line options and check for some usage errors. */
+/* function to parse command line options and check for some usage errors.
+ *
+ * 函数来解析命令行选项并检查一些使用错误。
+ */
 void
 get_opts(int argc, char **argv, struct options *my_opts)
 {
@@ -88,7 +104,10 @@ get_opts(int argc, char **argv, struct options *my_opts)
 	pg_logging_init(argv[0]);
 	progname = get_progname(argv[0]);
 
-	/* set the defaults */
+	/* set the defaults
+	 *
+	 * 设置默认值
+	 */
 	my_opts->quiet = false;
 	my_opts->systables = false;
 	my_opts->indexes = false;
@@ -115,58 +134,91 @@ get_opts(int argc, char **argv, struct options *my_opts)
 		}
 	}
 
-	/* get opts */
+	/* get opts
+	 *
+	 * 获得选择
+	 */
 	while ((c = getopt_long(argc, argv, "d:f:h:H:io:p:qsSt:U:x", long_options, &optindex)) != -1)
 	{
 		switch (c)
 		{
-				/* specify the database */
+				/* specify the database
+				 *
+				 * 指定数据库
+				 */
 			case 'd':
 				my_opts->dbname = pg_strdup(optarg);
 				break;
 
-				/* specify one filenumber to show */
+				/* specify one filenumber to show
+				 *
+				 * 指定要显示的一个文件号
+				 */
 			case 'f':
 				add_one_elt(optarg, my_opts->filenumbers);
 				break;
 
-				/* host to connect to */
+				/* host to connect to
+				 *
+				 * 要连接的主机
+				 */
 			case 'H':			/* deprecated */
 			case 'h':
 				my_opts->hostname = pg_strdup(optarg);
 				break;
 
-				/* also display indexes */
+				/* also display indexes
+				 *
+				 * 还显示索引
+				 */
 			case 'i':
 				my_opts->indexes = true;
 				break;
 
-				/* specify one Oid to show */
+				/* specify one Oid to show
+				 *
+				 * 指定要显示的一个 Oid
+				 */
 			case 'o':
 				add_one_elt(optarg, my_opts->oids);
 				break;
 
-				/* port to connect to on remote host */
+				/* port to connect to on remote host
+				 *
+				 * 连接到远程主机的端口
+				 */
 			case 'p':
 				my_opts->port = pg_strdup(optarg);
 				break;
 
-				/* don't show headers */
+				/* don't show headers
+				 *
+				 * 不显示标题
+				 */
 			case 'q':
 				my_opts->quiet = true;
 				break;
 
-				/* dump tablespaces only */
+				/* dump tablespaces only
+				 *
+				 * 仅转储表空间
+				 */
 			case 's':
 				my_opts->tablespaces = true;
 				break;
 
-				/* display system tables */
+				/* display system tables
+				 *
+				 * 显示系统表
+				 */
 			case 'S':
 				my_opts->systables = true;
 				break;
 
-				/* specify one tablename to show */
+				/* specify one tablename to show
+				 *
+				 * 指定要显示的一个表名
+				 */
 			case 't':
 				add_one_elt(optarg, my_opts->tables);
 				break;
@@ -176,13 +228,19 @@ get_opts(int argc, char **argv, struct options *my_opts)
 				my_opts->username = pg_strdup(optarg);
 				break;
 
-				/* display extra columns */
+				/* display extra columns
+				 *
+				 * 显示额外的列
+				 */
 			case 'x':
 				my_opts->extended = true;
 				break;
 
 			default:
-				/* getopt_long already emitted a complaint */
+				/* getopt_long already emitted a complaint
+				 *
+				 * getopt_long 已发出投诉
+				 */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
 				exit(1);
 		}
@@ -230,6 +288,8 @@ help(const char *progname)
  * add_one_elt
  *
  * Add one element to a (possibly empty) eary struct.
+ *
+ * 将一个元素添加到一个（可能是空的）早期结构中。
  */
 void
 add_one_elt(char *eltname, eary *eary)
@@ -256,6 +316,8 @@ add_one_elt(char *eltname, eary *eary)
  * Return the elements of an eary as a (freshly allocated) single string, in
  * single quotes, separated by commas and properly escaped for insertion in an
  * SQL statement.
+ *
+ * 将 eary 的元素作为（新分配的）单个字符串返回，用单引号括起来，用逗号分隔，并正确转义以插入 SQL 语句中。
  */
 char *
 get_comma_elts(eary *eary)
@@ -271,6 +333,8 @@ get_comma_elts(eary *eary)
 	/*
 	 * PQescapeString wants 2 * length + 1 bytes of breath space.  Add two
 	 * chars per element for the single quotes and one for the comma.
+	 *
+	 * PQescapeString 需要 2 * 长度 + 1 字节的喘息空间。  每个元素添加两个字符作为单引号，一个字符作为逗号。
 	 */
 	for (i = 0; i < eary->num; i++)
 		length += strlen(eary->array[i]);
@@ -290,7 +354,10 @@ get_comma_elts(eary *eary)
 	return ret;
 }
 
-/* establish connection with database. */
+/* establish connection with database.
+ *
+ * 与数据库建立连接。
+ */
 PGconn *
 sql_conn(struct options *my_opts)
 {
@@ -302,6 +369,8 @@ sql_conn(struct options *my_opts)
 	/*
 	 * Start the connection.  Loop until we have a password if requested by
 	 * backend.
+	 *
+	 * 开始连接。  如果后端请求，则循环直到我们获得密码。
 	 */
 	do
 	{
@@ -342,7 +411,10 @@ sql_conn(struct options *my_opts)
 		}
 	} while (new_pass);
 
-	/* check to see that the backend connection was successfully made */
+	/* check to see that the backend connection was successfully made
+	 *
+	 * 检查后端连接是否成功
+	 */
 	if (PQstatus(conn) == CONNECTION_BAD)
 	{
 		pg_log_error("%s", PQerrorMessage(conn));
@@ -361,12 +433,17 @@ sql_conn(struct options *my_opts)
 	}
 	PQclear(res);
 
-	/* return the conn if good */
+	/* return the conn if good
+	 *
+	 * 如果好则返回 conn
+	 */
 	return conn;
 }
 
 /*
  * Actual code to make call to the database and print the output data.
+ *
+ * 调用数据库并打印输出数据的实际代码。
  */
 int
 sql_exec(PGconn *conn, const char *todo, bool quiet)
@@ -381,10 +458,16 @@ sql_exec(PGconn *conn, const char *todo, bool quiet)
 	int		   *length;
 	char	   *pad;
 
-	/* make the call */
+	/* make the call
+	 *
+	 * 打电话
+	 */
 	res = PQexec(conn, todo);
 
-	/* check and deal with errors */
+	/* check and deal with errors
+	 *
+	 * 检查并处理错误
+	 */
 	if (!res || PQresultStatus(res) > 2)
 	{
 		pg_log_error("query failed: %s", PQerrorMessage(conn));
@@ -395,11 +478,17 @@ sql_exec(PGconn *conn, const char *todo, bool quiet)
 		exit(1);
 	}
 
-	/* get the number of fields */
+	/* get the number of fields
+	 *
+	 * 获取字段数
+	 */
 	nrows = PQntuples(res);
 	nfields = PQnfields(res);
 
-	/* for each field, get the needed width */
+	/* for each field, get the needed width
+	 *
+	 * 对于每个字段，获取所需的宽度
+	 */
 	length = (int *) pg_malloc(sizeof(int) * nfields);
 	for (j = 0; j < nfields; j++)
 		length[j] = strlen(PQfname(res, j));
@@ -414,7 +503,10 @@ sql_exec(PGconn *conn, const char *todo, bool quiet)
 		}
 	}
 
-	/* print a header */
+	/* print a header
+	 *
+	 * 打印标题
+	 */
 	if (!quiet)
 	{
 		for (j = 0, l = 0; j < nfields; j++)
@@ -430,7 +522,10 @@ sql_exec(PGconn *conn, const char *todo, bool quiet)
 		free(pad);
 	}
 
-	/* for each row, dump the information */
+	/* for each row, dump the information
+	 *
+	 * 对于每一行，转储信息
+	 */
 	for (i = 0; i < nrows; i++)
 	{
 		for (j = 0; j < nfields; j++)
@@ -447,13 +542,18 @@ sql_exec(PGconn *conn, const char *todo, bool quiet)
 
 /*
  * Dump all databases.  There are no system objects to worry about.
+ *
+ * 转储所有数据库。  没有系统对象需要担心。
  */
 void
 sql_exec_dumpalldbs(PGconn *conn, struct options *opts)
 {
 	char		todo[1024];
 
-	/* get the oid and database name from the system pg_database table */
+	/* get the oid and database name from the system pg_database table
+	 *
+	 * 从系统pg_database表中获取oid和数据库名
+	 */
 	snprintf(todo, sizeof(todo),
 			 "SELECT d.oid AS \"Oid\", datname AS \"Database Name\", "
 			 "spcname AS \"Tablespace\" FROM pg_catalog.pg_database d JOIN pg_catalog.pg_tablespace t ON "
@@ -464,6 +564,8 @@ sql_exec_dumpalldbs(PGconn *conn, struct options *opts)
 
 /*
  * Dump all tables, indexes and sequences in the current database.
+ *
+ * 转储当前数据库中的所有表、索引和序列。
  */
 void
 sql_exec_dumpalltables(PGconn *conn, struct options *opts)
@@ -496,6 +598,8 @@ sql_exec_dumpalltables(PGconn *conn, struct options *opts)
 /*
  * Show oid, filenumber, name, schema and tablespace for each of the
  * given objects in the current database.
+ *
+ * 显示当前数据库中每个给定对象的 oid、文件号、名称、模式和表空间。
  */
 void
 sql_exec_searchtables(PGconn *conn, struct options *opts)
@@ -509,12 +613,18 @@ sql_exec_searchtables(PGconn *conn, struct options *opts)
 	bool		written = false;
 	char	   *addfields = ",c.oid AS \"Oid\", nspname AS \"Schema\", spcname as \"Tablespace\" ";
 
-	/* get tables qualifiers, whether names, filenumbers, or OIDs */
+	/* get tables qualifiers, whether names, filenumbers, or OIDs
+	 *
+	 * 获取表限定符，无论是名称、文件号还是 OID
+	 */
 	comma_oids = get_comma_elts(opts->oids);
 	comma_tables = get_comma_elts(opts->tables);
 	comma_filenumbers = get_comma_elts(opts->filenumbers);
 
-	/* 80 extra chars for SQL expression */
+	/* 80 extra chars for SQL expression
+	 *
+	 * SQL 表达式的 80 个额外字符
+	 */
 	qualifiers = (char *) pg_malloc(strlen(comma_oids) + strlen(comma_tables) +
 									strlen(comma_filenumbers) + 80);
 	ptr = qualifiers;
@@ -542,7 +652,10 @@ sql_exec_searchtables(PGconn *conn, struct options *opts)
 	free(comma_tables);
 	free(comma_filenumbers);
 
-	/* now build the query */
+	/* now build the query
+	 *
+	 * 现在构建查询
+	 */
 	todo = psprintf("SELECT pg_catalog.pg_relation_filenode(c.oid) as \"Filenode\", relname as \"Table Name\" %s\n"
 					"FROM pg_catalog.pg_class c\n"
 					"	LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace\n"
@@ -595,7 +708,10 @@ main(int argc, char **argv)
 	my_opts->tables->num = my_opts->tables->alloc = 0;
 	my_opts->filenumbers->num = my_opts->filenumbers->alloc = 0;
 
-	/* parse the opts */
+	/* parse the opts
+	 *
+	 * 解析选项
+	 */
 	get_opts(argc, argv, my_opts);
 
 	if (my_opts->dbname == NULL)
@@ -605,7 +721,10 @@ main(int argc, char **argv)
 	}
 	pgconn = sql_conn(my_opts);
 
-	/* display only tablespaces */
+	/* display only tablespaces
+	 *
+	 * 仅显示表空间
+	 */
 	if (my_opts->tablespaces)
 	{
 		if (!my_opts->quiet)
@@ -616,7 +735,10 @@ main(int argc, char **argv)
 		exit(0);
 	}
 
-	/* display the given elements in the database */
+	/* display the given elements in the database
+	 *
+	 * 显示数据库中给定的元素
+	 */
 	if (my_opts->oids->num > 0 ||
 		my_opts->tables->num > 0 ||
 		my_opts->filenumbers->num > 0)
@@ -629,7 +751,10 @@ main(int argc, char **argv)
 		exit(0);
 	}
 
-	/* no elements given; dump the given database */
+	/* no elements given; dump the given database
+	 *
+	 * 没有给出要素；转储给定的数据库
+	 */
 	if (my_opts->dbname && !my_opts->nodb)
 	{
 		if (!my_opts->quiet)
@@ -640,7 +765,10 @@ main(int argc, char **argv)
 		exit(0);
 	}
 
-	/* no database either; dump all databases */
+	/* no database either; dump all databases
+	 *
+	 * 也没有数据库；转储所有数据库
+	 */
 	if (!my_opts->quiet)
 		printf("All databases:\n");
 	sql_exec_dumpalldbs(pgconn, my_opts);

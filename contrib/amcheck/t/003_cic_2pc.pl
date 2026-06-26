@@ -2,6 +2,8 @@
 # Copyright (c) 2021-2025, PostgreSQL Global Development Group
 
 # Test CREATE INDEX CONCURRENTLY with concurrent prepared-xact modifications
+#
+# 测试 CREATE INDEX CONCURRENTLY 和并发的 prepared-xact 修改
 use strict;
 use warnings FATAL => 'all';
 
@@ -18,6 +20,8 @@ my ($node, $result);
 #
 # Test set-up
 #
+# 测试设置
+#
 $node = PostgreSQL::Test::Cluster->new('CIC_2PC_test');
 $node->init;
 $node->append_conf('postgresql.conf', 'max_prepared_transactions = 10');
@@ -31,8 +35,14 @@ $node->safe_psql('postgres', q(CREATE TABLE tbl(i int, j jsonb)));
 #
 # Run 3 overlapping 2PC transactions with CIC
 #
+# 使用 CIC 运行 3 个重叠的 2PC 事务
+#
 # We have two concurrent background psql processes: $main_h for INSERTs and
+#
+# 我们有两个并发后台 psql 进程：$main_h 用于 INSERT 和
 # $cic_h for CIC.  Also, we use non-background psql for some COMMIT PREPARED
+#
+# $cic_h 用于 CIC。  此外，我们使用非后台 psql 进行一些 COMMIT PREPARED
 # statements.
 #
 
@@ -94,6 +104,8 @@ is($result, '0', 'gin_index_check after overlapping 2PC');
 #
 # Server restart shall not change whether prepared xact blocks CIC
 #
+# 服务器重新启动不应改变准备好的xact是否阻止CIC
+#
 
 $node->safe_psql(
 	'postgres', q(
@@ -127,14 +139,26 @@ is($result, '0', 'gin_index_check after 2PC and restart');
 #
 # Stress CIC+2PC with pgbench
 #
+# 使用 pgbench 对 CIC+2PC 进行压力
+#
 # pgbench might try to launch more than one instance of the CIC
+#
+# pgbench 可能会尝试启动多个 CIC 实例
 # transaction concurrently.  That would deadlock, so use an advisory
+#
+# 交易同时进行。  这会陷入僵局，因此请使用建议
 # lock to ensure only one CIC runs at a time.
+#
+# 锁以确保一次只有一个 CIC 运行。
 
 # Fix broken index first
+#
+# 首先修复损坏的索引
 $node->safe_psql('postgres', q(REINDEX TABLE tbl;));
 
 # Run pgbench.
+#
+# 运行 pgbench.
 $node->pgbench(
 	'--no-vacuum --client=5 --transactions=100',
 	0,

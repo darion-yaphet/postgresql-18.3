@@ -1,15 +1,23 @@
 CREATE EXTENSION pg_trgm;
 
 -- Check whether any of our opclasses fail amvalidate
+--
+-- 检查我们的任何 opclass 是否未通过 amvalidate
 SELECT amname, opcname
 FROM pg_opclass opc LEFT JOIN pg_am am ON am.oid = opcmethod
 WHERE opc.oid >= 16384 AND NOT amvalidate(opc.oid);
 
 --backslash is used in tests below, installcheck will fail if
+--
+--下面的测试中使用了反斜杠，如果出现以下情况，installcheck 将失败
 --standard_conforming_string is off
+--
+--standard_conforming_string 已关闭
 set standard_conforming_strings=on;
 
 -- reduce noise
+--
+-- 减少噪音
 set extra_float_digits = 0;
 
 select show_trgm('');
@@ -53,6 +61,8 @@ create index trgm_idx on test_trgm using gist (t gist_trgm_ops(siglen=2024));
 set enable_seqscan=off;
 
 -- check index compatibility handling when opclass option is specified
+--
+-- 指定 opclass 选项时检查索引兼容性处理
 alter table test_trgm alter column t type varchar(768);
 alter table test_trgm alter column t type text;
 
@@ -74,6 +84,8 @@ select t,similarity(t,'gwertyu1988') as sml from test_trgm where t % 'gwertyu198
 select count(*) from test_trgm where t ~ '[qwerty]{2}-?[qwerty]{2}';
 
 -- check handling of indexquals that generate no searchable conditions
+--
+-- 检查不生成可搜索条件的 indexquals 的处理
 explain (costs off)
 select count(*) from test_trgm where t like '%99%' and t like '%qwerty%';
 select count(*) from test_trgm where t like '%99%' and t like '%qwerty%';
@@ -84,6 +96,8 @@ explain (costs off)
 select count(*) from test_trgm where t %> '' and t %> '%qwerty%';
 select count(*) from test_trgm where t %> '' and t %> '%qwerty%';
 -- ensure that pending-list items are handled correctly, too
+--
+-- 确保待处理列表项也得到正确处理
 create temp table t_test_trgm(t text COLLATE "C");
 create index t_trgm_idx on t_test_trgm using gin (t gin_trgm_ops);
 insert into t_test_trgm values ('qwerty99'), ('qwerty01');
@@ -98,6 +112,8 @@ select count(*) from t_test_trgm where t %> '' and t %> '%qwerty%';
 select count(*) from t_test_trgm where t %> '' and t %> '%qwerty%';
 
 -- run the same queries with sequential scan to check the results
+--
+-- 通过顺序扫描运行相同的查询来检查结果
 set enable_bitmapscan=off;
 set enable_seqscan=on;
 select count(*) from test_trgm where t like '%99%' and t like '%qwerty%';
@@ -156,6 +172,8 @@ select * from test2 where t ~ '  z foo';
 select * from test2 where t ~ 'qua(?!foo)';
 select * from test2 where t ~ '/\d+/-\d';
 -- test = operator
+--
+-- 测试 = 运算符
 explain (costs off)
   select * from test2 where t = 'abcdef';
 select * from test2 where t = 'abcdef';
@@ -211,6 +229,8 @@ select * from test2 where t ~ '  z foo';
 select * from test2 where t ~ 'qua(?!foo)';
 select * from test2 where t ~ '/\d+/-\d';
 -- test = operator
+--
+-- 测试 = 运算符
 explain (costs off)
   select * from test2 where t = 'abcdef';
 select * from test2 where t = 'abcdef';
@@ -229,6 +249,8 @@ select * from test2 where t = 'line 6';
 select * from test2 where t = 'li_e 6';
 
 -- Check similarity threshold (bug #14202)
+--
+-- 检查相似度阈值（错误#14202）
 
 CREATE TEMP TABLE restaurants (city text);
 INSERT INTO restaurants SELECT 'Warsaw' FROM generate_series(1, 10000);
@@ -236,9 +258,13 @@ INSERT INTO restaurants SELECT 'Szczecin' FROM generate_series(1, 10000);
 CREATE INDEX ON restaurants USING gist(city gist_trgm_ops);
 
 -- Similarity of the two names (for reference).
+--
+-- 两个名字的相似度（供参考）。
 SELECT similarity('Szczecin', 'Warsaw');
 
 -- Should get only 'Warsaw' for either setting of set_limit.
+--
+-- 对于 set_limit 的任一设置，应该仅获得“华沙”。
 EXPLAIN (COSTS OFF)
 SELECT DISTINCT city, similarity(city, 'Warsaw'), show_limit()
   FROM restaurants WHERE city % 'Warsaw';

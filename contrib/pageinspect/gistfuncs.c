@@ -36,6 +36,8 @@ static Page verify_gist_page(bytea *raw_page);
 /*
  * Verify that the given bytea contains a GIST page or die in the attempt.
  * A pointer to the page is returned.
+ *
+ * 验证给定的 bytea 是否包含 GIST 页面，否则会在尝试中失败。返回指向该页面的指针。
  */
 static Page
 verify_gist_page(bytea *raw_page)
@@ -46,7 +48,10 @@ verify_gist_page(bytea *raw_page)
 	if (PageIsNew(page))
 		return page;
 
-	/* verify the special space has the expected size */
+	/* verify the special space has the expected size
+	 *
+	 * 验证特殊空间是否具有预期的大小
+	 */
 	if (PageGetSpecialSize(page) != MAXALIGN(sizeof(GISTPageOpaqueData)))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -90,11 +95,17 @@ gist_page_opaque_info(PG_FUNCTION_ARGS)
 	if (PageIsNew(page))
 		PG_RETURN_NULL();
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
-	/* Convert the flags bitmask to an array of human-readable names */
+	/* Convert the flags bitmask to an array of human-readable names
+	 *
+	 * 将标志位掩码转换为人类可读名称的数组
+	 */
 	flagbits = GistPageGetOpaque(page)->flags;
 	if (flagbits & F_LEAF)
 		flags[nflags++] = CStringGetTextDatum("leaf");
@@ -109,7 +120,10 @@ gist_page_opaque_info(PG_FUNCTION_ARGS)
 	flagbits &= ~(F_LEAF | F_DELETED | F_TUPLES_DELETED | F_FOLLOW_RIGHT | F_HAS_GARBAGE);
 	if (flagbits)
 	{
-		/* any flags we don't recognize are printed in hex */
+		/* any flags we don't recognize are printed in hex
+		 *
+		 * 我们无法识别的任何标志均以十六进制打印
+		 */
 		flags[nflags++] = DirectFunctionCall1(to_hex32, Int32GetDatum(flagbits));
 	}
 
@@ -120,7 +134,10 @@ gist_page_opaque_info(PG_FUNCTION_ARGS)
 	values[2] = Int64GetDatum(GistPageGetOpaque(page)->rightlink);
 	values[3] = PointerGetDatum(construct_array_builtin(flags, nflags, TEXTOID));
 
-	/* Build and return the result tuple. */
+	/* Build and return the result tuple.
+	 *
+	 * 构建并返回结果元组。
+	 */
 	resultTuple = heap_form_tuple(tupdesc, values, nulls);
 
 	return HeapTupleGetDatum(resultTuple);
@@ -147,7 +164,10 @@ gist_page_items_bytea(PG_FUNCTION_ARGS)
 	if (PageIsNew(page))
 		PG_RETURN_NULL();
 
-	/* Avoid bogus PageGetMaxOffsetNumber() call with deleted pages */
+	/* Avoid bogus PageGetMaxOffsetNumber() call with deleted pages
+	 *
+	 * 避免对已删除页面进行虚假 PageGetMaxOffsetNumber() 调用
+	 */
 	if (GistPageIsDeleted(page))
 		elog(NOTICE, "page is deleted");
 	else
@@ -212,7 +232,10 @@ gist_page_items(PG_FUNCTION_ARGS)
 
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* Open the relation */
+	/* Open the relation
+	 *
+	 * 打开关系
+	 */
 	indexRel = index_open(indexRelid, AccessShareLock);
 
 	if (!IS_GIST(indexRel))
@@ -234,6 +257,8 @@ gist_page_items(PG_FUNCTION_ARGS)
 	/*
 	 * Included attributes are added when dealing with leaf pages, discarded
 	 * for non-leaf pages as these include only data for key attributes.
+	 *
+	 * 在处理叶页时添加包含的属性，对于非叶页则丢弃这些属性，因为这些属性仅包含关键属性的数据。
 	 */
 	printflags |= RULE_INDEXDEF_PRETTY;
 	if (flagbits & F_LEAF)
@@ -250,7 +275,10 @@ gist_page_items(PG_FUNCTION_ARGS)
 	index_columns = pg_get_indexdef_columns_extended(indexRelid,
 													 printflags);
 
-	/* Avoid bogus PageGetMaxOffsetNumber() call with deleted pages */
+	/* Avoid bogus PageGetMaxOffsetNumber() call with deleted pages
+	 *
+	 * 避免对已删除页面进行虚假 PageGetMaxOffsetNumber() 调用
+	 */
 	if (GistPageIsDeleted(page))
 		elog(NOTICE, "page is deleted");
 	else
@@ -291,7 +319,10 @@ gist_page_items(PG_FUNCTION_ARGS)
 			initStringInfo(&buf);
 			appendStringInfo(&buf, "(%s)=(", index_columns);
 
-			/* Most of this is copied from record_out(). */
+			/* Most of this is copied from record_out().
+			 *
+			 * 其中大部分是从 record_out() 复制的。
+			 */
 			for (i = 0; i < tupdesc->natts; i++)
 			{
 				char	   *value;
@@ -316,7 +347,10 @@ gist_page_items(PG_FUNCTION_ARGS)
 				else if (i > 0)
 					appendStringInfoString(&buf, ", ");
 
-				/* Check whether we need double quotes for this value */
+				/* Check whether we need double quotes for this value
+				 *
+				 * 检查这个值是否需要双引号
+				 */
 				nq = (value[0] == '\0');	/* force quotes for empty string */
 				for (tmp = value; *tmp; tmp++)
 				{
@@ -331,7 +365,10 @@ gist_page_items(PG_FUNCTION_ARGS)
 					}
 				}
 
-				/* And emit the string */
+				/* And emit the string
+				 *
+				 * 并发出字符串
+				 */
 				if (nq)
 					appendStringInfoCharMacro(&buf, '"');
 				for (tmp = value; *tmp; tmp++)

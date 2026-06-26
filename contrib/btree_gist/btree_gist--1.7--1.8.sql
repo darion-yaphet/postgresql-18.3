@@ -1,9 +1,13 @@
 /* contrib/btree_gist/btree_gist--1.7--1.8.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "ALTER EXTENSION btree_gist UPDATE TO '1.8'" to load this file. \quit
 
 -- Add sortsupport functions
+--
+-- 添加排序支持功能
 
 CREATE FUNCTION gbt_bit_sortsupport(internal)
 RETURNS void
@@ -199,6 +203,8 @@ ALTER OPERATOR FAMILY gist_uuid_ops USING gist ADD
 	FUNCTION	11  (uuid, uuid) gbt_uuid_sortsupport (internal) ;
 
 -- Add translate_cmptype functions
+--
+-- 添加translate_cmptype函数
 
 CREATE FUNCTION gist_translate_cmptype_btree(int)
 RETURNS smallint

@@ -23,7 +23,10 @@ PG_MODULE_MAGIC_EXT(
 					.version = PG_VERSION
 );
 
-/* GUC variables */
+/* GUC variables
+ *
+ * GUC变量
+ */
 double		similarity_threshold = 0.3f;
 double		word_similarity_threshold = 0.6f;
 double		strict_word_similarity_threshold = 0.5f;
@@ -48,19 +51,28 @@ PG_FUNCTION_INFO_V1(strict_word_similarity_dist_commutator_op);
 static int	CMPTRGM_CHOOSE(const void *a, const void *b);
 int			(*CMPTRGM) (const void *a, const void *b) = CMPTRGM_CHOOSE;
 
-/* Trigram with position */
+/* Trigram with position
+ *
+ * 卦象与位置
+ */
 typedef struct
 {
 	trgm		trg;
 	int			index;
 } pos_trgm;
 
-/* Trigram bound type */
+/* Trigram bound type
+ *
+ * 三元组绑定类型
+ */
 typedef uint8 TrgmBound;
 #define TRGM_BOUND_LEFT				0x01	/* trigram is left bound of word */
 #define TRGM_BOUND_RIGHT			0x02	/* trigram is right bound of word */
 
-/* Word similarity flags */
+/* Word similarity flags
+ *
+ * 单词相似度标志
+ */
 #define WORD_SIMILARITY_CHECK_ONLY	0x01	/* only check existence of similar
 											 * search pattern in text */
 #define WORD_SIMILARITY_STRICT		0x02	/* force bounds of extent to match
@@ -69,11 +81,15 @@ typedef uint8 TrgmBound;
 /*
  * A growable array of trigrams
  *
+ * 可增长的八卦数组
+ *
  * The actual array of trigrams is in 'datum'.  Note that the other fields in
  * 'datum', i.e. datum->flags and the varlena length, are not kept up to date
  * when items are added to the growable array.  We merely reserve the space
  * for them here.  You must fill those other fields before using 'datum' as a
  * proper TRGM datum.
+ *
+ * 实际的八卦数组位于“datum”中。  请注意，当将项目添加到可增长数组时，“datum”中的其他字段（即 datum->flags 和 varlena 长度）不会保持最新。  我们只是在这里为他们保留了空间。  在使用“数据”作为正确的 TRGM 数据之前，您必须填写这些其他字段。
  */
 typedef struct
 {
@@ -85,8 +101,12 @@ typedef struct
 /*
  * Allocate a new growable array.
  *
+ * 分配一个新的可增长数组。
+ *
  * 'slen' is the size of the source string that we're extracting the trigrams
  * from.  It is used to choose the initial size of the array.
+ *
+ * “slen”是我们从中提取三元组的源字符串的大小。  它用于选择数组的初始大小。
  */
 static void
 init_trgm_array(growable_trgm_array *arr, int slen)
@@ -100,6 +120,8 @@ init_trgm_array(growable_trgm_array *arr, int slen)
 	 * IGNORECASE is defined, we convert the input string to lowercase before
 	 * extracting the trigrams, which in rare cases can expand one input
 	 * character into multiple characters.
+	 *
+	 * 在极端情况下，输入字符串完全由一个字符单词组成，例如“a b c”，其中每个单词都扩展为两个三元组。  但这不是一个严格的上限，因为当定义 IGNORECASE 时，我们会在提取三元组之前将输入字符串转换为小写，这在极少数情况下可以将一个输入字符扩展为多个字符。
 	 */
 	init_size = (size_t) slen + 1;
 
@@ -108,6 +130,8 @@ init_trgm_array(growable_trgm_array *arr, int slen)
 	 * about the additive constants, since palloc can detect requests that are
 	 * a little above MaxAllocSize --- we just need to prevent integer
 	 * overflow in the multiplications.)
+	 *
+	 * 防止 palloc 请求中可能出现的溢出。  （我们不担心加法常量，因为 palloc 可以检测到略高于 MaxAllocSize 的请求——我们只需要防止乘法中的整数溢出。）
 	 */
 	if (init_size > MaxAllocSize / sizeof(trgm))
 		ereport(ERROR,
@@ -119,7 +143,10 @@ init_trgm_array(growable_trgm_array *arr, int slen)
 	arr->length = 0;
 }
 
-/* Make sure the array can hold at least 'needed' more trigrams */
+/* Make sure the array can hold at least 'needed' more trigrams
+ *
+ * 确保数组至少可以容纳“需要”的更多三元组
+ */
 static void
 enlarge_trgm_array(growable_trgm_array *arr, int needed)
 {
@@ -127,7 +154,10 @@ enlarge_trgm_array(growable_trgm_array *arr, int needed)
 
 	if (new_needed > arr->allocated)
 	{
-		/* Guard against possible overflow, like in init_trgm_array */
+		/* Guard against possible overflow, like in init_trgm_array
+		 *
+		 * 防止可能的溢出，例如 init_trgm_array
+		 */
 		if (new_needed > MaxAllocSize / sizeof(trgm))
 			ereport(ERROR,
 					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -140,11 +170,16 @@ enlarge_trgm_array(growable_trgm_array *arr, int needed)
 
 /*
  * Module load callback
+ *
+ * 模块加载回调
  */
 void
 _PG_init(void)
 {
-	/* Define custom GUC variables. */
+	/* Define custom GUC variables.
+	 *
+	 * 定义自定义 GUC 变量。
+	 */
 	DefineCustomRealVariable("pg_trgm.similarity_threshold",
 							 "Sets the threshold used by the % operator.",
 							 "Valid range is 0.0 .. 1.0.",
@@ -190,6 +225,8 @@ _PG_init(void)
 /*
  * Functions for comparing two trgms while treating each char as "signed char" or
  * "unsigned char".
+ *
+ * 用于比较两个 trgms 同时将每个字符视为“有符号字符”或“无符号字符”的函数。
  */
 static inline int
 CMPTRGM_SIGNED(const void *a, const void *b)
@@ -214,6 +251,8 @@ CMPTRGM_UNSIGNED(const void *a, const void *b)
 /*
  * This gets called on the first call. It replaces the function pointer so
  * that subsequent calls are routed directly to the chosen implementation.
+ *
+ * 这会在第一次调用时被调用。它取代了函数指针，以便后续调用直接路由到所选的实现。
  */
 static int
 CMPTRGM_CHOOSE(const void *a, const void *b)
@@ -229,6 +268,8 @@ CMPTRGM_CHOOSE(const void *a, const void *b)
 /*
  * Deprecated function.
  * Use "pg_trgm.similarity_threshold" GUC variable instead of this function.
+ *
+ * 已弃用的功能。使用“pg_trgm.similarity_threshold”GUC 变量代替此函数。
  */
 Datum
 set_limit(PG_FUNCTION_ARGS)
@@ -251,6 +292,8 @@ set_limit(PG_FUNCTION_ARGS)
 
 /*
  * Get similarity threshold for given index scan strategy number.
+ *
+ * 获取给定索引扫描策略编号的相似度阈值。
  */
 double
 index_strategy_get_limit(StrategyNumber strategy)
@@ -274,6 +317,8 @@ index_strategy_get_limit(StrategyNumber strategy)
 /*
  * Deprecated function.
  * Use "pg_trgm.similarity_threshold" GUC variable instead of this function.
+ *
+ * 已弃用的功能。使用“pg_trgm.similarity_threshold”GUC 变量代替此函数。
  */
 Datum
 show_limit(PG_FUNCTION_ARGS)
@@ -290,6 +335,8 @@ comp_trgm(const void *a, const void *b)
 /*
  * Finds first word in string, returns pointer to the word,
  * endword points to the character after word
+ *
+ * 查找字符串中的第一个单词，返回指向该单词的指针，endword 指向单词后的字符
  */
 static char *
 find_word(char *str, int lenstr, char **endword)
@@ -326,6 +373,8 @@ find_word(char *str, int lenstr, char **endword)
  * Reduce a trigram (three possibly multi-byte characters) to a trgm,
  * which is always exactly three bytes.  If we have three single-byte
  * characters, we just use them as-is; otherwise we form a hash value.
+ *
+ * 将 trigram（三个可能的多字节字符）简化为 trgm，它始终恰好是三个字节。  如果我们有三个单字节字符，我们就按原样使用它们；否则我们形成一个哈希值。
  */
 void
 compact_trigram(trgm *tptr, char *str, int bytelen)
@@ -344,6 +393,8 @@ compact_trigram(trgm *tptr, char *str, int bytelen)
 
 		/*
 		 * use only 3 upper bytes from crc, hope, it's good enough hashing
+		 *
+		 * 仅使用 crc 中的 3 个高字节，希望它的哈希值足够好
 		 */
 		CPTRGM(tptr, &crc);
 	}
@@ -351,6 +402,8 @@ compact_trigram(trgm *tptr, char *str, int bytelen)
 
 /*
  * Adds trigrams from the word in 'str' (already padded if necessary).
+ *
+ * 添加“str”中单词的三元组（如有必要，已填充）。
  */
 static void
 make_trigrams(growable_trgm_array *dst, char *str, int bytelen)
@@ -361,7 +414,10 @@ make_trigrams(growable_trgm_array *dst, char *str, int bytelen)
 	if (bytelen < 3)
 		return;
 
-	/* max number of trigrams = strlen - 2 */
+	/* max number of trigrams = strlen - 2
+	 *
+	 * 三元组的最大数量 = strlen - 2
+	 */
 	enlarge_trgm_array(dst, bytelen - 2);
 	tptr = GETARR(dst->datum) + dst->length;
 
@@ -383,6 +439,8 @@ make_trigrams(growable_trgm_array *dst, char *str, int bytelen)
 
 		/*
 		 * Fast path as long as there are no multibyte characters
+		 *
+		 * 只要没有多字节字符即可快速路径
 		 */
 		if (!IS_HIGHBIT_SET(ptr[0]) && !IS_HIGHBIT_SET(ptr[1]))
 		{
@@ -414,8 +472,12 @@ make_trigrams(growable_trgm_array *dst, char *str, int bytelen)
 		/*
 		 * Slow path to handle any remaining multibyte characters
 		 *
+		 * 处理任何剩余多字节字符的慢速路径
+		 *
 		 * As we go, 'ptr' points to the beginning of the current
 		 * three-character string and 'endptr' points to just past it.
+		 *
+		 * 在我们进行过程中，“ptr”指向当前三字符字符串的开头，“endptr”指向刚刚过去的字符串。
 		 */
 		endptr = ptr + lenfirst + lenmiddle + lenlast;
 		while (endptr <= str + bytelen)
@@ -423,7 +485,10 @@ make_trigrams(growable_trgm_array *dst, char *str, int bytelen)
 			compact_trigram(tptr, ptr, endptr - ptr);
 			tptr++;
 
-			/* Advance to the next character */
+			/* Advance to the next character
+			 *
+			 * 前进到下一个字符
+			 */
 			if (endptr == str + bytelen)
 				break;
 			ptr += lenfirst;
@@ -442,9 +507,13 @@ done:
 /*
  * Make array of trigrams without sorting and removing duplicate items.
  *
+ * 制作三元组数组，无需排序和删除重复项。
+ *
  * dst: where to return the array of trigrams.
  * str: source string, of length slen bytes.
  * bounds_p: where to return bounds of trigrams (if needed).
+ *
+ * dst：返回三元组数组的位置。 str：源字符串，长度为 slen 字节。 bounds_p：返回三元组边界的位置（如果需要）。
  */
 static void
 generate_trgm_only(growable_trgm_array *dst, char *str, int slen, TrgmBound **bounds_p)
@@ -462,6 +531,8 @@ generate_trgm_only(growable_trgm_array *dst, char *str, int slen, TrgmBound **bo
 	/*
 	 * If requested, allocate an array for the bounds, with the same size as
 	 * the trigram array.
+	 *
+	 * 如果需要，请为边界分配一个数组，其大小与三元组数组相同。
 	 */
 	if (bounds_p)
 	{
@@ -475,10 +546,14 @@ generate_trgm_only(growable_trgm_array *dst, char *str, int slen, TrgmBound **bo
 	/*
 	 * Allocate a buffer for case-folded, blank-padded words.
 	 *
+	 * 为大小写折叠、空白填充的单词分配一个缓冲区。
+	 *
 	 * As an initial guess, allocate a buffer large enough to hold the
 	 * original string with padding, which is always enough when compiled with
 	 * !IGNORECASE.  If the case-folding produces a string longer than the
 	 * original, we'll grow the buffer.
+	 *
+	 * 作为最初的猜测，分配一个足够大的缓冲区来容纳带有填充的原始字符串，当使用 !IGNORECASE 编译时，这总是足够的。  如果大小写折叠产生的字符串比原始字符串长，我们将增加缓冲区。
 	 */
 	buflen = (size_t) slen + 4;
 	buf = (char *) palloc(buflen);
@@ -494,7 +569,10 @@ generate_trgm_only(growable_trgm_array *dst, char *str, int slen, TrgmBound **bo
 	{
 		int			oldlen;
 
-		/* Convert word to lower case before extracting trigrams from it */
+		/* Convert word to lower case before extracting trigrams from it
+		 *
+		 * 在从中提取三元组之前将单词转换为小写
+		 */
 #ifdef IGNORECASE
 		{
 			char	   *lowered;
@@ -502,7 +580,10 @@ generate_trgm_only(growable_trgm_array *dst, char *str, int slen, TrgmBound **bo
 			lowered = str_tolower(bword, eword - bword, DEFAULT_COLLATION_OID);
 			bytelen = strlen(lowered);
 
-			/* grow the buffer if necessary */
+			/* grow the buffer if necessary
+			 *
+			 * 如有必要，增加缓冲区
+			 */
 			if (bytelen > buflen - 4)
 			{
 				pfree(buf);
@@ -526,7 +607,10 @@ generate_trgm_only(growable_trgm_array *dst, char *str, int slen, TrgmBound **bo
 		buf[LPADDING + bytelen] = ' ';
 		buf[LPADDING + bytelen + 1] = ' ';
 
-		/* Calculate trigrams marking their bounds if needed */
+		/* Calculate trigrams marking their bounds if needed
+		 *
+		 * 如果需要，计算标记其边界的三元组
+		 */
 		oldlen = dst->length;
 		make_trigrams(dst, buf, bytelen + LPADDING + RPADDING);
 		if (bounds)
@@ -548,9 +632,15 @@ generate_trgm_only(growable_trgm_array *dst, char *str, int slen, TrgmBound **bo
 /*
  * Make array of trigrams with sorting and removing duplicate items.
  *
+ * 通过排序和删除重复项来制作三元组数组。
+ *
  * str: source string, of length slen bytes.
  *
+ * str：源字符串，长度为 slen 字节。
+ *
  * Returns the sorted array of unique trigrams.
+ *
+ * 返回唯一三元组的排序数组。
  */
 TRGM *
 generate_trgm(char *str, int slen)
@@ -566,6 +656,8 @@ generate_trgm(char *str, int slen)
 
 	/*
 	 * Make trigrams unique.
+	 *
+	 * 使卦象独一无二。
 	 */
 	if (len > 1)
 	{
@@ -581,12 +673,18 @@ generate_trgm(char *str, int slen)
 /*
  * Make array of positional trigrams from two trigram arrays trg1 and trg2.
  *
+ * 从两个三元组数组 trg1 和 trg2 制作位置三元组数组。
+ *
  * trg1: trigram array of search pattern, of length len1. trg1 is required
  *		 word which positions don't matter and replaced with -1.
  * trg2: trigram array of text, of length len2. trg2 is haystack where we
  *		 search and have to store its positions.
  *
+ * trg1：搜索模式的三元组数组，长度为len1。 trg1 是必需的单词，其位置无关紧要，并替换为 -1。 trg2：文本三元组数组，长度为 len2。 trg2 是我们搜索并存储其位置的干草堆。
+ *
  * Returns concatenated trigram array.
+ *
+ * 返回串联的三元组数组。
  */
 static pos_trgm *
 make_positional_trgm(trgm *trg1, int len1, trgm *trg2, int len2)
@@ -614,6 +712,8 @@ make_positional_trgm(trgm *trg1, int len1, trgm *trg2, int len2)
 
 /*
  * Compare position trigrams: compare trigrams first and position second.
+ *
+ * 比较位置卦：先比较卦，再比较位置。
  */
 static int
 comp_ptrgm(const void *v1, const void *v2)
@@ -634,6 +734,8 @@ comp_ptrgm(const void *v1, const void *v2)
  * the string. Maximum similarity is only calculated only if the flag
  * WORD_SIMILARITY_CHECK_ONLY isn't set.
  *
+ * 迭代搜索功能，计算与字符串中单词的最大相似度。仅当未设置标志 WORD_SIMILARITY_CHECK_ONLY 时才计算最大相似度。
+ *
  * trg2indexes: array which stores indexes of the array "found".
  * found: array which stores true of false values.
  * ulen1: count of unique trigrams of array "trg1".
@@ -642,7 +744,11 @@ comp_ptrgm(const void *v1, const void *v2)
  * flags: set of boolean flags parameterizing similarity calculation.
  * bounds: whether each trigram is left/right bound of word.
  *
+ * trg2indexes：存储“找到”数组的索引的数组。发现：存储 true 或 false 值的数组。 ulen1：数组“trg1”的唯一三元组的计数。 len2：数组“trg2”和数组“trg2indexes”的长度。 len：“找到”的数组的长度。 flags：参数化相似度计算的布尔标志集。 bounds：每个三元组是否是单词的左/右边界。
+ *
  * Returns word similarity.
+ *
+ * 返回单词相似度。
  */
 static float4
 iterate_word_similarity(int *trg2indexes,
@@ -665,7 +771,10 @@ iterate_word_similarity(int *trg2indexes,
 
 	Assert(bounds || !(flags & WORD_SIMILARITY_STRICT));
 
-	/* Select appropriate threshold */
+	/* Select appropriate threshold
+	 *
+	 * 选择合适的阈值
+	 */
 	threshold = (flags & WORD_SIMILARITY_STRICT) ?
 		strict_word_similarity_threshold :
 		word_similarity_threshold;
@@ -674,10 +783,15 @@ iterate_word_similarity(int *trg2indexes,
 	 * Consider first trigram as initial lower bound for strict word
 	 * similarity, or initialize it later with first trigram present for plain
 	 * word similarity.
+	 *
+	 * 将第一个三元组视为严格单词相似性的初始下限，或者稍后使用第一个三元组来初始化它以实现简单的单词相似性。
 	 */
 	lower = (flags & WORD_SIMILARITY_STRICT) ? 0 : -1;
 
-	/* Memorise last position of each trigram */
+	/* Memorise last position of each trigram
+	 *
+	 * 记住每个卦的最后位置
+	 */
 	lastpos = (int *) palloc(sizeof(int) * len);
 	memset(lastpos, -1, sizeof(int) * len);
 
@@ -687,10 +801,16 @@ iterate_word_similarity(int *trg2indexes,
 
 		CHECK_FOR_INTERRUPTS();
 
-		/* Get index of next trigram */
+		/* Get index of next trigram
+		 *
+		 * 获取下一个三元组的索引
+		 */
 		trgindex = trg2indexes[i];
 
-		/* Update last position of this trigram */
+		/* Update last position of this trigram
+		 *
+		 * 更新该三元组的最后一个位置
+		 */
 		if (lower >= 0 || found[trgindex])
 		{
 			if (lastpos[trgindex] < 0)
@@ -706,6 +826,8 @@ iterate_word_similarity(int *trg2indexes,
 		 * Adjust upper bound if trigram is upper bound of word for strict
 		 * word similarity, or if trigram is present in required substring for
 		 * plain word similarity
+		 *
+		 * 如果三元组是严格单词相似性的单词上限，或者如果三元组出现在普通单词相似性所需的子字符串中，则调整上限
 		 */
 		if ((flags & WORD_SIMILARITY_STRICT) ? (bounds[i] & TRGM_BOUND_RIGHT)
 			: found[trgindex])
@@ -724,7 +846,10 @@ iterate_word_similarity(int *trg2indexes,
 
 			smlr_cur = CALCSML(count, ulen1, ulen2);
 
-			/* Also try to adjust lower bound for greater similarity */
+			/* Also try to adjust lower bound for greater similarity
+			 *
+			 * 还尝试调整下限以获得更大的相似性
+			 */
 			tmp_count = count;
 			tmp_ulen2 = ulen2;
 			prev_lower = lower;
@@ -737,6 +862,8 @@ iterate_word_similarity(int *trg2indexes,
 				 * Adjust lower bound only if trigram is lower bound of word
 				 * for strict word similarity, or consider every trigram as
 				 * lower bound for plain word similarity.
+				 *
+				 * 仅当三元组是严格单词相似度的单词下限时才调整下限，或者将每个三元组视为普通单词相似度的下限。
 				 */
 				if (!(flags & WORD_SIMILARITY_STRICT)
 					|| (bounds[tmp_lower] & TRGM_BOUND_LEFT))
@@ -754,6 +881,8 @@ iterate_word_similarity(int *trg2indexes,
 					 * If we only check that word similarity is greater than
 					 * threshold we do not need to calculate a maximum
 					 * similarity.
+					 *
+					 * 如果我们只检查单词相似度大于阈值，我们不需要计算最大相似度。
 					 */
 					if ((flags & WORD_SIMILARITY_CHECK_ONLY)
 						&& smlr_cur >= threshold)
@@ -774,6 +903,8 @@ iterate_word_similarity(int *trg2indexes,
 			/*
 			 * if we only check that word similarity is greater than threshold
 			 * we do not need to calculate a maximum similarity.
+			 *
+			 * 如果我们只检查单词相似度大于阈值，我们不需要计算最大相似度。
 			 */
 			if ((flags & WORD_SIMILARITY_CHECK_ONLY) && smlr_max >= threshold)
 				break;
@@ -799,6 +930,8 @@ iterate_word_similarity(int *trg2indexes,
  * This function prepare two arrays: "trg2indexes" and "found". Then this arrays
  * are used to calculate word similarity using iterate_word_similarity().
  *
+ * 计算单词相似度。该函数准备两个数组：“trg2indexes”和“found”。然后使用该数组使用 iterate_word_similarity() 计算单词相似度。
+ *
  * "trg2indexes" is array which stores indexes of the array "found".
  * In other words:
  * trg2indexes[j] = i;
@@ -806,11 +939,17 @@ iterate_word_similarity(int *trg2indexes,
  * If found[i] == true then there is trigram trg2[j] in array "trg1".
  * If found[i] == false then there is not trigram trg2[j] in array "trg1".
  *
+ * “trg2indexes”是存储数组“found”的索引的数组。换句话说： trg2indexes[j] = i;发现[i] =真（或假）；如果 find[i] == true 则数组“trg1”中有 trigram trg2[j]。如果found[i​​] == false，则数组“trg1”中不存在trigram trg2[j]。
+ *
  * str1: search pattern string, of length slen1 bytes.
  * str2: text in which we are looking for a word, of length slen2 bytes.
  * flags: set of boolean flags parameterizing similarity calculation.
  *
+ * str1：搜索模式字符串，长度为 slen1 字节。 str2：我们要在其中查找长度为 slen2 字节的单词的文本。 flags：参数化相似度计算的布尔标志集。
+ *
  * Returns word similarity.
+ *
+ * 返回单词相似度。
  */
 static float4
 calc_word_similarity(char *str1, int slen1, char *str2, int slen2,
@@ -830,7 +969,10 @@ calc_word_similarity(char *str1, int slen1, char *str2, int slen2,
 	float4		result;
 	TrgmBound  *bounds = NULL;
 
-	/* Make positional trigrams */
+	/* Make positional trigrams
+	 *
+	 * 制作方位卦
+	 */
 
 	generate_trgm_only(&trg1, str1, slen1, NULL);
 	len1 = trg1.length;
@@ -847,6 +989,8 @@ calc_word_similarity(char *str1, int slen1, char *str2, int slen2,
 	/*
 	 * Merge positional trigrams array: enumerate each trigram and find its
 	 * presence in required word.
+	 *
+	 * 合并位置三元组数组：枚举每个三元组并查找其在所需单词中的存在。
 	 */
 	trg2indexes = (int *) palloc(sizeof(int) * len2);
 	found = (bool *) palloc0(sizeof(bool) * len);
@@ -879,7 +1023,10 @@ calc_word_similarity(char *str1, int slen1, char *str2, int slen2,
 	if (found[j])
 		ulen1++;
 
-	/* Run iterative procedure to find maximum similarity with word */
+	/* Run iterative procedure to find maximum similarity with word
+	 *
+	 * 运行迭代过程以找到与单词的最大相似度
+	 */
 	result = iterate_word_similarity(trg2indexes, found, ulen1, len2, len,
 									 flags, bounds);
 
@@ -895,15 +1042,23 @@ calc_word_similarity(char *str1, int slen1, char *str2, int slen2,
  * Extract the next non-wildcard part of a search string, i.e. a word bounded
  * by '_' or '%' meta-characters, non-word characters or string end.
  *
+ * 提取搜索字符串的下一个非通配符部分，即由“_”或“%”元字符、非单词字符或字符串结尾界定的单词。
+ *
  * str: source string, of length lenstr bytes (need not be null-terminated)
  * buf: where to return the substring (must be long enough)
  * *bytelen: receives byte length of the found substring
  *
+ * str：源字符串，长度lenstr字节（不需要以空终止）buf：返回子字符串的位置（必须足够长）*bytelen：接收找到的子字符串的字节长度
+ *
  * Returns pointer to end+1 of the found substring in the source string.
  * Returns NULL if no word found (in which case buf, bytelen is not set)
  *
+ * 返回指向源字符串中找到的子字符串的 end+1 的指针。如果没有找到单词则返回 NULL（在这种情况下 buf、bytelen 未设置）
+ *
  * If the found word is bounded by non-word characters or string boundaries
  * then this function will include corresponding padding spaces into buf.
+ *
+ * 如果找到的单词受到非单词字符或字符串边界的限制，则该函数会将相应的填充空格包含到 buf 中。
  */
 static const char *
 get_wildcard_part(const char *str, int lenstr,
@@ -923,6 +1078,8 @@ get_wildcard_part(const char *str, int lenstr,
 	 * was wildcard meta-character.  Note that the in_escape state persists
 	 * from this loop to the next one, since we may exit at a word character
 	 * that is in_escape.
+	 *
+	 * 找到第一个单词字符，记住前面的字符是否是通配符元字符。  请注意，in_escape 状态从此循环持续到下一个循环，因为我们可能会在 in_escape 的单词字符处退出。
 	 */
 	while (beginword < endstr)
 	{
@@ -951,6 +1108,8 @@ get_wildcard_part(const char *str, int lenstr,
 
 	/*
 	 * Handle string end.
+	 *
+	 * 处理字符串末端。
 	 */
 	if (beginword - str >= lenstr)
 		return NULL;
@@ -958,6 +1117,8 @@ get_wildcard_part(const char *str, int lenstr,
 	/*
 	 * Add left padding spaces if preceding character wasn't wildcard
 	 * meta-character.
+	 *
+	 * 如果前面的字符不是通配符元字符，则添加左侧填充空格。
 	 */
 	if (!in_leading_wildcard_meta)
 	{
@@ -972,6 +1133,8 @@ get_wildcard_part(const char *str, int lenstr,
 	/*
 	 * Copy data into buf until wildcard meta-character, non-word character or
 	 * string boundary.  Strip escapes during copy.
+	 *
+	 * 将数据复制到 buf 中，直到通配符元字符、非单词字符或字符串边界。  复制期间剥离转义符。
 	 */
 	endword = beginword;
 	while (endword < endstr)
@@ -991,6 +1154,8 @@ get_wildcard_part(const char *str, int lenstr,
 				 * escaped char, so that subsequent get_wildcard_part will
 				 * restart from the escape character.  We assume here that
 				 * escape chars are single-byte.
+				 *
+				 * 当停在转义字符处时，将 endword 备份到转义字符，以便后续的 get_wildcard_part 将从转义字符重新开始。  我们在这里假设转义字符是单字节的。
 				 */
 				endword--;
 				break;
@@ -1020,6 +1185,8 @@ get_wildcard_part(const char *str, int lenstr,
 	/*
 	 * Add right padding spaces if next character isn't wildcard
 	 * meta-character.
+	 *
+	 * 如果下一个字符不是通配符元字符，请添加右侧填充空格。
 	 */
 	if (!in_trailing_wildcard_meta)
 	{
@@ -1038,9 +1205,13 @@ get_wildcard_part(const char *str, int lenstr,
 /*
  * Generates trigrams for wildcard search string.
  *
+ * 为通配符搜索字符串生成三元组。
+ *
  * Returns array of trigrams that must occur in any string that matches the
  * wildcard string.  For example, given pattern "a%bcd%" the trigrams
  * " a", "bcd" would be extracted.
+ *
+ * 返回必须出现在与通配符字符串匹配的任何字符串中的三元组数组。  例如，给定模式“a%bcd%”，将提取三元组“a”、“bcd”。
  */
 TRGM *
 generate_wildcard_trgm(const char *str, int slen)
@@ -1062,11 +1233,16 @@ generate_wildcard_trgm(const char *str, int slen)
 
 	init_trgm_array(&arr, slen);
 
-	/* Allocate a buffer for blank-padded, but not yet case-folded, words */
+	/* Allocate a buffer for blank-padded, but not yet case-folded, words
+	 *
+	 * 为空白填充但尚未大小写折叠的单词分配缓冲区
+	 */
 	buf = palloc(sizeof(char) * (slen + 4));
 
 	/*
 	 * Extract trigrams from each substring extracted by get_wildcard_part.
+	 *
+	 * 从 get_wildcard_part 提取的每个子字符串中提取三元组。
 	 */
 	eword = str;
 	while ((eword = get_wildcard_part(eword, slen - (eword - str),
@@ -1083,6 +1259,8 @@ generate_wildcard_trgm(const char *str, int slen)
 
 		/*
 		 * count trigrams
+		 *
+		 * 数卦
 		 */
 		make_trigrams(&arr, word, bytelen);
 
@@ -1095,6 +1273,8 @@ generate_wildcard_trgm(const char *str, int slen)
 
 	/*
 	 * Make trigrams unique.
+	 *
+	 * 使卦象独一无二。
 	 */
 	trg = arr.datum;
 	len = arr.length;
@@ -1181,7 +1361,10 @@ cnt_sml(TRGM *trg1, TRGM *trg2, bool inexact)
 	len1 = ARRNELEM(trg1);
 	len2 = ARRNELEM(trg2);
 
-	/* explicit test is needed to avoid 0/0 division when both lengths are 0 */
+	/* explicit test is needed to avoid 0/0 division when both lengths are 0
+	 *
+	 * 当两个长度都为 0 时，需要显式测试以避免 0/0 除法
+	 */
 	if (len1 <= 0 || len2 <= 0)
 		return (float4) 0.0;
 
@@ -1205,6 +1388,8 @@ cnt_sml(TRGM *trg1, TRGM *trg2, bool inexact)
 	 * If inexact then len2 is equal to count, because we don't know actual
 	 * length of second string in inexact search and we can assume that count
 	 * is a lower bound of len2.
+	 *
+	 * 如果不精确，则 len2 等于 count，因为我们不知道不精确搜索中第二个字符串的实际长度，并且我们可以假设 count 是 len2 的下限。
 	 */
 	return CALCSML(count, len1, inexact ? count : len2);
 }
@@ -1213,6 +1398,8 @@ cnt_sml(TRGM *trg1, TRGM *trg2, bool inexact)
 /*
  * Returns whether trg2 contains all trigrams in trg1.
  * This relies on the trigram arrays being sorted.
+ *
+ * 返回 trg2 是否包含 trg1 中的所有三元组。这依赖于排序的三元组数组。
  */
 bool
 trgm_contained_by(TRGM *trg1, TRGM *trg2)
@@ -1252,6 +1439,8 @@ trgm_contained_by(TRGM *trg1, TRGM *trg2)
  * Return a palloc'd boolean array showing, for each trigram in "query",
  * whether it is present in the trigram array "key".
  * This relies on the "key" array being sorted, but "query" need not be.
+ *
+ * 返回一个 palloc'd 布尔数组，显示“query”中的每个三元组是否存在于三元组“key”中。这依赖于正在排序的“key”数组，但“query”则不需要。
  */
 bool *
 trgm_presence_map(TRGM *query, TRGM *key)
@@ -1265,7 +1454,10 @@ trgm_presence_map(TRGM *query, TRGM *key)
 
 	result = (bool *) palloc0(lenq * sizeof(bool));
 
-	/* for each query trigram, do a binary search in the key array */
+	/* for each query trigram, do a binary search in the key array
+	 *
+	 * 对于每个查询三元组，在键数组中进行二分搜索
+	 */
 	for (i = 0; i < lenq; i++)
 	{
 		int			lo = 0;

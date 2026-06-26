@@ -1,8 +1,12 @@
 --
 -- Blowfish cipher
 --
+-- 河豚密码
+--
 
 -- some standard Blowfish testvalues
+--
+-- 一些标准 Blowfish 测试值
 SELECT encrypt('\x0000000000000000', '\x0000000000000000', 'bf-ecb/pad:none');
 SELECT encrypt('\xffffffffffffffff', '\xffffffffffffffff', 'bf-ecb/pad:none');
 SELECT encrypt('\x1000000000000001', '\x3000000000000000', 'bf-ecb/pad:none');
@@ -15,16 +19,22 @@ SELECT encrypt('\xffffffffffffffff', '\x0000000000000000', 'bf-ecb/pad:none');
 SELECT encrypt('\xfedcba9876543210', '\xf0e1d2c3b4a5968778695a4b3c2d1e0f', 'bf-ecb/pad:none');
 
 -- with padding
+--
+-- 带衬垫
 SELECT encrypt('\x01234567890123456789', '\x33443344334433443344334433443344', 'bf-ecb');
 
 -- cbc
 
 -- 28 bytes key
+--
+-- 28字节密钥
 SELECT encrypt('\x6b77b4d63006dee605b156e27403979358deb9e7154616d959f1652bd5',
                '\x37363534333231204e6f77206973207468652074696d6520666f7220',
                'bf-cbc');
 
 -- 29 bytes key
+--
+-- 29字节密钥
 SELECT encrypt('\x6b77b4d63006dee605b156e27403979358deb9e7154616d959f1652bd5ff92cc',
                '\x37363534333231204e6f77206973207468652074696d6520666f722000',
                'bf-cbc');
@@ -35,10 +45,16 @@ SELECT encrypt('\xfedcba9876543210',
                'bf-ecb/pad:none');
 
 -- empty data
+--
+-- 空数据
 select encrypt('', 'foo', 'bf');
 -- 10 bytes key
+--
+-- 10字节密钥
 select encrypt('foo', '0123456789', 'bf');
 -- 22 bytes key
+--
+-- 22字节密钥
 select encrypt('foo', '0123456789012345678901', 'bf');
 
 -- decrypt
@@ -49,5 +65,7 @@ select encrypt_iv('foo', '0123456', 'abcd', 'bf');
 select encode(decrypt_iv('\x95c7e89322525d59', '0123456', 'abcd', 'bf'), 'escape');
 
 -- long message
+--
+-- 长消息
 select encrypt('Lets try a longer message.', '0123456789', 'bf');
 select encode(decrypt(encrypt('Lets try a longer message.', '0123456789', 'bf'), '0123456789', 'bf'), 'escape');

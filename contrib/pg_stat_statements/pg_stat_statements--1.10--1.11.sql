@@ -1,14 +1,22 @@
 /* contrib/pg_stat_statements/pg_stat_statements--1.10--1.11.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION pg_stat_statements UPDATE TO '1.11'" to load this file. \quit
 
-/* Drop old versions */
+/* Drop old versions
+ *
+ * 删除旧版本
+ */
 DROP VIEW pg_stat_statements;
 DROP FUNCTION pg_stat_statements(boolean);
 DROP FUNCTION pg_stat_statements_reset(Oid, Oid, bigint);
 
-/* Now redefine */
+/* Now redefine
+ *
+ * 现在重新定义
+ */
 CREATE FUNCTION pg_stat_statements(IN showtext boolean,
     OUT userid oid,
     OUT dbid oid,
@@ -79,4 +87,6 @@ AS 'MODULE_PATHNAME', 'pg_stat_statements_reset_1_11'
 LANGUAGE C STRICT PARALLEL SAFE;
 
 -- Don't want this to be available to non-superusers.
+--
+-- 不希望非超级用户可以使用此功能。
 REVOKE ALL ON FUNCTION pg_stat_statements_reset(Oid, Oid, bigint, boolean) FROM PUBLIC;

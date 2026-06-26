@@ -164,7 +164,10 @@ _pgp_read_public_key(PullFilter *pkt, PGP_PubKey **pk_p)
 	if (res < 0)
 		return res;
 
-	/* get version */
+	/* get version
+	 *
+	 * 获取版本
+	 */
 	GETBYTE(pkt, pk->ver);
 	if (pk->ver != 4)
 	{
@@ -172,12 +175,18 @@ _pgp_read_public_key(PullFilter *pkt, PGP_PubKey **pk_p)
 		goto out;
 	}
 
-	/* read time */
+	/* read time
+	 *
+	 * 阅读时间
+	 */
 	res = pullf_read_fixed(pkt, 4, pk->time);
 	if (res < 0)
 		goto out;
 
-	/* pubkey algorithm */
+	/* pubkey algorithm
+	 *
+	 * 公钥算法
+	 */
 	GETBYTE(pkt, pk->algo);
 
 	switch (pk->algo)
@@ -348,13 +357,18 @@ process_secret_key(PullFilter *pkt, PGP_PubKey **pk_p,
 	PGP_S2K		s2k;
 	PGP_PubKey *pk;
 
-	/* first read public key part */
+	/* first read public key part
+	 *
+	 * 首先阅读公钥部分
+	 */
 	res = _pgp_read_public_key(pkt, &pk);
 	if (res < 0)
 		return res;
 
 	/*
 	 * is secret key encrypted?
+	 *
+	 * 密钥是否已加密？
 	 */
 	GETBYTE(pkt, hide_type);
 	if (hide_type == HIDE_SHA1 || hide_type == HIDE_CKSUM)
@@ -382,6 +396,8 @@ process_secret_key(PullFilter *pkt, PGP_PubKey **pk_p,
 
 		/*
 		 * create decrypt filter
+		 *
+		 * 创建解密过滤器
 		 */
 		res = pgp_cfb_create(&cfb, cipher_algo, s2k.key, s2k.key_len, 0, iv);
 		if (res < 0)
@@ -401,7 +417,10 @@ process_secret_key(PullFilter *pkt, PGP_PubKey **pk_p,
 		return PXE_PGP_KEYPKT_CORRUPT;
 	}
 
-	/* read secret key */
+	/* read secret key
+	 *
+	 * 读取密钥
+	 */
 	switch (pk->algo)
 	{
 		case PGP_PUB_RSA_SIGN:
@@ -430,7 +449,10 @@ process_secret_key(PullFilter *pkt, PGP_PubKey **pk_p,
 			px_debug("unknown public algo: %d", pk->algo);
 			res = PXE_PGP_KEYPKT_CORRUPT;
 	}
-	/* read checksum / sha1 */
+	/* read checksum / sha1
+	 *
+	 * 读取校验和/sha1
+	 */
 	if (res >= 0)
 	{
 		if (hide_type == HIDE_SHA1)
@@ -469,7 +491,11 @@ internal_read_key(PullFilter *src, PGP_PubKey **pk_p,
 	/*
 	 * Search for encryption key.
 	 *
+	 * 搜索加密密钥。
+	 *
 	 * Error out on anything fancy.
+	 *
+	 * 任何花哨的事情都会出错。
 	 */
 	while (1)
 	{

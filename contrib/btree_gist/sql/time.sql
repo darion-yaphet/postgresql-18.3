@@ -1,4 +1,6 @@
 -- time check
+--
+-- 时间检查
 
 CREATE TABLE timetmp (a time);
 

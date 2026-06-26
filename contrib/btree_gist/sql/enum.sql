@@ -1,9 +1,15 @@
 -- enum check
+--
+-- 枚举检查
 
 create type rainbow as enum ('r','o','g','b','i','v');
 
 -- enum values added later take some different codepaths internally,
+--
+-- 稍后添加的枚举值在内部采用一些不同的代码路径，
 -- so make sure we have coverage for those too
+--
+-- 所以请确保我们也涵盖这些内容
 alter type rainbow add value 'y' before 'g';
 
 CREATE TABLE enumtmp (a rainbow);

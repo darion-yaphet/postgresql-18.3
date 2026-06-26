@@ -9,7 +9,10 @@ PG_MODULE_MAGIC_EXT(
 					.version = PG_VERSION
 );
 
-/* Linkage to functions in hstore module */
+/* Linkage to functions in hstore module
+ *
+ * 与 hstore 模块中函数的链接
+ */
 typedef HStore *(*hstoreUpgrade_t) (Datum orig);
 static hstoreUpgrade_t hstoreUpgrade_p;
 typedef int (*hstoreUniquePairs_t) (Pairs *a, int32 l, int32 *buflen);
@@ -24,11 +27,16 @@ static hstoreCheckValLen_t hstoreCheckValLen_p;
 
 /*
  * Module initialize function: fetch function pointers for cross-module calls.
+ *
+ * 模块初始化函数：获取跨模块调用的函数指针。
  */
 void
 _PG_init(void)
 {
-	/* Asserts verify that typedefs above match original declarations */
+	/* Asserts verify that typedefs above match original declarations
+	 *
+	 * 断言验证上面的 typedef 是否与原始声明匹配
+	 */
 	AssertVariableIsOfType(&hstoreUpgrade, hstoreUpgrade_t);
 	hstoreUpgrade_p = (hstoreUpgrade_t)
 		load_external_function("$libdir/hstore", "hstoreUpgrade",
@@ -52,7 +60,10 @@ _PG_init(void)
 }
 
 
-/* These defines must be after the module init function */
+/* These defines must be after the module init function
+ *
+ * 这些定义必须位于模块初始化函数之后
+ */
 #define hstoreUpgrade hstoreUpgrade_p
 #define hstoreUniquePairs hstoreUniquePairs_p
 #define hstorePairs hstorePairs_p
@@ -108,11 +119,17 @@ plperl_to_hstore(PG_FUNCTION_ARGS)
 	HStore	   *out;
 	Pairs	   *pairs;
 
-	/* Dereference references recursively. */
+	/* Dereference references recursively.
+	 *
+	 * 递归取消引用引用。
+	 */
 	while (SvROK(in))
 		in = SvRV(in);
 
-	/* Now we must have a hash. */
+	/* Now we must have a hash.
+	 *
+	 * 现在我们必须有一个哈希值。
+	 */
 	if (SvTYPE(in) != SVt_PVHV)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),

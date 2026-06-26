@@ -1,6 +1,8 @@
 --
 -- SELECT statements
 --
+-- 选择语句
+--
 
 CREATE EXTENSION pg_stat_statements;
 SET pg_stat_statements.track_utility = FALSE;
@@ -10,10 +12,16 @@ SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 --
 -- simple and compound statements
 --
+-- 简单陈述和复合陈述
+--
 SELECT 1 AS "int";
 
 -- LIMIT and OFFSET patterns
+--
+-- LIMIT 和 OFFSET 模式
 -- Try some query permutations which once produced identical query IDs
+--
+-- 尝试一些曾经产生相同查询 ID 的查询排列
 SELECT 1 AS "int" LIMIT 1;
 SELECT 1 AS "int" LIMIT 2;
 SELECT 1 AS "int" OFFSET 1;
@@ -26,15 +34,24 @@ SELECT 1 AS "int" OFFSET 1 FETCH FIRST 2 ROW ONLY;
 SELECT 1 AS "int" OFFSET 2 FETCH FIRST 3 ROW ONLY;
 
 -- DISTINCT and ORDER BY patterns
+--
+-- DISTINCT 和 ORDER BY 模式
 -- Try some query permutations which once produced identical query IDs
+--
+-- 尝试一些曾经产生相同查询 ID 的查询排列
 SELECT DISTINCT 1 AS "int";
 SELECT DISTINCT 2 AS "int";
 SELECT 1 AS "int" ORDER BY 1;
 SELECT 2 AS "int" ORDER BY 1;
 
-/* this comment should not appear in the output */
+/* this comment should not appear in the output
+ *
+ * 该注释不应出现在输出中
+ */
 SELECT 'hello'
   -- but this one will appear
+  --
+  -- 但这个会出现
   AS "text";
 
 SELECT 'world' AS "text";
@@ -46,23 +63,33 @@ SELECT 'hello' AS "text";
 COMMIT;
 
 -- compound transaction
+--
+-- 复合交易
 BEGIN \;
 SELECT 2.0 AS "float" \;
 SELECT 'world' AS "text" \;
 COMMIT;
 
 -- compound with empty statements and spurious leading spacing
+--
+-- 与空语句和虚假前导间距复合
 \;\;   SELECT 3 + 3 \;\;\;   SELECT ' ' || ' !' \;\;   SELECT 1 + 4 \;;
 
 -- non ;-terminated statements
+--
+-- 非;终止语句
 SELECT 1 + 1 + 1 AS "add" \gset
 SELECT :add + 1 + 1 AS "add" \;
 SELECT :add + 1 + 1 AS "add" \gset
 
 -- set operator
+--
+-- 集合运算符
 SELECT 1 AS i UNION SELECT 2 ORDER BY i;
 
 -- ? operator
+--
+-- ？操作员
 select '{"a":1, "b":2}'::jsonb ? 'b';
 
 -- cte
@@ -72,6 +99,8 @@ WITH t(f) AS (
   SELECT f FROM t ORDER BY f;
 
 -- prepared statement with parameter
+--
+-- 带参数的准备好的语句
 PREPARE pgss_test (int) AS SELECT $1, 'test' LIMIT 1;
 EXECUTE pgss_test(1);
 DEALLOCATE pgss_test;
@@ -80,7 +109,11 @@ SELECT calls, rows, query FROM pg_stat_statements ORDER BY query COLLATE "C";
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- normalization of constants and parameters, with constant locations
+--
+-- 常量和参数的标准化，具有常量位置
 -- recorded one or more times.
+--
+-- 记录一次或多次。
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 SELECT WHERE '1' IN ('1'::int, '3'::int::text);
 SELECT WHERE (1, 2) IN ((1, 2), (2, 3));
@@ -88,7 +121,11 @@ SELECT WHERE (3, 4) IN ((5, 6), (8, 7));
 SELECT query, calls FROM pg_stat_statements ORDER BY query COLLATE "C";
 
 -- with the last element being an explicit function call with an argument, ensure
+--
+-- 最后一个元素是带有参数的显式函数调用，确保
 -- the normalization of the squashing interval is correct.
+--
+-- 挤压间隔的标准化是正确的。
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 SELECT WHERE 1 IN (1, int4(1), int4(2));
@@ -98,15 +135,21 @@ SELECT query, calls FROM pg_stat_statements ORDER BY query COLLATE "C";
 --
 -- queries with locking clauses
 --
+-- 带有锁定子句的查询
+--
 CREATE TABLE pgss_a (id integer PRIMARY KEY);
 CREATE TABLE pgss_b (id integer PRIMARY KEY, a_id integer REFERENCES pgss_a);
 
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- control query
+--
+-- 控制查询
 SELECT * FROM pgss_a JOIN pgss_b ON pgss_b.a_id = pgss_a.id;
 
 -- test range tables
+--
+-- 测试范围表
 SELECT * FROM pgss_a JOIN pgss_b ON pgss_b.a_id = pgss_a.id FOR UPDATE;
 SELECT * FROM pgss_a JOIN pgss_b ON pgss_b.a_id = pgss_a.id FOR UPDATE OF pgss_a;
 SELECT * FROM pgss_a JOIN pgss_b ON pgss_b.a_id = pgss_a.id FOR UPDATE OF pgss_b;
@@ -114,11 +157,15 @@ SELECT * FROM pgss_a JOIN pgss_b ON pgss_b.a_id = pgss_a.id FOR UPDATE OF pgss_a
 SELECT * FROM pgss_a JOIN pgss_b ON pgss_b.a_id = pgss_a.id FOR UPDATE OF pgss_b, pgss_a;
 
 -- test strengths
+--
+-- 测试优势
 SELECT * FROM pgss_a JOIN pgss_b ON pgss_b.a_id = pgss_a.id FOR NO KEY UPDATE;
 SELECT * FROM pgss_a JOIN pgss_b ON pgss_b.a_id = pgss_a.id FOR SHARE;
 SELECT * FROM pgss_a JOIN pgss_b ON pgss_b.a_id = pgss_a.id FOR KEY SHARE;
 
 -- test wait policies
+--
+-- 测试等待策略
 SELECT * FROM pgss_a JOIN pgss_b ON pgss_b.a_id = pgss_a.id FOR UPDATE NOWAIT;
 SELECT * FROM pgss_a JOIN pgss_b ON pgss_b.a_id = pgss_a.id FOR UPDATE SKIP LOCKED;
 
@@ -129,10 +176,14 @@ DROP TABLE pgss_a, pgss_b CASCADE;
 --
 -- access to pg_stat_statements_info view
 --
+-- 访问 pg_stat_statements_info 视图
+--
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 SELECT dealloc FROM pg_stat_statements_info;
 
 -- FROM [ONLY]
+--
+-- 来自[仅]
 CREATE TABLE tbl_inh(id integer);
 CREATE TABLE tbl_inh_1() INHERITS (tbl_inh);
 INSERT INTO tbl_inh_1 SELECT 1;
@@ -143,6 +194,8 @@ SELECT * FROM ONLY tbl_inh;
 SELECT COUNT(*) FROM pg_stat_statements WHERE query LIKE '%FROM%tbl_inh%';
 
 -- WITH TIES
+--
+-- 有领带
 CREATE TABLE limitoption AS SELECT 0 AS val FROM generate_series(1, 10);
 SELECT *
 FROM limitoption
@@ -159,6 +212,8 @@ FETCH FIRST 2 ROW ONLY;
 SELECT COUNT(*) FROM pg_stat_statements WHERE query LIKE '%FETCH FIRST%';
 
 -- GROUP BY, HAVING, GROUPING
+--
+-- 分组依据、拥有、分组
 SELECT COUNT(*) FROM (VALUES (1::INT, 2::INT)) AS t(a, b) GROUP BY a;
 SELECT COUNT(*) FROM (VALUES (1::INT, 2::INT)) AS t(a, b) GROUP BY b;
 SELECT COUNT(*) FROM (VALUES (1::INT, 2::INT)) AS t(a, b) GROUP BY a, b;
@@ -175,6 +230,8 @@ SELECT GROUPING(b) FROM (VALUES (1::INT, 2::INT)) AS t(a, b) GROUP BY b, a;
 SELECT calls, query FROM pg_stat_statements WHERE query LIKE '%GROUP BY%' ORDER BY query COLLATE "C";
 
 -- GROUP BY [DISTINCT]
+--
+-- 按[不同]分组
 SELECT a, b, c
 FROM (VALUES (1, 2, 3), (4, NULL, 6), (7, 8, 9)) AS t (a, b, c)
 GROUP BY ROLLUP(a, b), rollup(a, c)
@@ -187,6 +244,8 @@ ORDER BY a, b, c;
 SELECT COUNT(*) FROM pg_stat_statements WHERE query LIKE '%GROUP BY%ROLLUP%';
 
 -- GROUPING SET agglevelsup
+--
+-- 分组集 agglevelsup
 SELECT (
   SELECT (
     SELECT GROUPING(a,b) FROM (VALUES (1)) v2(c)
@@ -202,6 +261,8 @@ SELECT COUNT(*) FROM pg_stat_statements WHERE query LIKE '%SELECT GROUPING%';
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- Temporary table with same name, re-created.
+--
+-- 重新创建同名临时表。
 BEGIN;
   CREATE TEMP TABLE temp_t (id int) ON COMMIT DROP;
   SELECT * FROM temp_t;
@@ -214,21 +275,31 @@ SELECT calls, query FROM pg_stat_statements ORDER BY query COLLATE "C";
 SELECT pg_stat_statements_reset() IS NOT NULL AS t;
 
 -- search_path with various schemas and temporary tables
+--
+-- 具有各种模式和临时表的 search_path
 CREATE SCHEMA pgss_schema_1;
 CREATE SCHEMA pgss_schema_2;
 -- Same attributes.
+--
+-- 属性相同。
 CREATE TABLE pgss_schema_1.tab_search_same (a int, b int);
 CREATE TABLE pgss_schema_2.tab_search_same (a int, b int);
 CREATE TEMP TABLE tab_search_same (a int, b int);
 -- Different number of attributes, mapping types
+--
+-- 不同数量的属性、映射类型
 CREATE TABLE pgss_schema_1.tab_search_diff_1 (a int);
 CREATE TABLE pgss_schema_2.tab_search_diff_1 (a int, b int);
 CREATE TEMP TABLE tab_search_diff_1 (a int, b int, c int);
 -- Same number of attributes, different types
+--
+-- 属性数量相同，类型不同
 CREATE TABLE pgss_schema_1.tab_search_diff_2 (a int);
 CREATE TABLE pgss_schema_2.tab_search_diff_2 (a text);
 CREATE TEMP TABLE tab_search_diff_2 (a bigint);
 -- First permanent schema
+--
+-- 第一个永久模式
 SET search_path = 'pgss_schema_1';
 SELECT count(*) FROM tab_search_same;
 SELECT a, b FROM tab_search_same;
@@ -238,6 +309,8 @@ SELECT a FROM tab_search_diff_2 AS t1;
 SELECT a FROM tab_search_diff_2;
 SELECT a AS a1 FROM tab_search_diff_2;
 -- Second permanent schema
+--
+-- 第二个永久模式
 SET search_path = 'pgss_schema_2';
 SELECT count(*) FROM tab_search_same;
 SELECT a, b FROM tab_search_same;
@@ -247,6 +320,8 @@ SELECT a FROM tab_search_diff_2 AS t1;
 SELECT a FROM tab_search_diff_2;
 SELECT a AS a1 FROM tab_search_diff_2;
 -- Temporary schema
+--
+-- 临时架构
 SET search_path = 'pg_temp';
 SELECT count(*) FROM tab_search_same;
 SELECT a, b FROM tab_search_same;
@@ -257,6 +332,8 @@ SELECT a FROM tab_search_diff_2;
 SELECT a AS a1 FROM tab_search_diff_2;
 RESET search_path;
 -- Schema qualifications
+--
+-- 架构资格
 SELECT count(*) FROM pgss_schema_1.tab_search_same;
 SELECT a, b FROM pgss_schema_1.tab_search_same;
 SELECT count(*) FROM pgss_schema_2.tab_search_diff_1;

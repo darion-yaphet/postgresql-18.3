@@ -62,6 +62,8 @@ subdir('sepgsql')
 subdir('spi')
 subdir('sslinfo')
 # start-scripts doesn't contain build products
+#
+# 启动脚本不包含构建产品
 subdir('tablefunc')
 subdir('tcn')
 subdir('test_decoding')

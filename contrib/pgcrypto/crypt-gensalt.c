@@ -2,14 +2,20 @@
  * Written by Solar Designer and placed in the public domain.
  * See crypt_blowfish.c for more information.
  *
+ * 由 Solar Designer 编写并置于公共领域。请参阅 crypt_blowfish.c 了解更多信息。
+ *
  * contrib/pgcrypto/crypt-gensalt.c
  *
  * This file contains salt generation functions for the traditional and
  * other common crypt(3) algorithms, except for bcrypt which is defined
  * entirely in crypt_blowfish.c.
  *
+ * 该文件包含传统和其他常见 crypt(3) 算法的盐生成函数，但 bcrypt 除外，它完全在 crypt_blowfish.c 中定义。
+ *
  * Put bcrypt generator also here as crypt-blowfish.c
  * may not be compiled always.        -- marko
+ *
+ * 将 bcrypt 生成器也放在这里，因为 crypt-blowfish.c 可能并不总是被编译。        ——马科
  */
 
 #include "postgres.h"
@@ -188,6 +194,8 @@ _crypt_gensalt_blowfish_rn(unsigned long count,
 
 /*
  * Helper for _crypt_gensalt_sha256_rn and _crypt_gensalt_sha512_rn
+ *
+ * _crypt_gensalt_sha256_rn 和 _crypt_gensalt_sha512_rn 的帮助程序
  */
 static char *
 _crypt_gensalt_sha(unsigned long count,
@@ -197,7 +205,10 @@ _crypt_gensalt_sha(unsigned long count,
 	unsigned int result_bufsize = PX_SHACRYPT_SALT_BUF_LEN;
 	int			rc;
 
-	/* output buffer must be allocated with PX_MAX_SALT_LEN bytes */
+	/* output buffer must be allocated with PX_MAX_SALT_LEN bytes
+	 *
+	 * 输出缓冲区必须分配 PX_MAX_SALT_LEN 字节
+	 */
 	if (PX_MAX_SALT_LEN < result_bufsize)
 		ereport(ERROR,
 				errcode(ERRCODE_SYNTAX_ERROR),
@@ -206,27 +217,39 @@ _crypt_gensalt_sha(unsigned long count,
 	/*
 	 * Care must be taken to not exceed the buffer size allocated for the
 	 * input character buffer.
+	 *
+	 * 必须注意不要超过为输入字符缓冲区分配的缓冲区大小。
 	 */
 	if ((PX_SHACRYPT_SALT_MAX_LEN != size) || (output_size < size))
 		ereport(ERROR,
 				errcode(ERRCODE_INTERNAL_ERROR),
 				errmsg("invalid length of salt buffer"));
 
-	/* Skip magic bytes, set by callers */
+	/* Skip magic bytes, set by callers
+	 *
+	 * 跳过由调用者设置的魔法字节
+	 */
 	s_ptr += 3;
 	if ((rc = pg_snprintf(s_ptr, 18, "rounds=%lu$", count)) <= 0)
 		ereport(ERROR,
 				errcode(ERRCODE_INTERNAL_ERROR),
 				errmsg("cannot format salt string"));
 
-	/* s_ptr should now be positioned at the start of the salt string */
+	/* s_ptr should now be positioned at the start of the salt string
+	 *
+	 * s_ptr 现在应该位于盐字符串的开头
+	 */
 	s_ptr += rc;
 
 	/*
 	 * Normalize salt string
 	 *
+	 * 规范化盐字符串
+	 *
 	 * size of input buffer was checked above to not exceed
 	 * PX_SHACRYPT_SALT_LEN_MAX.
+	 *
+	 * 上面检查了输入缓冲区的大小不超过 PX_SHACRYPT_SALT_LEN_MAX。
 	 */
 	for (int i = 0; i < size; i++)
 	{
@@ -234,18 +257,27 @@ _crypt_gensalt_sha(unsigned long count,
 		s_ptr++;
 	}
 
-	/* We're done */
+	/* We're done
+	 *
+	 * 我们完成了
+	 */
 	return output;
 }
 
-/* gen_list->gen function for sha512 */
+/* gen_list->gen function for sha512
+ *
+ * sha512 的 gen_list->gen 函数
+ */
 char *
 _crypt_gensalt_sha512_rn(unsigned long count,
 						 char const *input, int size,
 						 char *output, int output_size)
 {
 	memset(output, 0, output_size);
-	/* set magic byte for sha512crypt */
+	/* set magic byte for sha512crypt
+	 *
+	 * 为 sha512crypt 设置魔术字节
+	 */
 	output[0] = '$';
 	output[1] = '6';
 	output[2] = '$';
@@ -253,14 +285,20 @@ _crypt_gensalt_sha512_rn(unsigned long count,
 	return _crypt_gensalt_sha(count, input, size, output, output_size);
 }
 
-/* gen_list->gen function for sha256 */
+/* gen_list->gen function for sha256
+ *
+ * sha256 的 gen_list->gen 函数
+ */
 char *
 _crypt_gensalt_sha256_rn(unsigned long count,
 						 const char *input, int size,
 						 char *output, int output_size)
 {
 	memset(output, 0, output_size);
-	/* set magic byte for sha256crypt */
+	/* set magic byte for sha256crypt
+	 *
+	 * 为 sha256crypt 设置魔术字节
+	 */
 	output[0] = '$';
 	output[1] = '5';
 	output[2] = '$';

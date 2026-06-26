@@ -3,21 +3,31 @@ SET synchronous_commit = on;
 
 SELECT 'init' FROM pg_create_logical_replication_slot('regression_slot', 'test_decoding');
 -- fail because of an already existing slot
+--
+-- 由于插槽已存在而失败
 SELECT 'init' FROM pg_create_logical_replication_slot('regression_slot', 'test_decoding');
 -- fail because of an invalid name
+--
+-- 由于名称无效而失败
 SELECT 'init' FROM pg_create_logical_replication_slot('Invalid Name', 'test_decoding');
 
 -- fail twice because of an invalid parameter values
+--
+-- 由于参数值无效而失败两次
 SELECT 'init' FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', 'frakbar');
 SELECT 'init' FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'nonexistent-option', 'frakbar');
 SELECT 'init' FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', 'frakbar');
 
 -- succeed once
+--
+-- 成功一次
 SELECT pg_drop_replication_slot('regression_slot');
 -- fail
 SELECT pg_drop_replication_slot('regression_slot');
 
 -- check that we're detecting a streaming rep slot used for logical decoding
+--
+-- 检查我们是否正在检测用于逻辑解码的流代表插槽
 SELECT 'init' FROM pg_create_physical_replication_slot('repl');
 SELECT data FROM pg_logical_slot_get_changes('repl', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 SELECT pg_drop_replication_slot('repl');
@@ -25,7 +35,10 @@ SELECT pg_drop_replication_slot('repl');
 
 SELECT 'init' FROM pg_create_logical_replication_slot('regression_slot', 'test_decoding');
 
-/* check whether status function reports us, only reproduceable columns */
+/* check whether status function reports us, only reproduceable columns
+ *
+ * 检查状态函数是否报告我们，仅可重现的列
+ */
 SELECT slot_name, plugin, slot_type, active,
     NOT catalog_xmin IS NULL AS catalog_xmin_set,
     xmin IS NULl  AS data_xmin_not_set,
@@ -34,6 +47,8 @@ FROM pg_replication_slots;
 
 /*
  * Check that changes are handled correctly when interleaved with ddl
+ *
+ * 检查与 ddl 交错时是否正确处理更改
  */
 CREATE TABLE replication_example(id SERIAL PRIMARY KEY, somedata int, text varchar(120));
 BEGIN;
@@ -64,10 +79,14 @@ ALTER TABLE replication_example RENAME COLUMN text TO somenum;
 INSERT INTO replication_example(somedata, somenum) VALUES (4, 1);
 
 -- collect all changes
+--
+-- 收集所有更改
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 ALTER TABLE replication_example ALTER COLUMN somenum TYPE int4 USING (somenum::int4);
 -- check that this doesn't produce any changes from the heap rewrite
+--
+-- 检查这不会因堆重写而产生任何更改
 SELECT count(data) FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 INSERT INTO replication_example(somedata, somenum) VALUES (5, 1);
@@ -82,18 +101,27 @@ INSERT INTO replication_example(somedata, somenum, zaphod1) VALUES (6, 4, 2);
 COMMIT;
 
 -- show changes
+--
+-- 显示变化
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 -- ON CONFLICT DO UPDATE support
+--
+-- 关于冲突，请更新支持
 BEGIN;
 INSERT INTO replication_example(id, somedata, somenum) SELECT i, i, i FROM generate_series(-15, 15) i
   ON CONFLICT (id) DO UPDATE SET somenum = excluded.somenum + 1;
 COMMIT;
 
-/* display results */
+/* display results
+ *
+ * 显示结果
+ */
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 -- MERGE support
+--
+-- 合并支持
 BEGIN;
 MERGE INTO replication_example t
 	USING (SELECT i as id, i as data, i as num FROM generate_series(-20, 5) i) s
@@ -106,7 +134,10 @@ MERGE INTO replication_example t
 		INSERT VALUES (s.*);
 COMMIT;
 
-/* display results */
+/* display results
+ *
+ * 显示结果
+ */
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 CREATE TABLE tr_unique(id2 serial unique NOT NULL, data int);
@@ -117,13 +148,20 @@ SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'inc
 
 INSERT INTO tr_pkey(data) VALUES(1);
 --show deletion with primary key
+--
+--用主键显示删除
 DELETE FROM tr_pkey;
 
-/* display results */
+/* display results
+ *
+ * 显示结果
+ */
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 /*
  * check that disk spooling works (also for logical messages)
+ *
+ * 检查磁盘假脱机是否有效（也适用于逻辑消息）
  */
 BEGIN;
 CREATE TABLE tr_etoomuch (id serial primary key, data int);
@@ -135,13 +173,18 @@ CREATE TABLE tr_oddlength (id text primary key, data text);
 INSERT INTO tr_oddlength VALUES('ab', 'foo');
 COMMIT;
 
-/* display results, but hide most of the output */
+/* display results, but hide most of the output
+ *
+ * 显示结果，但隐藏大部分输出
+ */
 SELECT count(*), min(data), max(data)
 FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1')
 GROUP BY substring(data, 1, 24)
 ORDER BY 1,2;
 
 -- check updates of primary keys work correctly
+--
+-- 检查主键更新是否正常
 BEGIN;
 CREATE TABLE spoolme AS SELECT g.i FROM generate_series(1, 5000) g(i);
 UPDATE tr_etoomuch SET id = -id WHERE id = 5000;
@@ -156,6 +199,8 @@ FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', 
 WHERE data ~ 'UPDATE';
 
 -- check that a large, spooled, upsert works
+--
+-- 检查大型假脱机更新插入是否有效
 INSERT INTO tr_etoomuch (id, data)
 SELECT g.i, -g.i FROM generate_series(8000, 12000) g(i)
 ON CONFLICT(id) DO UPDATE SET data = EXCLUDED.data;
@@ -168,10 +213,14 @@ ORDER BY min(ordinality);
 /*
  * check whether we decode subtransactions correctly in relation with each
  * other
+ *
+ * 检查我们是否正确解码彼此相关的子事务
  */
 CREATE TABLE tr_sub (id serial primary key, path text);
 
 -- toplevel, subtxn, toplevel, subtxn, subtxn
+--
+-- 顶层，子txn，顶层，子txn，子txn
 BEGIN;
 INSERT INTO tr_sub(path) VALUES ('1-top-#1');
 
@@ -192,8 +241,12 @@ COMMIT;
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 -- check that we handle xlog assignments correctly
+--
+-- 检查我们是否正确处理 xlog 分配
 BEGIN;
 -- nest 80 subtxns
+--
+-- 嵌套 80 个子文本
 SAVEPOINT subtop;SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;
 SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;
 SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;
@@ -211,6 +264,8 @@ SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;
 SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;
 SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;SAVEPOINT a;
 -- assign xid by inserting
+--
+-- 通过插入来分配xid
 INSERT INTO tr_sub(path) VALUES ('2-top-1...--#1');
 INSERT INTO tr_sub(path) VALUES ('2-top-1...--#2');
 INSERT INTO tr_sub(path) VALUES ('2-top-1...--#3');
@@ -221,6 +276,8 @@ COMMIT;
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 -- make sure rollbacked subtransactions aren't decoded
+--
+-- 确保回滚的子事务未被解码
 BEGIN;
 INSERT INTO tr_sub(path) VALUES ('3-top-2-#1');
 SAVEPOINT a;
@@ -234,7 +291,11 @@ COMMIT;
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 -- test whether a known, but not yet logged toplevel xact, followed by a
+--
+-- 测试是否有已知但尚未记录的顶级 xact，后跟
 -- subxact commit is handled correctly
+--
+-- subxact 提交被正确处理
 BEGIN;
 SELECT pg_current_xact_id() != '0'; -- so no fixed xid appears in the outfile
 SAVEPOINT a;
@@ -243,7 +304,11 @@ RELEASE SAVEPOINT a;
 COMMIT;
 
 -- test whether a change in a subtransaction, in an unknown toplevel
+--
+-- 测试子事务是否发生变化，在未知的顶层
 -- xact is handled correctly.
+--
+-- xact 处理正确。
 BEGIN;
 SAVEPOINT a;
 INSERT INTO tr_sub(path) VALUES ('5-top-1-#1');
@@ -253,6 +318,8 @@ COMMIT;
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 -- check that DDL in aborted subtransactions handled correctly
+--
+-- 检查中止子事务中的 DDL 是否正确处理
 CREATE TABLE tr_sub_ddl(data int);
 BEGIN;
 SAVEPOINT a;
@@ -268,6 +335,8 @@ SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'inc
 
 /*
  * Check whether treating a table as a catalog table works somewhat
+ *
+ * 检查将表视为目录表是否有效
  */
 CREATE TABLE replication_metadata (
     id serial primary key,
@@ -294,6 +363,8 @@ INSERT INTO replication_metadata(relation, options)
 VALUES ('blub', NULL);
 
 -- make sure rewrites don't work
+--
+-- 确保重写不起作用
 ALTER TABLE replication_metadata ADD COLUMN rewritemeornot int;
 ALTER TABLE replication_metadata ALTER COLUMN rewritemeornot TYPE text;
 
@@ -307,22 +378,33 @@ SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'inc
 
 /*
  * check whether we handle updates/deletes correct with & without a pkey
+ *
+ * 检查我们是否在使用和不使用 pkey 的情况下正确处理更新/删除
  */
 
-/* we should handle the case without a key at all more gracefully */
+/* we should handle the case without a key at all more gracefully
+ *
+ * 我们应该更优雅地处理没有钥匙的情况
+ */
 CREATE TABLE table_without_key(id serial, data int);
 INSERT INTO table_without_key(data) VALUES(1),(2);
 DELETE FROM table_without_key WHERE data = 1;
 -- won't log old keys
+--
+-- 不会记录旧密钥
 UPDATE table_without_key SET data = 3 WHERE data = 2;
 UPDATE table_without_key SET id = -id;
 UPDATE table_without_key SET id = -id;
 -- should log the full old row now
+--
+-- 现在应该记录完整的旧行
 ALTER TABLE table_without_key REPLICA IDENTITY FULL;
 UPDATE table_without_key SET data = 3 WHERE data = 2;
 UPDATE table_without_key SET id = -id;
 UPDATE table_without_key SET id = -id;
 -- ensure that FULL correctly deals with new columns
+--
+-- 确保 FULL 正确处理新列
 ALTER TABLE table_without_key ADD COLUMN new_column text;
 UPDATE table_without_key SET id = -id;
 UPDATE table_without_key SET id = -id, new_column = 'someval';
@@ -332,13 +414,19 @@ CREATE TABLE table_with_pkey(id serial primary key, data int);
 INSERT INTO table_with_pkey(data) VALUES(1), (2);
 DELETE FROM table_with_pkey WHERE data = 1;
 -- should log the old pkey
+--
+-- 应该记录旧的 pkey
 UPDATE table_with_pkey SET data = 3 WHERE data = 2;
 UPDATE table_with_pkey SET id = -id;
 UPDATE table_with_pkey SET id = -id;
 -- check that we log nothing despite having a pkey
+--
+-- 检查我们是否没有记录任何内容，尽管有 pkey
 ALTER TABLE table_without_key REPLICA IDENTITY NOTHING;
 UPDATE table_with_pkey SET id = -id;
 -- check that we log everything despite having a pkey
+--
+-- 检查我们是否记录了所有内容，尽管有 pkey
 ALTER TABLE table_without_key REPLICA IDENTITY FULL;
 UPDATE table_with_pkey SET id = -id;
 DELETE FROM table_with_pkey WHERE data = 3;
@@ -346,6 +434,8 @@ DELETE FROM table_with_pkey WHERE data = 3;
 CREATE TABLE table_with_unique_not_null(id serial unique, data int);
 ALTER TABLE table_with_unique_not_null ALTER COLUMN id SET NOT NULL; --already set
 -- won't log anything, replica identity not setup
+--
+-- 不会记录任何内容，未设置副本身份
 INSERT INTO table_with_unique_not_null(data) VALUES(1), (2);
 DELETE FROM table_with_unique_not_null WHERE data = 1;
 UPDATE table_with_unique_not_null SET data = 3 WHERE data = 2;
@@ -353,6 +443,8 @@ UPDATE table_with_unique_not_null SET id = -id;
 UPDATE table_with_unique_not_null SET id = -id;
 DELETE FROM table_with_unique_not_null WHERE data = 3;
 -- should log old key
+--
+-- 应该记录旧密钥
 ALTER TABLE table_with_unique_not_null REPLICA IDENTITY USING INDEX table_with_unique_not_null_id_key;
 INSERT INTO table_with_unique_not_null(data) VALUES(1), (2);
 DELETE FROM table_with_unique_not_null WHERE data = 1;
@@ -362,7 +454,11 @@ UPDATE table_with_unique_not_null SET id = -id;
 DELETE FROM table_with_unique_not_null WHERE data = 3;
 
 -- check tables with dropped indexes used in REPLICA IDENTITY
+--
+-- 检查 REPLICA IDENTITY 中使用的已删除索引的表
 -- table with primary key
+--
+-- 带主键的表
 CREATE TABLE table_dropped_index_with_pk (a int PRIMARY KEY, b int, c int);
 CREATE UNIQUE INDEX table_dropped_index_with_pk_idx
   ON table_dropped_index_with_pk(a);
@@ -378,6 +474,8 @@ DELETE FROM table_dropped_index_with_pk WHERE a = 3;
 DROP TABLE table_dropped_index_with_pk;
 
 -- table without primary key
+--
+-- 没有主键的表
 CREATE TABLE table_dropped_index_no_pk (a int NOT NULL, b int, c int);
 CREATE UNIQUE INDEX table_dropped_index_no_pk_idx
   ON table_dropped_index_no_pk(a);
@@ -393,6 +491,8 @@ DELETE FROM table_dropped_index_no_pk WHERE a = 3;
 DROP TABLE table_dropped_index_no_pk;
 
 -- check toast support
+--
+-- 检查 toast 支持
 BEGIN;
 CREATE SEQUENCE toasttable_rand_seq START 79 INCREMENT 1499; -- portable "random"
 CREATE TABLE toasttable(
@@ -404,18 +504,28 @@ CREATE TABLE toasttable(
        );
 COMMIT;
 -- uncompressed external toast data
+--
+-- 未压缩的外部 toast 数据
 INSERT INTO toasttable(toasted_col1) SELECT string_agg(g.i::text, '') FROM generate_series(1, 2000) g(i);
 
 -- compressed external toast data
+--
+-- 压缩外部 toast 数据
 INSERT INTO toasttable(toasted_col2) SELECT repeat(string_agg(to_char(g.i, 'FM0000'), ''), 50) FROM generate_series(1, 500) g(i);
 
 -- update of existing column
+--
+-- 更新现有列
 UPDATE toasttable
     SET toasted_col1 = (SELECT string_agg(g.i::text, '') FROM generate_series(1, 2000) g(i))
 WHERE id = 1;
 
 -- This output is extremely wide, and using aligned mode causes psql to
+--
+-- 这个输出非常宽，使用对齐模式会导致 psql
 -- produce 200kB of useless dashes. Turn that off temporarily to avoid it.
+--
+-- 产生 200kB 无用的破折号。暂时关闭它以避免它。
 \pset format unaligned
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 \pset format aligned
@@ -423,23 +533,32 @@ SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'inc
 INSERT INTO toasttable(toasted_col1) SELECT string_agg(g.i::text, '') FROM generate_series(1, 2000) g(i);
 
 -- update of second column, first column unchanged
+--
+-- 更新第二列，第一列不变
 UPDATE toasttable
     SET toasted_col2 = (SELECT string_agg(g.i::text, '') FROM generate_series(1, 2000) g(i))
 WHERE id = 1;
 
 -- make sure we decode correctly even if the toast table is gone
+--
+-- 确保我们正确解码，即使吐司表消失了
 DROP TABLE toasttable;
 
 \pset format unaligned
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 -- done, free logical replication slot
+--
+-- 完成，空闲逻辑复制槽
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 \pset format aligned
 
 SELECT pg_drop_replication_slot('regression_slot');
 
-/* check that the slot is gone */
+/* check that the slot is gone
+ *
+ * 检查插槽是否已消失
+ */
 \x
 SELECT * FROM pg_replication_slots;
 \x

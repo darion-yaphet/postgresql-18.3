@@ -4,9 +4,17 @@ SET synchronous_commit = on;
 DROP TABLE IF EXISTS replication_example;
 
 -- Ensure there's tables with toast datums.  To do so, we dynamically
+--
+-- 确保有带有 Toast 数据的表格。  为此，我们动态地
 -- create a function returning a large textblob.  We want tables of
+--
+-- 创建一个返回大文本块的函数。  我们想要的桌子
 -- different kinds: mapped catalog table, unmapped catalog table,
+--
+-- 不同种类：映射目录表、未映射目录表、
 -- shared catalog table and usertable.
+--
+-- 共享目录表和用户表。
 CREATE FUNCTION exec(text) returns void language plpgsql volatile
   AS $f$
     BEGIN
@@ -27,6 +35,8 @@ SELECT exec(
 CREATE TABLE iamalargetable AS SELECT iamalongfunction() longfunctionoutput;
 
 -- verify toast usage
+--
+-- 验证 toast 使用情况
 SELECT pg_relation_size((SELECT reltoastrelid FROM pg_class WHERE oid = 'pg_proc'::regclass)) > 0;
 SELECT pg_relation_size((SELECT reltoastrelid FROM pg_class WHERE oid = 'pg_description'::regclass)) > 0;
 SELECT pg_relation_size((SELECT reltoastrelid FROM pg_class WHERE oid = 'pg_shdescription'::regclass)) > 0;
@@ -58,12 +68,16 @@ VACUUM FULL pg_index;
 VACUUM FULL pg_database;
 
 -- repeated rewrites that fail
+--
+-- 反复重写失败
 BEGIN;
 CLUSTER pg_class USING pg_class_oid_index;
 CLUSTER pg_class USING pg_class_oid_index;
 ROLLBACK;
 
 -- repeated rewrites that succeed
+--
+-- 反复重写成功
 BEGIN;
 CLUSTER pg_class USING pg_class_oid_index;
 CLUSTER pg_class USING pg_class_oid_index;
@@ -71,10 +85,14 @@ CLUSTER pg_class USING pg_class_oid_index;
 COMMIT;
 
  -- repeated rewrites in different transactions
+ --
+ -- 在不同的事务中重复重写
 VACUUM FULL pg_class;
 VACUUM FULL pg_class;
 
 -- reindexing of important relations / indexes
+--
+-- 重要关系/索引的重新索引
 REINDEX TABLE pg_class;
 REINDEX INDEX pg_class_oid_index;
 REINDEX INDEX pg_class_tblspc_relfilenode_index;
@@ -88,12 +106,18 @@ INSERT INTO replication_example(somedata, testcolumn1, testcolumn3) VALUES (7, 5
 COMMIT;
 
 -- make old files go away
+--
+-- 让旧文件消失
 CHECKPOINT;
 
 SELECT data FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL, 'include-xids', '0', 'skip-empty-xacts', '1');
 
 -- trigger repeated rewrites of a system catalog with a toast table,
+--
+-- 使用 toast 表触发系统目录的重复重写，
 -- that previously was buggy: 20180914021046.oi7dm4ra3ot2g2kt@alap3.anarazel.de
+--
+-- 以前是错误的：20180914021046.oi7dm4ra3ot2g2kt@alap3.anarazel.de
 VACUUM FULL pg_proc; VACUUM FULL pg_description; VACUUM FULL pg_shdescription; VACUUM FULL iamalargetable;
 INSERT INTO replication_example(somedata, testcolumn1, testcolumn3) VALUES (8, 6, 1);
 VACUUM FULL pg_proc; VACUUM FULL pg_description; VACUUM FULL pg_shdescription; VACUUM FULL iamalargetable;

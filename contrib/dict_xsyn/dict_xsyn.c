@@ -104,7 +104,10 @@ read_dictionary(DictSyn *d, const char *filename)
 		pos = value;
 		while ((key = find_word(pos, &end)) != NULL)
 		{
-			/* Enlarge syn structure if full */
+			/* Enlarge syn structure if full
+			 *
+			 * 如果已满则放大 syn 结构
+			 */
 			if (cur == d->len)
 			{
 				d->len = (d->len > 0) ? 2 * d->len : 16;
@@ -114,7 +117,10 @@ read_dictionary(DictSyn *d, const char *filename)
 					d->syn = (Syn *) palloc(sizeof(Syn) * d->len);
 			}
 
-			/* Save first word only if we will match it */
+			/* Save first word only if we will match it
+			 *
+			 * 仅当我们匹配时才保存第一个单词
+			 */
 			if (pos != value || d->matchorig)
 			{
 				d->syn[cur].key = pnstrdup(key, end - key);
@@ -125,7 +131,10 @@ read_dictionary(DictSyn *d, const char *filename)
 
 			pos = end;
 
-			/* Don't bother scanning synonyms if we will not match them */
+			/* Don't bother scanning synonyms if we will not match them
+			 *
+			 * 如果我们不匹配同义词，请不要费心扫描它们
+			 */
 			if (!d->matchsynonyms)
 				break;
 		}
@@ -180,7 +189,10 @@ dxsyn_init(PG_FUNCTION_ARGS)
 		}
 		else if (strcmp(defel->defname, "rules") == 0)
 		{
-			/* we can't read the rules before parsing all options! */
+			/* we can't read the rules before parsing all options!
+			 *
+			 * 在解析所有选项之前我们无法阅读规则！
+			 */
 			filename = defGetString(defel);
 		}
 		else
@@ -211,7 +223,10 @@ dxsyn_lexize(PG_FUNCTION_ARGS)
 	if (!length || d->len == 0)
 		PG_RETURN_POINTER(NULL);
 
-	/* Create search pattern */
+	/* Create search pattern
+	 *
+	 * 创建搜索模式
+	 */
 	{
 		char	   *temp = pnstrdup(in, length);
 
@@ -220,14 +235,20 @@ dxsyn_lexize(PG_FUNCTION_ARGS)
 		word.value = NULL;
 	}
 
-	/* Look for matching syn */
+	/* Look for matching syn
+	 *
+	 * 寻找匹配的syn
+	 */
 	found = (Syn *) bsearch(&word, d->syn, d->len, sizeof(Syn), compare_syn);
 	pfree(word.key);
 
 	if (!found)
 		PG_RETURN_POINTER(NULL);
 
-	/* Parse string of synonyms and return array of words */
+	/* Parse string of synonyms and return array of words
+	 *
+	 * 解析同义词字符串并返回单词数组
+	 */
 	{
 		char	   *value = found->value;
 		char	   *syn;
@@ -242,7 +263,10 @@ dxsyn_lexize(PG_FUNCTION_ARGS)
 		{
 			res = repalloc(res, sizeof(TSLexeme) * (nsyns + 2));
 
-			/* The first word is output only if keeporig=true */
+			/* The first word is output only if keeporig=true
+			 *
+			 * 仅当 keeporig=true 时才输出第一个单词
+			 */
 			if (pos != value || d->keeporig)
 			{
 				res[nsyns].lexeme = pnstrdup(syn, end - syn);
@@ -253,7 +277,10 @@ dxsyn_lexize(PG_FUNCTION_ARGS)
 
 			pos = end;
 
-			/* Stop if we are not to output the synonyms */
+			/* Stop if we are not to output the synonyms
+			 *
+			 * 如果我们不输出同义词就停止
+			 */
 			if (!d->keepsynonyms)
 				break;
 		}

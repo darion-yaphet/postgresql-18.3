@@ -27,23 +27,35 @@ SELECT daitch_mokotoff('Breuer');
 SELECT daitch_mokotoff('Freud');
 
 -- The letter "H"
+--
+-- 字母“H”
 SELECT daitch_mokotoff('Halberstadt');
 SELECT daitch_mokotoff('Mannheim');
 
 -- Adjacent sounds
+--
+-- 相邻的声音
 SELECT daitch_mokotoff('Chernowitz');
 
 -- Adjacent letters with identical adjacent code digits
+--
+-- 相邻字母具有相同的相邻代码数字
 SELECT daitch_mokotoff('Cherkassy');
 SELECT daitch_mokotoff('Kleinman');
 
 -- More than one word
+--
+-- 不止一个字
 SELECT daitch_mokotoff('Nowy Targ');
 
 -- Padded with "0"
+--
+-- 补足“0”
 SELECT daitch_mokotoff('Berlin');
 
 -- Other examples from https://www.avotaynu.com/soundex.htm
+--
+-- 其他示例来自 https://www.avotaynu.com/soundex.htm
 SELECT daitch_mokotoff('Ceniow');
 SELECT daitch_mokotoff('Tsenyuv');
 SELECT daitch_mokotoff('Holubica');
@@ -54,10 +66,14 @@ SELECT daitch_mokotoff('Rosochowaciec');
 SELECT daitch_mokotoff('Rosokhovatsets');
 
 -- Ignored characters
+--
+-- 被忽略的字符
 SELECT daitch_mokotoff('''OBrien');
 SELECT daitch_mokotoff('O''Brien');
 
 -- "Difficult" cases, likely to cause trouble for other implementations.
+--
+-- “困难”的情况，可能会给其他实现带来麻烦。
 SELECT daitch_mokotoff('CJC');
 SELECT daitch_mokotoff('BESST');
 SELECT daitch_mokotoff('BOUEY');

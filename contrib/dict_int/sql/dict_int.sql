@@ -54,6 +54,8 @@ select ts_lexize('intdict', '314532610153');
 
 ALTER TEXT SEARCH DICTIONARY intdict (MAXLEN = -214783648);  -- fail
 -- This ought to fail, perhaps, but historically it has not:
+--
+-- 也许这应该会失败，但从历史上看并没有：
 ALTER TEXT SEARCH DICTIONARY intdict (MAXLEN = 6.7);
 
 select ts_lexize('intdict', '-40865854');

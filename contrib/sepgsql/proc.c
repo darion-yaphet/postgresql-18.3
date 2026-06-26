@@ -32,6 +32,8 @@
  *
  * This routine assigns a default security label on a newly defined
  * procedure.
+ *
+ * 此例程为新定义的过程分配默认安全标签。
  */
 void
 sepgsql_proc_post_create(Oid functionId)
@@ -53,6 +55,8 @@ sepgsql_proc_post_create(Oid functionId)
 	/*
 	 * Fetch namespace of the new procedure. Because pg_proc entry is not
 	 * visible right now, we need to scan the catalog using SnapshotSelf.
+	 *
+	 * 获取新过程的命名空间。因为 pg_proc 条目现在不可见，所以我们需要使用 SnapshotSelf 扫描目录。
 	 */
 	rel = table_open(ProcedureRelationId, AccessShareLock);
 
@@ -72,6 +76,8 @@ sepgsql_proc_post_create(Oid functionId)
 
 	/*
 	 * check db_schema:{add_name} permission of the namespace
+	 *
+	 * 检查命名空间的 db_schema:{add_name} 权限
 	 */
 	object.classId = NamespaceRelationId;
 	object.objectId = proForm->pronamespace;
@@ -84,12 +90,16 @@ sepgsql_proc_post_create(Oid functionId)
 
 	/*
 	 * XXX - db_language:{implement} also should be checked here
+	 *
+	 * XXX - db_language:{implement} 也应在此处检查
 	 */
 
 
 	/*
 	 * Compute a default security label when we create a new procedure object
 	 * under the specified namespace.
+	 *
+	 * 当我们在指定的命名空间下创建新的过程对象时，计算默认的安全标签。
 	 */
 	scontext = sepgsql_get_client_label();
 	tcontext = sepgsql_get_label(NamespaceRelationId,
@@ -100,6 +110,8 @@ sepgsql_proc_post_create(Oid functionId)
 
 	/*
 	 * check db_procedure:{create (install)} permission
+	 *
+	 * 检查 db_procedure:{create (install)} 权限
 	 */
 	initStringInfo(&audit_name);
 	nsp_name = get_namespace_name(proForm->pronamespace);
@@ -129,6 +141,8 @@ sepgsql_proc_post_create(Oid functionId)
 
 	/*
 	 * Assign the default security label on a new procedure
+	 *
+	 * 为新过程分配默认安全标签
 	 */
 	object.classId = ProcedureRelationId;
 	object.objectId = functionId;
@@ -150,6 +164,8 @@ sepgsql_proc_post_create(Oid functionId)
  * sepgsql_proc_drop
  *
  * It checks privileges to drop the supplied function.
+ *
+ * 它检查权限以删除所提供的函数。
  */
 void
 sepgsql_proc_drop(Oid functionId)
@@ -159,6 +175,8 @@ sepgsql_proc_drop(Oid functionId)
 
 	/*
 	 * check db_schema:{remove_name} permission
+	 *
+	 * 检查 db_schema:{remove_name} 权限
 	 */
 	object.classId = NamespaceRelationId;
 	object.objectId = get_func_namespace(functionId);
@@ -174,6 +192,8 @@ sepgsql_proc_drop(Oid functionId)
 
 	/*
 	 * check db_procedure:{drop} permission
+	 *
+	 * 检查 db_procedure:{drop} 权限
 	 */
 	object.classId = ProcedureRelationId;
 	object.objectId = functionId;
@@ -193,6 +213,8 @@ sepgsql_proc_drop(Oid functionId)
  *
  * It checks privileges to relabel the supplied function
  * by the `seclabel'.
+ *
+ * 它检查权限以通过“seclabel”重新标记所提供的函数。
  */
 void
 sepgsql_proc_relabel(Oid functionId, const char *seclabel)
@@ -207,6 +229,8 @@ sepgsql_proc_relabel(Oid functionId, const char *seclabel)
 
 	/*
 	 * check db_procedure:{setattr relabelfrom} permission
+	 *
+	 * 检查 db_procedure:{setattr relabelfrom} 权限
 	 */
 	sepgsql_avc_check_perms(&object,
 							SEPG_CLASS_DB_PROCEDURE,
@@ -217,6 +241,8 @@ sepgsql_proc_relabel(Oid functionId, const char *seclabel)
 
 	/*
 	 * check db_procedure:{relabelto} permission
+	 *
+	 * 检查 db_procedure:{relabelto} 权限
 	 */
 	sepgsql_avc_check_perms_label(seclabel,
 								  SEPG_CLASS_DB_PROCEDURE,
@@ -230,6 +256,8 @@ sepgsql_proc_relabel(Oid functionId, const char *seclabel)
  * sepgsql_proc_setattr
  *
  * It checks privileges to alter the supplied function.
+ *
+ * 它检查权限以更改所提供的函数。
  */
 void
 sepgsql_proc_setattr(Oid functionId)
@@ -247,6 +275,8 @@ sepgsql_proc_setattr(Oid functionId)
 
 	/*
 	 * Fetch newer catalog
+	 *
+	 * 获取更新的目录
 	 */
 	rel = table_open(ProcedureRelationId, AccessShareLock);
 
@@ -264,6 +294,8 @@ sepgsql_proc_setattr(Oid functionId)
 
 	/*
 	 * Fetch older catalog
+	 *
+	 * 获取旧目录
 	 */
 	oldtup = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
 	if (!HeapTupleIsValid(oldtup))
@@ -272,6 +304,8 @@ sepgsql_proc_setattr(Oid functionId)
 
 	/*
 	 * Does this ALTER command takes operation to namespace?
+	 *
+	 * 这个 ALTER 命令是否对命名空间进行操作？
 	 */
 	if (newform->pronamespace != oldform->pronamespace)
 	{
@@ -283,6 +317,8 @@ sepgsql_proc_setattr(Oid functionId)
 
 	/*
 	 * check db_procedure:{setattr (install)} permission
+	 *
+	 * 检查 db_procedure:{setattr (install)} 权限
 	 */
 	required = SEPG_DB_PROCEDURE__SETATTR;
 	if (!oldform->proleakproof && newform->proleakproof)
@@ -310,6 +346,8 @@ sepgsql_proc_setattr(Oid functionId)
  * sepgsql_proc_execute
  *
  * It checks privileges to execute the supplied function
+ *
+ * 它检查执行所提供函数的权限
  */
 void
 sepgsql_proc_execute(Oid functionId)
@@ -319,6 +357,8 @@ sepgsql_proc_execute(Oid functionId)
 
 	/*
 	 * check db_procedure:{execute} permission
+	 *
+	 * 检查 db_procedure:{execute} 权限
 	 */
 	object.classId = ProcedureRelationId;
 	object.objectId = functionId;

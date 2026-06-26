@@ -1,6 +1,8 @@
 --
 -- Regression Test for TRUNCATE
 --
+-- TRUNCATE 的回归测试
+--
 
 --
 -- Setup

@@ -1,18 +1,30 @@
 /* contrib/isn/isn--1.1.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION isn" to load this file. \quit
 
 -- Example:
 --   create table test ( id isbn );
+--
+-- 创建表 test ( id isbn );
 --   insert into test values('978-0-393-04002-9');
 --
+-- 插入测试值('978-0-393-04002-9');
+--
 --   select isbn('978-0-393-04002-9');
+--
+-- 选择 isbn('978-0-393-04002-9');
 --   select isbn13('0-901690-54-6');
+--
+-- 选择 isbn13('0-901690-54-6');
 --
 
 --
 --	Input and output functions and data types:
+--
+--	输入输出函数和数据类型：
 --
 ---------------------------------------------------
 CREATE FUNCTION ean13_in(cstring)
@@ -96,6 +108,8 @@ COMMENT ON TYPE issn13
 	IS 'International Standard Serial Number 13 (ISSN13)';
 
 -- Short format:
+--
+-- 短格式：
 
 CREATE FUNCTION isbn_in(cstring)
 	RETURNS isbn
@@ -179,6 +193,8 @@ COMMENT ON TYPE upc
 
 --
 -- Operator functions:
+--
+-- 操作员功能：
 --
 ---------------------------------------------------
 -- EAN13:
@@ -1235,9 +1251,13 @@ CREATE FUNCTION isnne(upc, ean13)
 --
 -- Now the operators:
 --
+-- 现在运营商：
+--
 
 --
 -- EAN13 operators:
+--
+-- EAN13 运算符：
 --
 ---------------------------------------------------
 CREATE OPERATOR < (
@@ -1753,6 +1773,8 @@ CREATE OPERATOR <> (
 --
 -- ISBN13 operators:
 --
+-- ISBN13 运算符：
+--
 ---------------------------------------------------
 CREATE OPERATOR < (
 	PROCEDURE = isnlt,
@@ -1858,6 +1880,8 @@ CREATE OPERATOR <> (
 
 --
 -- ISBN operators:
+--
+-- ISBN 运营商：
 --
 ---------------------------------------------------
 CREATE OPERATOR < (
@@ -2016,6 +2040,8 @@ CREATE OPERATOR <> (
 --
 -- ISMN13 operators:
 --
+-- ISMN13 运营商：
+--
 ---------------------------------------------------
 CREATE OPERATOR < (
 	PROCEDURE = isnlt,
@@ -2121,6 +2147,8 @@ CREATE OPERATOR <> (
 
 --
 -- ISMN operators:
+--
+-- ISMN 运营商：
 --
 ---------------------------------------------------
 CREATE OPERATOR < (
@@ -2279,6 +2307,8 @@ CREATE OPERATOR <> (
 --
 -- ISSN13 operators:
 --
+-- ISSN13 运营商：
+--
 ---------------------------------------------------
 CREATE OPERATOR < (
 	PROCEDURE = isnlt,
@@ -2435,6 +2465,8 @@ CREATE OPERATOR <> (
 
 --
 -- ISSN operators:
+--
+-- ISSN 运营商：
 --
 ---------------------------------------------------
 CREATE OPERATOR < (
@@ -2593,6 +2625,8 @@ CREATE OPERATOR <> (
 --
 -- UPC operators:
 --
+-- UPC 运营商：
+--
 ---------------------------------------------------
 CREATE OPERATOR < (
 	PROCEDURE = isnlt,
@@ -2699,6 +2733,8 @@ CREATE OPERATOR <> (
 --
 -- Operator families for the various operator classes:
 --
+-- 各种运算符类别的运算符系列：
+--
 ---------------------------------------------------
 
 CREATE OPERATOR FAMILY isn_ops USING btree;
@@ -2706,6 +2742,8 @@ CREATE OPERATOR FAMILY isn_ops USING hash;
 
 --
 -- Operator classes:
+--
+-- 运算符类：
 --
 ---------------------------------------------------
 -- EAN13:
@@ -2737,6 +2775,8 @@ CREATE OPERATOR CLASS ean13_ops DEFAULT
 	FUNCTION 1  hashean13(ean13);
 
 -- EAN13 vs other types:
+--
+-- EAN13 与其他类型的比较：
 CREATE FUNCTION btean13cmp(ean13, isbn13)
 	RETURNS int4
 	AS 'btint8cmp'
@@ -2864,6 +2904,8 @@ CREATE OPERATOR CLASS isbn13_ops DEFAULT
 	FUNCTION 1  hashisbn13(isbn13);
 
 -- ISBN13 vs other types:
+--
+-- ISBN13 与其他类型：
 CREATE FUNCTION btisbn13cmp(isbn13, ean13)
 	RETURNS int4
 	AS 'btint8cmp'
@@ -2926,6 +2968,8 @@ CREATE OPERATOR CLASS isbn_ops DEFAULT
 	FUNCTION 1  hashisbn(isbn);
 
 -- ISBN vs other types:
+--
+-- ISBN 与其他类型：
 CREATE FUNCTION btisbncmp(isbn, ean13)
 	RETURNS int4
 	AS 'btint8cmp'
@@ -2988,6 +3032,8 @@ CREATE OPERATOR CLASS ismn13_ops DEFAULT
 	FUNCTION 1  hashismn13(ismn13);
 
 -- ISMN13 vs other types:
+--
+-- ISMN13 与其他类型对比：
 CREATE FUNCTION btismn13cmp(ismn13, ean13)
 	RETURNS int4
 	AS 'btint8cmp'
@@ -3050,6 +3096,8 @@ CREATE OPERATOR CLASS ismn_ops DEFAULT
 	FUNCTION 1  hashismn(ismn);
 
 -- ISMN vs other types:
+--
+-- ISMN 与其他类型：
 CREATE FUNCTION btismncmp(ismn, ean13)
 	RETURNS int4
 	AS 'btint8cmp'
@@ -3112,6 +3160,8 @@ CREATE OPERATOR CLASS issn13_ops DEFAULT
 	FUNCTION 1  hashissn13(issn13);
 
 -- ISSN13 vs other types:
+--
+-- ISSN13 与其他类型对比：
 CREATE FUNCTION btissn13cmp(issn13, ean13)
 	RETURNS int4
 	AS 'btint8cmp'
@@ -3174,6 +3224,8 @@ CREATE OPERATOR CLASS issn_ops DEFAULT
 	FUNCTION 1  hashissn(issn);
 
 -- ISSN vs other types:
+--
+-- ISSN 与其他类型：
 CREATE FUNCTION btissncmp(issn, ean13)
 	RETURNS int4
 	AS 'btint8cmp'
@@ -3236,6 +3288,8 @@ CREATE OPERATOR CLASS upc_ops DEFAULT
 	FUNCTION 1  hashupc(upc);
 
 -- UPC vs other types:
+--
+-- UPC 与其他类型：
 CREATE FUNCTION btupccmp(upc, ean13)
 	RETURNS int4
 	AS 'btint8cmp'
@@ -3256,6 +3310,8 @@ ALTER OPERATOR FAMILY isn_ops USING hash ADD
 
 --
 -- Type casts:
+--
+-- 类型转换：
 --
 ---------------------------------------------------
 CREATE FUNCTION isbn13(ean13)
@@ -3313,6 +3369,8 @@ CREATE CAST (issn13 AS issn) WITHOUT FUNCTION AS ASSIGNMENT;
 
 --
 -- Validation stuff for lose types:
+--
+-- 丢失类型的验证内容：
 --
 CREATE FUNCTION make_valid(ean13)
 	RETURNS ean13
@@ -3414,7 +3472,11 @@ CREATE FUNCTION is_valid(upc)
 
 --
 -- isn_weak(boolean) - Sets the weak input mode.
+--
+-- is_weak(boolean) - 设置弱输入模式。
 -- This function is intended for testing use only!
+--
+-- 此功能仅供测试使用！
 --
 CREATE FUNCTION isn_weak(boolean)
 	RETURNS boolean
@@ -3425,6 +3487,8 @@ CREATE FUNCTION isn_weak(boolean)
 
 --
 -- isn_weak() - Gets the weak input mode status
+--
+-- is_weak() - 获取弱输入模式状态
 --
 CREATE FUNCTION isn_weak()
 	RETURNS boolean

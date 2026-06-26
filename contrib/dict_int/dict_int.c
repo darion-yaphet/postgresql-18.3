@@ -99,13 +99,19 @@ dintdict_lexize(PG_FUNCTION_ARGS)
 	{
 		if (d->rejectlong)
 		{
-			/* reject by returning void array */
+			/* reject by returning void array
+			 *
+			 * 通过返回 void 数组来拒绝
+			 */
 			pfree(txt);
 			res[0].lexeme = NULL;
 		}
 		else
 		{
-			/* trim integer */
+			/* trim integer
+			 *
+			 * 修剪整数
+			 */
 			txt[d->maxlen] = '\0';
 			res[0].lexeme = txt;
 		}

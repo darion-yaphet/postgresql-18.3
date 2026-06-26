@@ -37,13 +37,22 @@ autoinc(PG_FUNCTION_ARGS)
 	int			i;
 
 	if (!CALLED_AS_TRIGGER(fcinfo))
-		/* internal error */
+		/* internal error
+		 *
+		 * 内部错误
+		 */
 		elog(ERROR, "not fired by trigger manager");
 	if (!TRIGGER_FIRED_FOR_ROW(trigdata->tg_event))
-		/* internal error */
+		/* internal error
+		 *
+		 * 内部错误
+		 */
 		elog(ERROR, "must be fired for row");
 	if (!TRIGGER_FIRED_BEFORE(trigdata->tg_event))
-		/* internal error */
+		/* internal error
+		 *
+		 * 内部错误
+		 */
 		elog(ERROR, "must be fired before event");
 
 	if (TRIGGER_FIRED_BY_INSERT(trigdata->tg_event))
@@ -51,7 +60,10 @@ autoinc(PG_FUNCTION_ARGS)
 	else if (TRIGGER_FIRED_BY_UPDATE(trigdata->tg_event))
 		rettuple = trigdata->tg_newtuple;
 	else
-		/* internal error */
+		/* internal error
+		 *
+		 * 内部错误
+		 */
 		elog(ERROR, "cannot process DELETE events");
 
 	rel = trigdata->tg_relation;
@@ -61,7 +73,10 @@ autoinc(PG_FUNCTION_ARGS)
 
 	nargs = trigger->tgnargs;
 	if (nargs <= 0 || nargs % 2 != 0)
-		/* internal error */
+		/* internal error
+		 *
+		 * 内部错误
+		 */
 		elog(ERROR, "autoinc (%s): even number gt 0 of arguments was expected", relname);
 
 	args = trigger->tgargs;
@@ -101,7 +116,10 @@ autoinc(PG_FUNCTION_ARGS)
 		chattrs[chnattrs] = attnum;
 		seqname = CStringGetTextDatum(args[i]);
 		newvals[chnattrs] = DirectFunctionCall1(nextval, seqname);
-		/* nextval now returns int64; coerce down to int32 */
+		/* nextval now returns int64; coerce down to int32
+		 *
+		 * nextval 现在返回 int64；强制降为 int32
+		 */
 		newvals[chnattrs] = Int32GetDatum((int32) DatumGetInt64(newvals[chnattrs]));
 		if (DatumGetInt32(newvals[chnattrs]) == 0)
 		{

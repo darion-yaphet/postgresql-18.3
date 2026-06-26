@@ -3,6 +3,8 @@
  *
  * insert user name in response to a trigger
  * usage:  insert_username (column_name)
+ *
+ * 插入用户名以响应触发器用法：insert_username (column_name)
  */
 #include "postgres.h"
 
@@ -36,15 +38,27 @@ insert_username(PG_FUNCTION_ARGS)
 	TupleDesc	tupdesc;		/* tuple description */
 	int			attnum;
 
-	/* sanity checks from autoinc.c */
+	/* sanity checks from autoinc.c
+	 *
+	 * 来自 autoinc.c 的健全性检查
+	 */
 	if (!CALLED_AS_TRIGGER(fcinfo))
-		/* internal error */
+		/* internal error
+		 *
+		 * 内部错误
+		 */
 		elog(ERROR, "insert_username: not fired by trigger manager");
 	if (!TRIGGER_FIRED_FOR_ROW(trigdata->tg_event))
-		/* internal error */
+		/* internal error
+		 *
+		 * 内部错误
+		 */
 		elog(ERROR, "insert_username: must be fired for row");
 	if (!TRIGGER_FIRED_BEFORE(trigdata->tg_event))
-		/* internal error */
+		/* internal error
+		 *
+		 * 内部错误
+		 */
 		elog(ERROR, "insert_username: must be fired before event");
 
 	if (TRIGGER_FIRED_BY_INSERT(trigdata->tg_event))
@@ -52,7 +66,10 @@ insert_username(PG_FUNCTION_ARGS)
 	else if (TRIGGER_FIRED_BY_UPDATE(trigdata->tg_event))
 		rettuple = trigdata->tg_newtuple;
 	else
-		/* internal error */
+		/* internal error
+		 *
+		 * 内部错误
+		 */
 		elog(ERROR, "insert_username: cannot process DELETE events");
 
 	rel = trigdata->tg_relation;
@@ -62,7 +79,10 @@ insert_username(PG_FUNCTION_ARGS)
 
 	nargs = trigger->tgnargs;
 	if (nargs != 1)
-		/* internal error */
+		/* internal error
+		 *
+		 * 内部错误
+		 */
 		elog(ERROR, "insert_username (%s): one argument was expected", relname);
 
 	args = trigger->tgargs;
@@ -81,11 +101,17 @@ insert_username(PG_FUNCTION_ARGS)
 				 errmsg("attribute \"%s\" of \"%s\" must be type TEXT",
 						args[0], relname)));
 
-	/* create fields containing name */
+	/* create fields containing name
+	 *
+	 * 创建包含名称的字段
+	 */
 	newval = CStringGetTextDatum(GetUserNameFromId(GetUserId(), false));
 	newnull = false;
 
-	/* construct new tuple */
+	/* construct new tuple
+	 *
+	 * 构造新元组
+	 */
 	rettuple = heap_modify_tuple_by_cols(rettuple, tupdesc,
 										 1, &attnum, &newval, &newnull);
 

@@ -26,6 +26,8 @@
  * It enables to cache access control decision (and behavior on execution of
  * trusted procedure, db_procedure class only) for a particular pair of
  * security labels and object class in userspace.
+ *
+ * 它能够缓存用户空间中一对特定的安全标签和对象类的访问控制决策（以及执行受信任过程的行为，仅 db_procedure 类）。
  */
 typedef struct
 {
@@ -41,13 +43,18 @@ typedef struct
 	bool		permissive;		/* true, if permissive rule */
 	bool		hot_cache;		/* true, if recently referenced */
 	bool		tcontext_is_valid;
-	/* true, if tcontext is valid */
+	/* true, if tcontext is valid
+	 *
+	 * true，如果 tcontext 有效
+	 */
 	char	   *ncontext;		/* temporary scontext on execution of trusted
 								 * procedure, or NULL elsewhere */
 } avc_cache;
 
 /*
  * Declaration of static variables
+ *
+ * 静态变量的声明
  */
 #define AVC_NUM_SLOTS		512
 #define AVC_NUM_RECLAIM		16
@@ -62,6 +69,8 @@ static char *avc_unlabeled;		/* system 'unlabeled' label */
 
 /*
  * Hash function
+ *
+ * 哈希函数
  */
 static uint32
 sepgsql_avc_hash(const char *scontext, const char *tcontext, uint16 tclass)
@@ -73,6 +82,8 @@ sepgsql_avc_hash(const char *scontext, const char *tcontext, uint16 tclass)
 
 /*
  * Reset all the avc caches
+ *
+ * 重置所有 AVC 缓存
  */
 static void
 sepgsql_avc_reset(void)
@@ -87,6 +98,8 @@ sepgsql_avc_reset(void)
 
 /*
  * Reclaim caches recently unreferenced
+ *
+ * 回收最近未引用的缓存
  */
 static void
 sepgsql_avc_reclaim(void)
@@ -133,11 +146,15 @@ sepgsql_avc_reclaim(void)
  * resetting userspace caches has occurred) since the last reference to
  * the access vector cache, we must flush the cache.
  *
+ * 该函数检查缓存的条目是否仍然有效。  If the security policy has been reloaded (or any other events that requires resetting userspace caches has occurred) since the last reference to the access vector cache, we must flush the cache.
+ *
  * Access control decisions must be atomic, but multiple system calls may
  * be required to make a decision; thus, when referencing the access vector
  * cache, we must loop until we complete without an intervening cache flush
  * event.  In practice, looping even once should be very rare.  Callers should
  * do something like this:
+ *
+ * Access control decisions must be atomic, but multiple system calls may be required to make a decision;因此，当引用访问向量高速缓存时，我们必须循环，直到在没有中间高速缓存刷新事件的情况下完成为止。  In practice, looping even once should be very rare.  调用者应该这样做：
  *
  *	 sepgsql_avc_check_valid();
  *	 do {
@@ -145,6 +162,8 @@ sepgsql_avc_reclaim(void)
  *		 <reference to uavc>
  *			 :
  *	 } while (!sepgsql_avc_check_valid())
+ *
+ * sepgsql_avc_check_valid(); do { : <uavc 参考> : } while (!sepgsql_avc_check_valid())
  *
  * -------------------------------------------------------------------------
  */
@@ -165,6 +184,8 @@ sepgsql_avc_check_valid(void)
  *
  * Returns an alternative label to be applied when no label or an invalid
  * label would otherwise be assigned.
+ *
+ * 当没有标签或无效标签被分配时，返回要应用的替代标签。
  */
 static char *
 sepgsql_avc_unlabeled(void)
@@ -195,6 +216,8 @@ sepgsql_avc_unlabeled(void)
  *
  * A fallback path, when cache mishit. It asks SELinux its access control
  * decision for the supplied pair of security context and object class.
+ *
+ * 缓存未命中时的后备路径。它询问 SELinux 对所提供的安全上下文和对象类对的访问控制决策。
  */
 static avc_cache *
 sepgsql_avc_compute(const char *scontext, const char *tcontext, uint16 tclass)
@@ -215,12 +238,16 @@ sepgsql_avc_compute(const char *scontext, const char *tcontext, uint16 tclass)
 	 * invoke system-call, frequent check should be avoided. Unless security
 	 * policy is reloaded, validation status shall be kept, so we also cache
 	 * whether the supplied security context was valid, or not.
+	 *
+	 * 对所提供的安全上下文进行验证检查。由于它总是调用系统调用，因此应避免频繁检查。除非重新加载安全策略，否则应保留验证状态，因此我们还缓存提供的安全上下文是否有效。
 	 */
 	if (security_check_context_raw(tcontext) != 0)
 		ucontext = sepgsql_avc_unlabeled();
 
 	/*
 	 * Ask SELinux its access control decision
+	 *
+	 * 询问 SELinux 的访问控制决策
 	 */
 	if (!ucontext)
 		sepgsql_compute_avd(scontext, tcontext, tclass, &avd);
@@ -236,6 +263,8 @@ sepgsql_avc_compute(const char *scontext, const char *tcontext, uint16 tclass)
 	 * reduce unnecessary system calls. It shall be referenced at
 	 * sepgsql_needs_fmgr_hook to check whether the supplied function is a
 	 * trusted procedure, or not.
+	 *
+	 * 当标记为“scontext”的客户端执行标记为“tcontext”的过程时，它还缓存要切换的安全标签，而不仅仅是该过程的访问控制决策。待切换的安全标签应在一对“scontext”和“tcontext”上唯一计算，因此，将新标签缓存在avc上是合理的，并且能够减少不必要的系统调用。 It shall be referenced at sepgsql_needs_fmgr_hook to check whether the supplied function is a trusted procedure, or not.
 	 */
 	if (tclass == SEPG_CLASS_DB_PROCEDURE)
 	{
@@ -254,6 +283,8 @@ sepgsql_avc_compute(const char *scontext, const char *tcontext, uint16 tclass)
 
 	/*
 	 * Set up an avc_cache object
+	 *
+	 * 设置 avc_cache 对象
 	 */
 	oldctx = MemoryContextSwitchTo(avc_mem_cxt);
 
@@ -292,6 +323,8 @@ sepgsql_avc_compute(const char *scontext, const char *tcontext, uint16 tclass)
  *
  * Look up a cache entry that matches the supplied security contexts and
  * object class.  If not found, create a new cache entry.
+ *
+ * Look up a cache entry that matches the supplied security contexts and object class.  如果没有找到，则创建一个新的缓存条目。
  */
 static avc_cache *
 sepgsql_avc_lookup(const char *scontext, const char *tcontext, uint16 tclass)
@@ -317,7 +350,10 @@ sepgsql_avc_lookup(const char *scontext, const char *tcontext, uint16 tclass)
 			return cache;
 		}
 	}
-	/* not found, so insert a new cache */
+	/* not found, so insert a new cache
+	 *
+	 * 没有找到，所以插入一个新的缓存
+	 */
 	return sepgsql_avc_compute(scontext, tcontext, tclass);
 }
 
@@ -332,6 +368,8 @@ sepgsql_avc_lookup(const char *scontext, const char *tcontext, uint16 tclass)
  * object classes.
  * The 'audit_name' is the object name (optional). If SEPGSQL_AVC_NOAUDIT
  * was supplied, it means to skip all the audit messages.
+ *
+ * It returns 'true', if the security policy suggested to allow the required permissions. Otherwise, it returns 'false' or raises an error according to the 'abort_on_violation' argument. The 'tobject' and 'tclass' identify the target object being referenced, and 'required' is a bitmask of permissions (SEPG_*__*) defined for each object classes. The 'audit_name' is the object name (optional).如果提供了 SEPGSQL_AVC_NOAUDIT，则意味着跳过所有审核消息。
  */
 bool
 sepgsql_avc_check_perms_label(const char *tcontext,
@@ -353,6 +391,8 @@ sepgsql_avc_check_perms_label(const char *tcontext,
 		/*
 		 * If the target object is unlabeled, we perform the check using the
 		 * label supplied by sepgsql_avc_unlabeled().
+		 *
+		 * 如果目标对象未标记，我们将使用 sepgsql_avc_unlabeled() 提供的标签执行检查。
 		 */
 		if (tcontext)
 			cache = sepgsql_avc_lookup(scontext, tcontext, tclass);
@@ -364,6 +404,8 @@ sepgsql_avc_check_perms_label(const char *tcontext,
 
 		/*
 		 * Compute permissions to be audited
+		 *
+		 * 计算待审核权限
 		 */
 		if (sepgsql_get_debug_audit())
 			audited = (denied ? (denied & ~0) : (required & ~0));
@@ -379,6 +421,8 @@ sepgsql_avc_check_perms_label(const char *tcontext,
 			 * allowed to avoid a flood of access denied logs, because the
 			 * purpose of permissive mode/domain is to collect a violation log
 			 * that will make it possible to fix up the security policy.
+			 *
+			 * 在许可模式或许可域中，违反权限应立即审核到日志文件，然后隐式允许以避免大量访问拒绝日志，因为许可模式/域的目的是收集违规日志，从而可以修复安全策略。
 			 */
 			if (!sepgsql_getenforce() || cache->permissive)
 				cache->allowed |= required;
@@ -393,6 +437,8 @@ sepgsql_avc_check_perms_label(const char *tcontext,
 	 * labels for both of subject and object. It records this access
 	 * violation, so DBA will be able to find out unexpected security problems
 	 * later.
+	 *
+	 * 如果我们在这里有一些可审计的操作，则应使用主题和客体安全标签的文本表示来调用 sepgsql_audit_log。 It records this access violation, so DBA will be able to find out unexpected security problems later.
 	 */
 	if (audited != 0 &&
 		audit_name != SEPGSQL_AVC_NOAUDIT &&
@@ -440,6 +486,8 @@ sepgsql_avc_check_perms(const ObjectAddress *tobject,
  * If the supplied function OID is configured as a trusted procedure, this
  * function will return a security label to be used during the execution of
  * that function.  Otherwise, it returns NULL.
+ *
+ * 如果提供的函数 OID 配置为可信过程，则该函数将返回一个在该函数执行期间使用的安全标签。  否则，返回 NULL。
  */
 char *
 sepgsql_avc_trusted_proc(Oid functionId)
@@ -472,6 +520,8 @@ sepgsql_avc_trusted_proc(Oid functionId)
  * sepgsql_avc_exit
  *
  * Clean up userspace AVC on process exit.
+ *
+ * 在进程退出时清理用户空间 AVC。
  */
 static void
 sepgsql_avc_exit(int code, Datum arg)
@@ -483,6 +533,8 @@ sepgsql_avc_exit(int code, Datum arg)
  * sepgsql_avc_init
  *
  * Initialize the userspace AVC.  This should be called from _PG_init.
+ *
+ * 初始化用户空间 AVC。  这应该从 _PG_init 调用。
  */
 void
 sepgsql_avc_init(void)
@@ -491,6 +543,8 @@ sepgsql_avc_init(void)
 
 	/*
 	 * All the avc stuff shall be allocated in avc_mem_cxt
+	 *
+	 * 所有 avc 内容均应分配在 avc_mem_cxt 中
 	 */
 	avc_mem_cxt = AllocSetContextCreate(TopMemoryContext,
 										"userspace access vector cache",
@@ -506,6 +560,8 @@ sepgsql_avc_init(void)
 	 * reloading) without system-call invocations. This feature is only
 	 * supported in Linux-2.6.38 or later, however, libselinux provides a
 	 * fallback mode to know its status using netlink sockets.
+	 *
+	 * SELinux 允许以只读模式 mmap(2) 其内核状态页，以通知用户空间应用程序其状态更新（例如策略重新加载），而无需系统调用调用。此功能仅在 Linux-2.6.38 或更高版本中受支持，但是，libselinux 提供了后备模式以使用 netlink 套接字了解其状态。
 	 */
 	rc = selinux_status_open(1);
 	if (rc < 0)
@@ -516,6 +572,9 @@ sepgsql_avc_init(void)
 		ereport(LOG,
 				(errmsg("SELinux: kernel status page uses fallback mode")));
 
-	/* Arrange to close selinux status page on process exit. */
+	/* Arrange to close selinux status page on process exit.
+	 *
+	 * 安排在进程退出时关闭 selinux 状态页面。
+	 */
 	on_proc_exit(sepgsql_avc_exit, 0);
 }

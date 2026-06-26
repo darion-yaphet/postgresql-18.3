@@ -1,4 +1,6 @@
 -- uuid check
+--
+-- uuid检查
 
 CREATE TABLE uuidtmp (a uuid);
 

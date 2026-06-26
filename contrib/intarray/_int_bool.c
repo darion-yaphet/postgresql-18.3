@@ -13,7 +13,10 @@ PG_FUNCTION_INFO_V1(rboolop);
 PG_FUNCTION_INFO_V1(querytree);
 
 
-/* parser's states */
+/* parser's states
+ *
+ * 解析器的状态
+ */
 #define WAITOPERAND 1
 #define WAITENDOPERAND	2
 #define WAITOPERATOR	3
@@ -21,6 +24,8 @@ PG_FUNCTION_INFO_V1(querytree);
 /*
  * node of query tree, also used
  * for storing polish notation in parser
+ *
+ * 查询树的节点，也用于在解析器中存储波兰表示法
  */
 typedef struct NODE
 {
@@ -35,14 +40,22 @@ typedef struct
 	int32		state;
 	int32		count;
 	struct Node *escontext;
-	/* reverse polish notation in list (for temporary usage) */
+	/* reverse polish notation in list (for temporary usage)
+	 *
+	 * 列表中的逆波兰表示法（供临时使用）
+	 */
 	NODE	   *str;
-	/* number in str */
+	/* number in str
+	 *
+	 * str 中的数字
+	 */
 	int32		num;
 } WORKSTATE;
 
 /*
  * get token from query string
+ *
+ * 从查询字符串中获取令牌
  */
 static int32
 gettoken(WORKSTATE *state, int32 *val)
@@ -131,6 +144,8 @@ gettoken(WORKSTATE *state, int32 *val)
 
 /*
  * push new one in polish notation reverse view
+ *
+ * 以波兰符号反向视图推送新的
  */
 static void
 pushquery(WORKSTATE *state, int32 type, int32 val)
@@ -148,6 +163,8 @@ pushquery(WORKSTATE *state, int32 type, int32 val)
 
 /*
  * make polish notation of query
+ *
+ * 使用波兰语表示查询
  */
 static int32
 makepol(WORKSTATE *state)
@@ -157,7 +174,10 @@ makepol(WORKSTATE *state)
 	int32		stack[STACKDEPTH];
 	int32		lenstack = 0;
 
-	/* since this function recurses, it could be driven to stack overflow */
+	/* since this function recurses, it could be driven to stack overflow
+	 *
+	 * 由于该函数会递归，因此可能会导致堆栈溢出
+	 */
 	check_stack_depth();
 
 	while ((type = gettoken(state, &val)) != END)
@@ -228,6 +248,8 @@ typedef struct
 
 /*
  * is there value 'val' in (sorted) array or not ?
+ *
+ * （已排序）数组中是否有值“val”？
  */
 static bool
 checkcondition_arr(void *checkval, ITEM *item, void *options)
@@ -236,7 +258,10 @@ checkcondition_arr(void *checkval, ITEM *item, void *options)
 	int32	   *StopHigh = ((CHKVAL *) checkval)->arre;
 	int32	   *StopMiddle;
 
-	/* Loop invariant: StopLow <= val < StopHigh */
+	/* Loop invariant: StopLow <= val < StopHigh
+	 *
+	 * 循环不变式：StopLow <= val < StopHigh
+	 */
 
 	while (StopLow < StopHigh)
 	{
@@ -259,12 +284,17 @@ checkcondition_bit(void *checkval, ITEM *item, void *siglen)
 
 /*
  * evaluate boolean expression, using chkcond() to test the primitive cases
+ *
+ * 评估布尔表达式，使用 chkcond() 测试原始情况
  */
 static bool
 execute(ITEM *curitem, void *checkval, void *options, bool calcnot,
 		bool (*chkcond) (void *checkval, ITEM *item, void *options))
 {
-	/* since this function recurses, it could be driven to stack overflow */
+	/* since this function recurses, it could be driven to stack overflow
+	 *
+	 * 由于该函数会递归，因此可能会导致堆栈溢出
+	 */
 	check_stack_depth();
 
 	if (curitem->type == VAL)
@@ -293,6 +323,8 @@ execute(ITEM *curitem, void *checkval, void *options, bool calcnot,
 
 /*
  * signconsistent & execconsistent called by *_consistent
+ *
+ * 由 *_concient 调用的 signconcient 和 execconcient
  */
 bool
 signconsistent(QUERYTYPE *query, BITVECP sign, int siglen, bool calcnot)
@@ -302,7 +334,10 @@ signconsistent(QUERYTYPE *query, BITVECP sign, int siglen, bool calcnot)
 				   checkcondition_bit);
 }
 
-/* Array must be sorted! */
+/* Array must be sorted!
+ *
+ * 数组必须是有序的！
+ */
 bool
 execconsistent(QUERYTYPE *query, ArrayType *array, bool calcnot)
 {
@@ -344,6 +379,8 @@ gin_bool_consistent(QUERYTYPE *query, bool *check)
 	/*
 	 * Set up data for checkcondition_gin.  This must agree with the query
 	 * extraction code in ginint4_queryextract.
+	 *
+	 * 设置 checkcondition_gin 的数据。  这必须与 ginint4_queryextract 中的查询提取代码一致。
 	 */
 	gcv.first = items;
 	gcv.mapped_check = (bool *) palloc(sizeof(bool) * query->size);
@@ -361,7 +398,10 @@ gin_bool_consistent(QUERYTYPE *query, bool *check)
 static bool
 contains_required_value(ITEM *curitem)
 {
-	/* since this function recurses, it could be driven to stack overflow */
+	/* since this function recurses, it could be driven to stack overflow
+	 *
+	 * 由于该函数会递归，因此可能会导致堆栈溢出
+	 */
 	check_stack_depth();
 
 	if (curitem->type == VAL)
@@ -372,12 +412,17 @@ contains_required_value(ITEM *curitem)
 		 * Assume anything under a NOT is non-required.  For some cases with
 		 * nested NOTs, we could prove there's a required value, but it seems
 		 * unlikely to be worth the trouble.
+		 *
+		 * 假设 NOT 下的任何内容都不是必需的。  对于某些嵌套 NOT 的情况，我们可以证明存在所需的值，但似乎不值得这么麻烦。
 		 */
 		return false;
 	}
 	else if (curitem->val == (int32) '&')
 	{
-		/* If either side has a required value, we're good */
+		/* If either side has a required value, we're good
+		 *
+		 * 如果任何一方都有所需的值，我们就很好
+		 */
 		if (contains_required_value(curitem + curitem->left))
 			return true;
 		else
@@ -385,7 +430,10 @@ contains_required_value(ITEM *curitem)
 	}
 	else
 	{							/* |-operator */
-		/* Both sides must have required values */
+		/* Both sides must have required values
+		 *
+		 * 双方都必须有所需的值
+		 */
 		if (contains_required_value(curitem + curitem->left))
 			return contains_required_value(curitem - 1);
 		else
@@ -403,11 +451,16 @@ query_has_required_values(QUERYTYPE *query)
 
 /*
  * boolean operations
+ *
+ * 布尔运算
  */
 Datum
 rboolop(PG_FUNCTION_ARGS)
 {
-	/* just reverse the operands */
+	/* just reverse the operands
+	 *
+	 * 只需反转操作数
+	 */
 	return DirectFunctionCall2(boolop,
 							   PG_GETARG_DATUM(1),
 							   PG_GETARG_DATUM(0));
@@ -437,7 +490,10 @@ boolop(PG_FUNCTION_ARGS)
 static void
 findoprnd(ITEM *ptr, int32 *pos)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* since this function recurses, it could be driven to stack overflow.
+	 *
+	 * 由于该函数会递归，因此可能会导致堆栈溢出。
+	 */
 	check_stack_depth();
 
 #ifdef BS_DEBUG
@@ -495,7 +551,10 @@ bqarr_in(PG_FUNCTION_ARGS)
 	state.str = NULL;
 	state.escontext = escontext;
 
-	/* make polish notation (postfix, but in reverse order) */
+	/* make polish notation (postfix, but in reverse order)
+	 *
+	 * 制作波兰语符号（后缀，但顺序相反）
+	 */
 	if (makepol(&state) == ERR)
 		PG_RETURN_NULL();
 	if (!state.num)
@@ -545,6 +604,8 @@ bqarr_in(PG_FUNCTION_ARGS)
 
 /*
  * out function
+ *
+ * 输出函数
  */
 typedef struct
 {
@@ -564,7 +625,10 @@ typedef struct
 static void
 infix(INFIX *in, bool first)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* since this function recurses, it could be driven to stack overflow.
+	 *
+	 * 由于该函数会递归，因此可能会导致堆栈溢出。
+	 */
 	check_stack_depth();
 
 	if (in->curpol->type == VAL)
@@ -615,14 +679,23 @@ infix(INFIX *in, bool first)
 		nrm.buflen = 16;
 		nrm.cur = nrm.buf = (char *) palloc(sizeof(char) * nrm.buflen);
 
-		/* get right operand */
+		/* get right operand
+		 *
+		 * 得到正确的操作数
+		 */
 		infix(&nrm, false);
 
-		/* get & print left operand */
+		/* get & print left operand
+		 *
+		 * 获取并打印左操作数
+		 */
 		in->curpol = nrm.curpol;
 		infix(in, false);
 
-		/* print operator & right operand */
+		/* print operator & right operand
+		 *
+		 * 打印运算符和右操作数
+		 */
 		RESIZEBUF(in, 3 + (nrm.cur - nrm.buf));
 		sprintf(in->cur, " %c %s", op, nrm.buf);
 		in->cur = strchr(in->cur, '\0');
@@ -660,7 +733,10 @@ bqarr_out(PG_FUNCTION_ARGS)
 }
 
 
-/* Useless old "debugging" function for a fundamentally wrong algorithm */
+/* Useless old "debugging" function for a fundamentally wrong algorithm
+ *
+ * 对于根本错误的算法来说，无用的旧“调试”功能
+ */
 Datum
 querytree(PG_FUNCTION_ARGS)
 {

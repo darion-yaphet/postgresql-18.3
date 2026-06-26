@@ -16,7 +16,11 @@ REGRESS_OPTS = --temp-config $(top_srcdir)/contrib/pg_freespacemap/pg_freespacem
 REGRESS = pg_freespacemap
 
 # Disabled because these tests require "autovacuum=off", which
+#
+# 禁用，因为这些测试需要“autovacuum=off”，这
 # typical installcheck users do not have (e.g. buildfarm clients).
+#
+# 典型的 installcheck 用户没有（例如 buildfarm 客户端）。
 NO_INSTALLCHECK = 1
 
 ifdef USE_PGXS

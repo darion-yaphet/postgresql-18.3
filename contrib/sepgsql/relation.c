@@ -38,6 +38,8 @@ static void sepgsql_index_modify(Oid indexOid);
  * column, using ALTER TABLE ... ADD COLUMN.
  * Note that this routine is not invoked in the case of CREATE TABLE,
  * although it also defines columns in addition to table.
+ *
+ * 此例程使用 ALTER TABLE ... ADD COLUMN 在新定义的列上分配默认安全标签。请注意，在 CREATE TABLE 的情况下不会调用此例程，尽管它除了表之外还定义了列。
  */
 void
 sepgsql_attribute_post_create(Oid relOid, AttrNumber attnum)
@@ -57,6 +59,8 @@ sepgsql_attribute_post_create(Oid relOid, AttrNumber attnum)
 	/*
 	 * Only attributes within regular relations or partition relations have
 	 * individual security labels.
+	 *
+	 * 只有常规关系或分区关系内的属性才有单独的安全标签。
 	 */
 	if (relkind != RELKIND_RELATION && relkind != RELKIND_PARTITIONED_TABLE)
 		return;
@@ -64,6 +68,8 @@ sepgsql_attribute_post_create(Oid relOid, AttrNumber attnum)
 	/*
 	 * Compute a default security label of the new column underlying the
 	 * specified relation, and check permission to create it.
+	 *
+	 * 计算指定关系下的新列的默认安全标签，并检查创建它的权限。
 	 */
 	rel = table_open(AttributeRelationId, AccessShareLock);
 
@@ -94,6 +100,8 @@ sepgsql_attribute_post_create(Oid relOid, AttrNumber attnum)
 
 	/*
 	 * check db_column:{create} permission
+	 *
+	 * 检查 db_column:{create} 权限
 	 */
 	object.classId = RelationRelationId;
 	object.objectId = relOid;
@@ -111,6 +119,8 @@ sepgsql_attribute_post_create(Oid relOid, AttrNumber attnum)
 
 	/*
 	 * Assign the default security label on a new procedure
+	 *
+	 * 为新过程分配默认安全标签
 	 */
 	object.classId = RelationRelationId;
 	object.objectId = relOid;
@@ -128,6 +138,8 @@ sepgsql_attribute_post_create(Oid relOid, AttrNumber attnum)
  * sepgsql_attribute_drop
  *
  * It checks privileges to drop the supplied column.
+ *
+ * 它检查删除提供的列的权限。
  */
 void
 sepgsql_attribute_drop(Oid relOid, AttrNumber attnum)
@@ -141,6 +153,8 @@ sepgsql_attribute_drop(Oid relOid, AttrNumber attnum)
 
 	/*
 	 * check db_column:{drop} permission
+	 *
+	 * 检查 db_column:{drop} 权限
 	 */
 	object.classId = RelationRelationId;
 	object.objectId = relOid;
@@ -160,6 +174,8 @@ sepgsql_attribute_drop(Oid relOid, AttrNumber attnum)
  *
  * It checks privileges to relabel the supplied column
  * by the `seclabel'.
+ *
+ * 它检查通过“seclabel”重新标记所提供列的权限。
  */
 void
 sepgsql_attribute_relabel(Oid relOid, AttrNumber attnum,
@@ -181,6 +197,8 @@ sepgsql_attribute_relabel(Oid relOid, AttrNumber attnum,
 
 	/*
 	 * check db_column:{setattr relabelfrom} permission
+	 *
+	 * 检查 db_column:{setattr relabelfrom} 权限
 	 */
 	sepgsql_avc_check_perms(&object,
 							SEPG_CLASS_DB_COLUMN,
@@ -191,6 +209,8 @@ sepgsql_attribute_relabel(Oid relOid, AttrNumber attnum,
 
 	/*
 	 * check db_column:{relabelto} permission
+	 *
+	 * 检查 db_column:{relabelto} 权限
 	 */
 	sepgsql_avc_check_perms_label(seclabel,
 								  SEPG_CLASS_DB_COLUMN,
@@ -204,6 +224,8 @@ sepgsql_attribute_relabel(Oid relOid, AttrNumber attnum,
  * sepgsql_attribute_setattr
  *
  * It checks privileges to alter the supplied column.
+ *
+ * 它检查更改提供的列的权限。
  */
 void
 sepgsql_attribute_setattr(Oid relOid, AttrNumber attnum)
@@ -217,6 +239,8 @@ sepgsql_attribute_setattr(Oid relOid, AttrNumber attnum)
 
 	/*
 	 * check db_column:{setattr} permission
+	 *
+	 * 检查 db_column:{setattr} 权限
 	 */
 	object.classId = RelationRelationId;
 	object.objectId = relOid;
@@ -235,6 +259,8 @@ sepgsql_attribute_setattr(Oid relOid, AttrNumber attnum)
  * sepgsql_relation_post_create
  *
  * The post creation hook of relation/attribute
+ *
+ * 关系/属性的创建后钩子
  */
 void
 sepgsql_relation_post_create(Oid relOid)
@@ -256,6 +282,8 @@ sepgsql_relation_post_create(Oid relOid)
 	/*
 	 * Fetch catalog record of the new relation. Because pg_class entry is not
 	 * visible right now, we need to scan the catalog using SnapshotSelf.
+	 *
+	 * 获取新关系的目录记录。因为 pg_class 条目现在不可见，所以我们需要使用 SnapshotSelf 扫描目录。
 	 */
 	rel = table_open(RelationRelationId, AccessShareLock);
 
@@ -273,13 +301,18 @@ sepgsql_relation_post_create(Oid relOid)
 
 	classForm = (Form_pg_class) GETSTRUCT(tuple);
 
-	/* ignore indexes on toast tables */
+	/* ignore indexes on toast tables
+	 *
+	 * 忽略 toast 表上的索引
+	 */
 	if (classForm->relkind == RELKIND_INDEX &&
 		classForm->relnamespace == PG_TOAST_NAMESPACE)
 		goto out;
 
 	/*
 	 * check db_schema:{add_name} permission of the namespace
+	 *
+	 * 检查命名空间的 db_schema:{add_name} 权限
 	 */
 	object.classId = NamespaceRelationId;
 	object.objectId = classForm->relnamespace;
@@ -303,17 +336,25 @@ sepgsql_relation_post_create(Oid relOid)
 			tclass = SEPG_CLASS_DB_VIEW;
 			break;
 		case RELKIND_INDEX:
-			/* deal with indexes specially; no need for tclass */
+			/* deal with indexes specially; no need for tclass
+			 *
+			 * 对索引进行特殊处理；不需要tclass
+			 */
 			sepgsql_index_modify(relOid);
 			goto out;
 		default:
-			/* ignore other relkinds */
+			/* ignore other relkinds
+			 *
+			 * 忽略其他亲属
+			 */
 			goto out;
 	}
 
 	/*
 	 * Compute a default security label when we create a new relation object
 	 * under the specified namespace.
+	 *
+	 * 当我们在指定的命名空间下创建新的关系对象时，计算默认的安全标签。
 	 */
 	scontext = sepgsql_get_client_label();
 	tcontext = sepgsql_get_label(NamespaceRelationId,
@@ -323,6 +364,8 @@ sepgsql_relation_post_create(Oid relOid)
 
 	/*
 	 * check db_xxx:{create} permission
+	 *
+	 * 检查 db_xxx:{create} 权限
 	 */
 	nsp_name = get_namespace_name(classForm->relnamespace);
 	initStringInfo(&audit_name);
@@ -338,6 +381,8 @@ sepgsql_relation_post_create(Oid relOid)
 	/*
 	 * Assign the default security label on the new regular or partitioned
 	 * relation.
+	 *
+	 * 为新的常规或分区关系分配默认安全标签。
 	 */
 	object.classId = RelationRelationId;
 	object.objectId = relOid;
@@ -346,6 +391,8 @@ sepgsql_relation_post_create(Oid relOid)
 
 	/*
 	 * We also assign a default security label on columns of a new table.
+	 *
+	 * 我们还在新表的列上分配默认的安全标签。
 	 */
 	if (classForm->relkind == RELKIND_RELATION ||
 		classForm->relkind == RELKIND_PARTITIONED_TABLE)
@@ -383,6 +430,8 @@ sepgsql_relation_post_create(Oid relOid)
 
 			/*
 			 * check db_column:{create} permission
+			 *
+			 * 检查 db_column:{create} 权限
 			 */
 			sepgsql_avc_check_perms_label(ccontext,
 										  SEPG_CLASS_DB_COLUMN,
@@ -411,6 +460,8 @@ out:
  * sepgsql_relation_drop
  *
  * It checks privileges to drop the supplied relation.
+ *
+ * 它检查权限以删除所提供的关系。
  */
 void
 sepgsql_relation_drop(Oid relOid)
@@ -433,18 +484,29 @@ sepgsql_relation_drop(Oid relOid)
 			tclass = SEPG_CLASS_DB_VIEW;
 			break;
 		case RELKIND_INDEX:
-			/* ignore indexes on toast tables */
+			/* ignore indexes on toast tables
+			 *
+			 * 忽略 toast 表上的索引
+			 */
 			if (get_rel_namespace(relOid) == PG_TOAST_NAMESPACE)
 				return;
-			/* other indexes are handled specially below; no need for tclass */
+			/* other indexes are handled specially below; no need for tclass
+			 *
+			 * 其他指标下面专门处理；不需要tclass
+			 */
 			break;
 		default:
-			/* ignore other relkinds */
+			/* ignore other relkinds
+			 *
+			 * 忽略其他亲属
+			 */
 			return;
 	}
 
 	/*
 	 * check db_schema:{remove_name} permission
+	 *
+	 * 检查 db_schema:{remove_name} 权限
 	 */
 	object.classId = NamespaceRelationId;
 	object.objectId = get_rel_namespace(relOid);
@@ -458,7 +520,10 @@ sepgsql_relation_drop(Oid relOid)
 							true);
 	pfree(audit_name);
 
-	/* deal with indexes specially */
+	/* deal with indexes specially
+	 *
+	 * 专门处理索引
+	 */
 	if (relkind == RELKIND_INDEX)
 	{
 		sepgsql_index_modify(relOid);
@@ -467,6 +532,8 @@ sepgsql_relation_drop(Oid relOid)
 
 	/*
 	 * check db_table/sequence/view:{drop} permission
+	 *
+	 * 检查 db_table/sequence/view:{drop} 权限
 	 */
 	object.classId = RelationRelationId;
 	object.objectId = relOid;
@@ -482,6 +549,8 @@ sepgsql_relation_drop(Oid relOid)
 
 	/*
 	 * check db_column:{drop} permission
+	 *
+	 * 检查 db_column:{drop} 权限
 	 */
 	if (relkind == RELKIND_RELATION || relkind == RELKIND_PARTITIONED_TABLE)
 	{
@@ -519,6 +588,8 @@ sepgsql_relation_drop(Oid relOid)
  * sepgsql_relation_truncate
  *
  * Check privileges to TRUNCATE the supplied relation.
+ *
+ * 检查截断提供的关系的权限。
  */
 void
 sepgsql_relation_truncate(Oid relOid)
@@ -535,12 +606,17 @@ sepgsql_relation_truncate(Oid relOid)
 			tclass = SEPG_CLASS_DB_TABLE;
 			break;
 		default:
-			/* ignore other relkinds */
+			/* ignore other relkinds
+			 *
+			 * 忽略其他亲属
+			 */
 			return;
 	}
 
 	/*
 	 * check db_table:{truncate} permission
+	 *
+	 * 检查 db_table:{truncate} 权限
 	 */
 	object.classId = RelationRelationId;
 	object.objectId = relOid;
@@ -559,6 +635,8 @@ sepgsql_relation_truncate(Oid relOid)
  * sepgsql_relation_relabel
  *
  * It checks privileges to relabel the supplied relation by the `seclabel'.
+ *
+ * 它检查通过“seclabel”重新标记所提供的关系的权限。
  */
 void
 sepgsql_relation_relabel(Oid relOid, const char *seclabel)
@@ -587,6 +665,8 @@ sepgsql_relation_relabel(Oid relOid, const char *seclabel)
 
 	/*
 	 * check db_xxx:{setattr relabelfrom} permission
+	 *
+	 * 检查 db_xxx:{setattr relabelfrom} 权限
 	 */
 	sepgsql_avc_check_perms(&object,
 							tclass,
@@ -597,6 +677,8 @@ sepgsql_relation_relabel(Oid relOid, const char *seclabel)
 
 	/*
 	 * check db_xxx:{relabelto} permission
+	 *
+	 * 检查 db_xxx:{relabelto} 权限
 	 */
 	sepgsql_avc_check_perms_label(seclabel,
 								  tclass,
@@ -610,6 +692,8 @@ sepgsql_relation_relabel(Oid relOid, const char *seclabel)
  * sepgsql_relation_setattr
  *
  * It checks privileges to set attribute of the supplied relation
+ *
+ * 它检查设置所提供关系的属性的权限
  */
 void
 sepgsql_relation_setattr(Oid relOid)
@@ -638,16 +722,24 @@ sepgsql_relation_setattr(Oid relOid)
 			tclass = SEPG_CLASS_DB_VIEW;
 			break;
 		case RELKIND_INDEX:
-			/* deal with indexes specially */
+			/* deal with indexes specially
+			 *
+			 * 专门处理索引
+			 */
 			sepgsql_index_modify(relOid);
 			return;
 		default:
-			/* other relkinds don't need additional work */
+			/* other relkinds don't need additional work
+			 *
+			 * 其他亲属不需要额外的工作
+			 */
 			return;
 	}
 
 	/*
 	 * Fetch newer catalog
+	 *
+	 * 获取更新的目录
 	 */
 	rel = table_open(RelationRelationId, AccessShareLock);
 
@@ -666,6 +758,8 @@ sepgsql_relation_setattr(Oid relOid)
 
 	/*
 	 * Fetch older catalog
+	 *
+	 * 获取旧目录
 	 */
 	oldtup = SearchSysCache1(RELOID, ObjectIdGetDatum(relOid));
 	if (!HeapTupleIsValid(oldtup))
@@ -674,6 +768,8 @@ sepgsql_relation_setattr(Oid relOid)
 
 	/*
 	 * Does this ALTER command takes operation to namespace?
+	 *
+	 * 这个 ALTER 命令是否对命名空间进行操作？
 	 */
 	if (newform->relnamespace != oldform->relnamespace)
 	{
@@ -686,10 +782,14 @@ sepgsql_relation_setattr(Oid relOid)
 	/*
 	 * XXX - In the future version, db_tuple:{use} of system catalog entry
 	 * shall be checked, if tablespace configuration is changed.
+	 *
+	 * XXX - 在未来版本中，如果表空间配置发生更改，则应检查系统目录项的 db_tuple:{use}。
 	 */
 
 	/*
 	 * check db_xxx:{setattr} permission
+	 *
+	 * 检查 db_xxx:{setattr} 权限
 	 */
 	object.classId = RelationRelationId;
 	object.objectId = relOid;
@@ -716,6 +816,8 @@ sepgsql_relation_setattr(Oid relOid)
  * with such entries as individual "objects", thus, modification of these
  * entries shall be considered as setting an attribute of the underlying
  * relation.
+ *
+ * 它检查由额外属性（例如 pg_index 条目）引用的关系的权限。与核心 PostgreSQL 一样，sepgsql 也不将此类条目作为单独的“对象”来处理，因此，对这些条目的修改应被视为设置底层关系的属性。
  */
 static void
 sepgsql_relation_setattr_extra(Relation catalog,
@@ -754,16 +856,23 @@ sepgsql_relation_setattr_extra(Relation catalog,
  * sepgsql_index_modify
  *		Handle index create, update, drop
  *
+ * sepgsql_index_modify 处理索引创建、更新、删除
+ *
  * Unlike other relation kinds, indexes do not have their own security labels,
  * so instead of doing checks directly, treat them as extra attributes of their
  * owning tables; so check 'setattr' permissions on the table.
+ *
+ * 与其他关系类型不同，索引没有自己的安全标签，因此不要直接进行检查，而是将它们视为所属表的额外属性；所以检查表上的“setattr”权限。
  */
 static void
 sepgsql_index_modify(Oid indexOid)
 {
 	Relation	catalog = table_open(IndexRelationId, AccessShareLock);
 
-	/* check db_table:{setattr} permission of the table being indexed */
+	/* check db_table:{setattr} permission of the table being indexed
+	 *
+	 * 检查正在索引的表的 db_table:{setattr} 权限
+	 */
 	sepgsql_relation_setattr_extra(catalog,
 								   IndexRelidIndexId,
 								   indexOid,

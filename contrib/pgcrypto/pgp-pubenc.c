@@ -35,6 +35,8 @@
 
 /*
  * padded msg: 02 || non-zero pad bytes || 00 || msg
+ *
+ * 填充消息：02 ||非零填充字节 || 00||味精
  */
 static int
 pad_eme_pkcs1_v15(uint8 *data, int data_len, int res_len, uint8 **res_p)
@@ -55,7 +57,10 @@ pad_eme_pkcs1_v15(uint8 *data, int data_len, int res_len, uint8 **res_p)
 		return PXE_NO_RANDOM;
 	}
 
-	/* pad must not contain zero bytes */
+	/* pad must not contain zero bytes
+	 *
+	 * pad 不得包含零字节
+	 */
 	p = buf + 1;
 	while (p < buf + 1 + pad_len)
 	{
@@ -90,12 +95,17 @@ create_secmsg(PGP_Context *ctx, PGP_MPI **msg_p, int full_bytes)
 	uint8	   *padded = NULL;
 	PGP_MPI    *m = NULL;
 
-	/* calc checksum */
+	/* calc checksum
+	 *
+	 * 计算校验和
+	 */
 	for (i = 0; i < klen; i++)
 		cksum += ctx->sess_key[i];
 
 	/*
 	 * create "secret message"
+	 *
+	 * 创建“秘密消息”
 	 */
 	secmsg = palloc(klen + 3);
 	secmsg[0] = ctx->cipher_algo;
@@ -105,11 +115,16 @@ create_secmsg(PGP_Context *ctx, PGP_MPI **msg_p, int full_bytes)
 
 	/*
 	 * now create a large integer of it
+	 *
+	 * 现在创建一个大整数
 	 */
 	res = pad_eme_pkcs1_v15(secmsg, klen + 3, full_bytes, &padded);
 	if (res >= 0)
 	{
-		/* first byte will be 0x02 */
+		/* first byte will be 0x02
+		 *
+		 * 第一个字节将为 0x02
+		 */
 		int			full_bits = full_bytes * 8 - 6;
 
 		res = pgp_mpi_create(padded, full_bits, &m);
@@ -137,17 +152,26 @@ encrypt_and_write_elgamal(PGP_Context *ctx, PGP_PubKey *pk, PushFilter *pkt)
 			   *c1 = NULL,
 			   *c2 = NULL;
 
-	/* create padded msg */
+	/* create padded msg
+	 *
+	 * 创建填充消息
+	 */
 	res = create_secmsg(ctx, &m, pk->pub.elg.p->bytes - 1);
 	if (res < 0)
 		goto err;
 
-	/* encrypt it */
+	/* encrypt it
+	 *
+	 * 加密它
+	 */
 	res = pgp_elgamal_encrypt(pk, m, &c1, &c2);
 	if (res < 0)
 		goto err;
 
-	/* write out */
+	/* write out
+	 *
+	 * 写出
+	 */
 	res = pgp_mpi_write(pkt, c1);
 	if (res < 0)
 		goto err;
@@ -167,17 +191,26 @@ encrypt_and_write_rsa(PGP_Context *ctx, PGP_PubKey *pk, PushFilter *pkt)
 	PGP_MPI    *m = NULL,
 			   *c = NULL;
 
-	/* create padded msg */
+	/* create padded msg
+	 *
+	 * 创建填充消息
+	 */
 	res = create_secmsg(ctx, &m, pk->pub.rsa.n->bytes - 1);
 	if (res < 0)
 		goto err;
 
-	/* encrypt it */
+	/* encrypt it
+	 *
+	 * 加密它
+	 */
 	res = pgp_rsa_encrypt(pk, m, &c);
 	if (res < 0)
 		goto err;
 
-	/* write out */
+	/* write out
+	 *
+	 * 写出
+	 */
 	res = pgp_mpi_write(pkt, c);
 
 err:
@@ -205,6 +238,8 @@ pgp_write_pubenc_sesskey(PGP_Context *ctx, PushFilter *dst)
 
 	/*
 	 * now write packet
+	 *
+	 * 现在写数据包
 	 */
 	res = pgp_create_pkt_writer(dst, PGP_PKT_PUBENCRYPTED_SESSKEY, &pkt);
 	if (res < 0)
@@ -234,6 +269,8 @@ pgp_write_pubenc_sesskey(PGP_Context *ctx, PushFilter *dst)
 
 	/*
 	 * done, signal packet end
+	 *
+	 * 完成，信号包结束
 	 */
 	res = pushf_flush(pkt);
 err:

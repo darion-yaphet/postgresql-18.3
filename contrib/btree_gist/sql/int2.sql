@@ -1,4 +1,6 @@
 -- int2 check
+--
+-- int2检查
 
 CREATE TABLE int2tmp (a int2);
 

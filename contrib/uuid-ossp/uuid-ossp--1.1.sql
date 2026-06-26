@@ -1,6 +1,8 @@
 /* contrib/uuid-ossp/uuid-ossp--1.1.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use '''CREATE EXTENSION "uuid-ossp"''' to load this file. \quit
 
 CREATE FUNCTION uuid_nil()

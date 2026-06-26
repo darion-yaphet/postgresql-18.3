@@ -53,6 +53,8 @@ PG_FUNCTION_INFO_V1(bt_multi_page_stats);
 
 /* ------------------------------------------------
  * structure for single btree page statistics
+ *
+ * 单btree页面统计的结构
  * ------------------------------------------------
  */
 typedef struct BTPageStat
@@ -66,7 +68,10 @@ typedef struct BTPageStat
 	uint32		avg_item_size;
 	char		type;
 
-	/* opaque data */
+	/* opaque data
+	 *
+	 * 不透明的数据
+	 */
 	BlockNumber btpo_prev;
 	BlockNumber btpo_next;
 	uint32		btpo_level;
@@ -76,6 +81,8 @@ typedef struct BTPageStat
 
 /*
  * cross-call data structure for SRF for page stats
+ *
+ * 用于页面统计的 SRF 的交叉调用数据结构
  */
 typedef struct ua_page_stats
 {
@@ -87,6 +94,8 @@ typedef struct ua_page_stats
 
 /*
  * cross-call data structure for SRF for page items
+ *
+ * 页面项 SRF 的交叉调用数据结构
  */
 typedef struct ua_page_items
 {
@@ -102,6 +111,8 @@ typedef struct ua_page_items
  * GetBTPageStatistics()
  *
  * Collect statistics of single b-tree page
+ *
+ * 收集单个b树页面的统计信息
  * -------------------------------------------------
  */
 static void
@@ -122,10 +133,16 @@ GetBTPageStatistics(BlockNumber blkno, Buffer buffer, BTPageStat *stat)
 
 	stat->page_size = PageGetPageSize(page);
 
-	/* page type (flags) */
+	/* page type (flags)
+	 *
+	 * 页面类型（标志）
+	 */
 	if (P_ISDELETED(opaque))
 	{
-		/* We divide deleted pages into leaf ('d') or internal ('D') */
+		/* We divide deleted pages into leaf ('d') or internal ('D')
+		 *
+		 * 我们将删除的页面分为叶（'d'）或内部（'D'）
+		 */
 		if (P_ISLEAF(opaque) || !P_HAS_FULLXID(opaque))
 			stat->type = 'd';
 		else
@@ -134,9 +151,13 @@ GetBTPageStatistics(BlockNumber blkno, Buffer buffer, BTPageStat *stat)
 		/*
 		 * Report safexid in a deleted page.
 		 *
+		 * 在已删除的页面中报告 safexid。
+		 *
 		 * Handle pg_upgrade'd deleted pages that used the previous safexid
 		 * representation in btpo_level field (this used to be a union type
 		 * called "bpto").
+		 *
+		 * 处理 pg_upgrade 删除的页面，这些页面在 btpo_level 字段中使用了先前的 safexid 表示（这曾经是一个名为“bpto”的联合类型）。
 		 */
 		if (P_HAS_FULLXID(opaque))
 		{
@@ -150,7 +171,10 @@ GetBTPageStatistics(BlockNumber blkno, Buffer buffer, BTPageStat *stat)
 			elog(DEBUG2, "deleted page from block %u has safexid %u",
 				 blkno, opaque->btpo_level);
 
-		/* Don't interpret BTDeletedPageData as index tuples */
+		/* Don't interpret BTDeletedPageData as index tuples
+		 *
+		 * 不要将 BTDeletedPageData 解释为索引元组
+		 */
 		maxoff = InvalidOffsetNumber;
 	}
 	else if (P_IGNORE(opaque))
@@ -162,14 +186,20 @@ GetBTPageStatistics(BlockNumber blkno, Buffer buffer, BTPageStat *stat)
 	else
 		stat->type = 'i';
 
-	/* btpage opaque data */
+	/* btpage opaque data
+	 *
+	 * btpage 不透明数据
+	 */
 	stat->btpo_prev = opaque->btpo_prev;
 	stat->btpo_next = opaque->btpo_next;
 	stat->btpo_level = opaque->btpo_level;
 	stat->btpo_flags = opaque->btpo_flags;
 	stat->btpo_cycleid = opaque->btpo_cycleid;
 
-	/* count live and dead tuples, and free space */
+	/* count live and dead tuples, and free space
+	 *
+	 * 计算活元组和死元组以及可用空间
+	 */
 	for (off = FirstOffsetNumber; off <= maxoff; off++)
 	{
 		IndexTuple	itup;
@@ -197,12 +227,17 @@ GetBTPageStatistics(BlockNumber blkno, Buffer buffer, BTPageStat *stat)
  * check_relation_block_range()
  *
  * Verify that a block number (given as int64) is valid for the relation.
+ *
+ * 验证块号（以 int64 形式给出）对于关系是否有效。
  * -----------------------------------------------
  */
 static void
 check_relation_block_range(Relation rel, int64 blkno)
 {
-	/* Ensure we can cast to BlockNumber */
+	/* Ensure we can cast to BlockNumber
+	 *
+	 * 确保我们可以转换为 BlockNumber
+	 */
 	if (blkno < 0 || blkno > MaxBlockNumber)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -219,6 +254,8 @@ check_relation_block_range(Relation rel, int64 blkno)
  *
  * Validate index type is btree and block number
  * is valid (and not the metapage).
+ *
+ * 验证索引类型是 btree 并且块号有效（而不是元页）。
  * -----------------------------------------------
  */
 static void
@@ -234,6 +271,8 @@ bt_index_block_validate(Relation rel, int64 blkno)
 	 * Reject attempts to read non-local temporary relations; we would be
 	 * likely to get wrong data since we have no visibility into the owning
 	 * session's local buffers.
+	 *
+	 * 拒绝读取非本地临时关系的尝试；我们可能会得到错误的数据，因为我们看不到拥有会话的本地缓冲区。
 	 */
 	if (RELATION_IS_OTHER_TEMP(rel))
 		ereport(ERROR,
@@ -253,6 +292,8 @@ bt_index_block_validate(Relation rel, int64 blkno)
  *
  * Usage: SELECT * FROM bt_page_stats('t1_pkey', 1);
  * Arguments are index relation name and block number
+ *
+ * 用法： SELECT * FROM bt_page_stats('t1_pkey', 1);参数是索引关系名称和块号
  * -----------------------------------------------
  */
 static Datum
@@ -283,7 +324,10 @@ bt_page_stats_internal(PG_FUNCTION_ARGS, enum pageinspect_version ext_version)
 	buffer = ReadBuffer(rel, blkno);
 	LockBuffer(buffer, BUFFER_LOCK_SHARE);
 
-	/* keep compiler quiet */
+	/* keep compiler quiet
+	 *
+	 * 保持编译器安静
+	 */
 	stat.btpo_prev = stat.btpo_next = InvalidBlockNumber;
 	stat.btpo_flags = stat.free_size = stat.avg_item_size = 0;
 
@@ -292,7 +336,10 @@ bt_page_stats_internal(PG_FUNCTION_ARGS, enum pageinspect_version ext_version)
 	UnlockReleaseBuffer(buffer);
 	relation_close(rel, AccessShareLock);
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
@@ -323,7 +370,10 @@ bt_page_stats_1_9(PG_FUNCTION_ARGS)
 	return bt_page_stats_internal(fcinfo, PAGEINSPECT_V1_9);
 }
 
-/* entry point for old extension version */
+/* entry point for old extension version
+ *
+ * 旧扩展版本的入口点
+ */
 Datum
 bt_page_stats(PG_FUNCTION_ARGS)
 {
@@ -337,6 +387,8 @@ bt_page_stats(PG_FUNCTION_ARGS)
  * Usage: SELECT * FROM bt_page_stats('t1_pkey', 1, 2);
  * Arguments are index relation name, first block number, number of blocks
  * (but number of blocks can be negative to mean "read all the rest")
+ *
+ * 用法： SELECT * FROM bt_page_stats('t1_pkey', 1, 2);参数是索引关系名称、第一个块编号、块数（但块数可以为负数，表示“读取其余所有内容”）
  * -----------------------------------------------
  */
 Datum
@@ -364,18 +416,26 @@ bt_multi_page_stats(PG_FUNCTION_ARGS)
 		relrv = makeRangeVarFromNameList(textToQualifiedNameList(relname));
 		rel = relation_openrv(relrv, AccessShareLock);
 
-		/* Check that rel is a valid btree index and 1st block number is OK */
+		/* Check that rel is a valid btree index and 1st block number is OK
+		 *
+		 * 检查 rel 是否是有效的 btree 索引并且第一个块号是否正确
+		 */
 		bt_index_block_validate(rel, blkno);
 
 		/*
 		 * Check if upper bound of the specified range is valid. If only one
 		 * page is requested, skip as we've already validated the page. (Also,
 		 * it's important to skip this if blk_count is negative.)
+		 *
+		 * 检查指定范围的上限是否有效。如果仅请求一页，请跳过，因为我们已经验证了该页面。 （此外，如果 blk_count 为负数，请务必跳过此操作。）
 		 */
 		if (blk_count > 1)
 			check_relation_block_range(rel, blkno + blk_count - 1);
 
-		/* Save arguments for reuse */
+		/* Save arguments for reuse
+		 *
+		 * 保存参数以供重用
+		 */
 		mctx = MemoryContextSwitchTo(fctx->multi_call_memory_ctx);
 
 		uargs = palloc(sizeof(ua_page_stats));
@@ -395,6 +455,8 @@ bt_multi_page_stats(PG_FUNCTION_ARGS)
 		 * through, using the index's OID for re-opens to ensure we get the
 		 * same rel.  Keep the AccessShareLock though, to ensure it doesn't go
 		 * away underneath us.
+		 *
+		 * 为了避免在 SRF 未运行完成时可能泄漏 relcache 引用，我们每次都会关闭并重新打开索引 rel，使用索引的 OID 重新打开以确保我们获得相同的 rel。  不过，请保留 AccessShareLock，以确保它不会在我们脚下消失。
 		 */
 		relation_close(rel, NoLock);
 	}
@@ -402,16 +464,25 @@ bt_multi_page_stats(PG_FUNCTION_ARGS)
 	fctx = SRF_PERCALL_SETUP();
 	uargs = fctx->user_fctx;
 
-	/* We should have lock already */
+	/* We should have lock already
+	 *
+	 * 我们应该已经有锁了
+	 */
 	rel = relation_open(uargs->relid, NoLock);
 
-	/* In all-pages mode, recheck the index length each time */
+	/* In all-pages mode, recheck the index length each time
+	 *
+	 * 全页模式下，每次重新检查索引长度
+	 */
 	if (uargs->allpages)
 		uargs->blk_count = RelationGetNumberOfBlocks(rel) - uargs->blkno;
 
 	if (uargs->blk_count > 0)
 	{
-		/* We need to fetch next block statistics */
+		/* We need to fetch next block statistics
+		 *
+		 * 我们需要获取下一个块的统计信息
+		 */
 		Buffer		buffer;
 		Datum		result;
 		HeapTuple	tuple;
@@ -423,7 +494,10 @@ bt_multi_page_stats(PG_FUNCTION_ARGS)
 		buffer = ReadBuffer(rel, uargs->blkno);
 		LockBuffer(buffer, BUFFER_LOCK_SHARE);
 
-		/* keep compiler quiet */
+		/* keep compiler quiet
+		 *
+		 * 保持编译器安静
+		 */
 		stat.btpo_prev = stat.btpo_next = InvalidBlockNumber;
 		stat.btpo_flags = stat.free_size = stat.avg_item_size = 0;
 
@@ -432,7 +506,10 @@ bt_multi_page_stats(PG_FUNCTION_ARGS)
 		UnlockReleaseBuffer(buffer);
 		relation_close(rel, NoLock);
 
-		/* Build a tuple descriptor for our result type */
+		/* Build a tuple descriptor for our result type
+		 *
+		 * 为我们的结果类型构建一个元组描述符
+		 */
 		if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 			elog(ERROR, "return type must be a row type");
 
@@ -449,7 +526,10 @@ bt_multi_page_stats(PG_FUNCTION_ARGS)
 		values[j++] = psprintf("%u", stat.btpo_level);
 		values[j++] = psprintf("%d", stat.btpo_flags);
 
-		/* Construct tuple to be returned */
+		/* Construct tuple to be returned
+		 *
+		 * 构造要返回的元组
+		 */
 		tuple = BuildTupleFromCStrings(TupleDescGetAttInMetadata(tupleDesc),
 									   values);
 
@@ -458,6 +538,8 @@ bt_multi_page_stats(PG_FUNCTION_ARGS)
 		/*
 		 * Move to the next block number and decrement the number of blocks
 		 * still to be fetched
+		 *
+		 * 移动到下一个块号并减少仍要获取的块数
 		 */
 		uargs->blkno++;
 		uargs->blk_count--;
@@ -465,7 +547,10 @@ bt_multi_page_stats(PG_FUNCTION_ARGS)
 		SRF_RETURN_NEXT(fctx, result);
 	}
 
-	/* Done, so finally we can release the index lock */
+	/* Done, so finally we can release the index lock
+	 *
+	 * 完成了，终于可以释放索引锁了
+	 */
 	relation_close(rel, AccessShareLock);
 	SRF_RETURN_DONE(fctx);
 }
@@ -474,6 +559,8 @@ bt_multi_page_stats(PG_FUNCTION_ARGS)
  * bt_page_print_tuples()
  *
  * Form a tuple describing index tuple at a given offset
+ *
+ * 形成一个描述给定偏移处索引元组的元组
  * ------------------------------------------------------
  */
 static Datum
@@ -519,11 +606,15 @@ bt_page_print_tuples(ua_page_items *uargs)
 	 * Make sure that "data" column does not include posting list or pivot
 	 * tuple representation of heap TID(s).
 	 *
+	 * 确保“数据”列不包括堆 TID 的发布列表或枢轴元组表示。
+	 *
 	 * Note: BTreeTupleIsPivot() won't work reliably on !heapkeyspace indexes
 	 * (those built before BTREE_VERSION 4), but we have no way of determining
 	 * if this page came from a !heapkeyspace index.  We may only have a bytea
 	 * nbtree page image to go on, so in general there is no metapage that we
 	 * can check.
+	 *
+	 * 注意：BTreeTupleIsPivot() 无法在 !heapkeyspace 索引（在 BTREE_VERSION 4 之前构建的索引）上可靠地工作，但我们无法确定此页面是否来自 !heapkeyspace 索引。  我们可能只有一个bytea nbtree页面图像可以继续，所以通常没有我们可以检查的元页面。
 	 *
 	 * That's okay here because BTreeTupleIsPivot() can only return false for
 	 * a !heapkeyspace pivot, never true for a !heapkeyspace non-pivot.  Since
@@ -535,8 +626,12 @@ bt_page_print_tuples(ua_page_items *uargs)
 	 * BTreeTupleGetHeapTID() can be trusted to work reliably (i.e. return
 	 * NULL).
 	 *
+	 * 这里没关系，因为 BTreeTupleIsPivot() 只能对 !heapkeyspace 枢轴返回 false，而对 !heapkeyspace 非枢轴永远不会返回 true。  由于堆 TID 无论如何都不是 !heapkeyspace 索引中键空间的一部分，因此不可能存在我们未能对其进行调整的主元组堆 TID 表示形式。  !heapkeyspace 索引可以让 BTreeTupleIsPivot() 返回 true （由于 Postgres v11 中 INCLUDE 索引的后缀截断等原因），但当发生这种情况时，可以相信 BTreeTupleGetHeapTID() 可以可靠地工作（即返回 NULL）。
+	 *
 	 * Note: BTreeTupleIsPosting() always works reliably, even with
 	 * !heapkeyspace indexes.
+	 *
+	 * 注意：BTreeTupleIsPosting() 始终可靠地工作，即使使用 !heapkeyspace 索引也是如此。
 	 */
 	if (BTreeTupleIsPosting(itup))
 		dlen -= IndexTupleSize(itup) - BTreeTupleGetPostingOffset(itup);
@@ -563,10 +658,15 @@ bt_page_print_tuples(ua_page_items *uargs)
 	 * again.  Deduce whether or not tuple must be a pivot tuple based on
 	 * whether or not the page is a leaf page, as well as the page offset
 	 * number of the tuple.
+	 *
+	 * 我们需要再次解决 BTreeTupleIsPivot() !heapkeyspace 限制。  根据该页是否是叶子页以及该元组的页偏移量来推断该元组是否必须是主元组。
 	 */
 	ispivottuple = (!leafpage || (!rightmost && offset == P_HIKEY));
 
-	/* LP_DEAD bit can never be set for pivot tuples, so show a NULL there */
+	/* LP_DEAD bit can never be set for pivot tuples, so show a NULL there
+	 *
+	 * 永远不能为枢轴元组设置 LP_DEAD 位，因此在那里显示 NULL
+	 */
 	if (!ispivottuple)
 		values[j++] = BoolGetDatum(ItemIdIsDead(id));
 	else
@@ -578,7 +678,10 @@ bt_page_print_tuples(ua_page_items *uargs)
 	htid = BTreeTupleGetHeapTID(itup);
 	if (ispivottuple && !BTreeTupleIsPivot(itup))
 	{
-		/* Don't show bogus heap TID in !heapkeyspace pivot tuple */
+		/* Don't show bogus heap TID in !heapkeyspace pivot tuple
+		 *
+		 * 不要在 !heapkeyspace 枢轴元组中显示伪造的堆 TID
+		 */
 		htid = NULL;
 	}
 
@@ -589,7 +692,10 @@ bt_page_print_tuples(ua_page_items *uargs)
 
 	if (BTreeTupleIsPosting(itup))
 	{
-		/* Build an array of item pointers */
+		/* Build an array of item pointers
+		 *
+		 * 构建项目指针数组
+		 */
 		ItemPointer tids;
 		Datum	   *tids_datum;
 		int			nposting;
@@ -605,7 +711,10 @@ bt_page_print_tuples(ua_page_items *uargs)
 	else
 		nulls[j++] = true;
 
-	/* Build and return the result tuple */
+	/* Build and return the result tuple
+	 *
+	 * 构建并返回结果元组
+	 */
 	tuple = heap_form_tuple(uargs->tupd, values, nulls);
 
 	return HeapTupleGetDatum(tuple);
@@ -616,7 +725,11 @@ bt_page_print_tuples(ua_page_items *uargs)
  *
  * Get IndexTupleData set in a btree page
  *
+ * 获取 btree 页面中的 IndexTupleData 集
+ *
  * Usage: SELECT * FROM bt_page_items('t1_pkey', 1);
+ *
+ * 用法： SELECT * FROM bt_page_items('t1_pkey', 1);
  *-------------------------------------------------------
  */
 static Datum
@@ -656,6 +769,8 @@ bt_page_items_internal(PG_FUNCTION_ARGS, enum pageinspect_version ext_version)
 		 * We copy the page into local storage to avoid holding pin on the
 		 * buffer longer than we must, and possibly failing to release it at
 		 * all if the calling query doesn't fetch all rows.
+		 *
+		 * 我们将页面复制到本地存储中，以避免在缓冲区上保持 pin 的时间超过我们必须的时间，并且如果调用查询未获取所有行，则可能根本无法释放它。
 		 */
 		mctx = MemoryContextSwitchTo(fctx->multi_call_memory_ctx);
 
@@ -675,14 +790,20 @@ bt_page_items_internal(PG_FUNCTION_ARGS, enum pageinspect_version ext_version)
 			fctx->max_calls = PageGetMaxOffsetNumber(uargs->page);
 		else
 		{
-			/* Don't interpret BTDeletedPageData as index tuples */
+			/* Don't interpret BTDeletedPageData as index tuples
+			 *
+			 * 不要将 BTDeletedPageData 解释为索引元组
+			 */
 			elog(NOTICE, "page from block " INT64_FORMAT " is deleted", blkno);
 			fctx->max_calls = 0;
 		}
 		uargs->leafpage = P_ISLEAF(opaque);
 		uargs->rightmost = P_RIGHTMOST(opaque);
 
-		/* Build a tuple descriptor for our result type */
+		/* Build a tuple descriptor for our result type
+		 *
+		 * 为我们的结果类型构建一个元组描述符
+		 */
 		if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 			elog(ERROR, "return type must be a row type");
 		tupleDesc = BlessTupleDesc(tupleDesc);
@@ -713,7 +834,10 @@ bt_page_items_1_9(PG_FUNCTION_ARGS)
 	return bt_page_items_internal(fcinfo, PAGEINSPECT_V1_9);
 }
 
-/* entry point for old extension version */
+/* entry point for old extension version
+ *
+ * 旧扩展版本的入口点
+ */
 Datum
 bt_page_items(PG_FUNCTION_ARGS)
 {
@@ -725,7 +849,11 @@ bt_page_items(PG_FUNCTION_ARGS)
  *
  * Get IndexTupleData set in a btree page
  *
+ * 获取 btree 页面中的 IndexTupleData 集
+ *
  * Usage: SELECT * FROM bt_page_items(get_raw_page('t1_pkey', 1));
+ *
+ * 用法： SELECT * FROM bt_page_items(get_raw_page('t1_pkey', 1));
  *-------------------------------------------------------
  */
 
@@ -763,7 +891,10 @@ bt_page_items_bytea(PG_FUNCTION_ARGS)
 
 		uargs->offset = FirstOffsetNumber;
 
-		/* verify the special space has the expected size */
+		/* verify the special space has the expected size
+		 *
+		 * 验证特殊空间是否具有预期的大小
+		 */
 		if (PageGetSpecialSize(uargs->page) != MAXALIGN(sizeof(BTPageOpaqueData)))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -791,14 +922,20 @@ bt_page_items_bytea(PG_FUNCTION_ARGS)
 			fctx->max_calls = PageGetMaxOffsetNumber(uargs->page);
 		else
 		{
-			/* Don't interpret BTDeletedPageData as index tuples */
+			/* Don't interpret BTDeletedPageData as index tuples
+			 *
+			 * 不要将 BTDeletedPageData 解释为索引元组
+			 */
 			elog(NOTICE, "page from block is deleted");
 			fctx->max_calls = 0;
 		}
 		uargs->leafpage = P_ISLEAF(opaque);
 		uargs->rightmost = P_RIGHTMOST(opaque);
 
-		/* Build a tuple descriptor for our result type */
+		/* Build a tuple descriptor for our result type
+		 *
+		 * 为我们的结果类型构建一个元组描述符
+		 */
 		if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 			elog(ERROR, "return type must be a row type");
 		tupleDesc = BlessTupleDesc(tupleDesc);
@@ -823,7 +960,10 @@ bt_page_items_bytea(PG_FUNCTION_ARGS)
 	SRF_RETURN_DONE(fctx);
 }
 
-/* Number of output arguments (columns) for bt_metap() */
+/* Number of output arguments (columns) for bt_metap()
+ *
+ * bt_metap() 的输出参数（列）数
+ */
 #define BT_METAP_COLS_V1_8		9
 
 /* ------------------------------------------------
@@ -831,7 +971,11 @@ bt_page_items_bytea(PG_FUNCTION_ARGS)
  *
  * Get a btree's meta-page information
  *
+ * 获取btree的元页面信息
+ *
  * Usage: SELECT * FROM bt_metap('t1_pkey')
+ *
+ * 用法： SELECT * FROM bt_metap('t1_pkey')
  * ------------------------------------------------
  */
 Datum
@@ -867,6 +1011,8 @@ bt_metap(PG_FUNCTION_ARGS)
 	 * Reject attempts to read non-local temporary relations; we would be
 	 * likely to get wrong data since we have no visibility into the owning
 	 * session's local buffers.
+	 *
+	 * 拒绝读取非本地临时关系的尝试；我们可能会得到错误的数据，因为我们看不到拥有会话的本地缓冲区。
 	 */
 	if (RELATION_IS_OTHER_TEMP(rel))
 		ereport(ERROR,
@@ -879,7 +1025,10 @@ bt_metap(PG_FUNCTION_ARGS)
 	page = BufferGetPage(buffer);
 	metad = BTPageGetMeta(page);
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
@@ -887,9 +1036,13 @@ bt_metap(PG_FUNCTION_ARGS)
 	 * We need a kluge here to detect API versions prior to 1.8.  Earlier
 	 * versions incorrectly used int4 for certain columns.
 	 *
+	 * 我们需要一个 kluge 来检测 1.8 之前的 API 版本。  早期版本错误地对某些列使用了 int4。
+	 *
 	 * There is no way to reliably avoid the problems created by the old
 	 * function definition at this point, so insist that the user update the
 	 * extension.
+	 *
+	 * 目前没有办法可靠地避免旧函数定义造成的问题，因此坚持要求用户更新扩展。
 	 */
 	if (tupleDesc->natts < BT_METAP_COLS_V1_8)
 		ereport(ERROR,
@@ -910,6 +1063,8 @@ bt_metap(PG_FUNCTION_ARGS)
 	 * otherwise.  Note that we rely on the assumption that btm_allequalimage
 	 * is initialized to zero with indexes that were built on versions prior
 	 * to Postgres 13 (just like _bt_metaversion()).
+	 *
+	 * 获取扩展元数据的值（如果可用），否则使用默认值。  请注意，我们依赖于这样的假设：btm_allequalimage 使用在 Postgres 13 之前的版本上构建的索引（就像 _bt_metaversion() 一样）初始化为零。
 	 */
 	if (metad->btm_version >= BTREE_NOVAC_VERSION)
 	{

@@ -1,11 +1,17 @@
 /* contrib/btree_gist/btree_gist--1.3--1.4.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION btree_gist UPDATE TO '1.4'" to load this file. \quit
 
 -- Add support for indexing macaddr8 columns
+--
+-- 添加对 macaddr8 列索引的支持
 
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_macad8_consistent(internal,macaddr8,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -42,6 +48,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_macaddr8_ops
 DEFAULT FOR TYPE macaddr8 USING gist
 AS

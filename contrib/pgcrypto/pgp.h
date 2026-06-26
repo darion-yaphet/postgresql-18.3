@@ -152,6 +152,8 @@ struct PGP_Context
 
 	/*
 	 * internal variables
+	 *
+	 * 内部变量
 	 */
 	int			mdc_checked;
 	int			corrupt_prefix; /* prefix failed RFC 4880 "quick check" */
@@ -167,12 +169,17 @@ struct PGP_Context
 
 	/*
 	 * read or generated data
+	 *
+	 * 读取或生成数据
 	 */
 	uint8		sess_key[PGP_MAX_KEY];
 	unsigned	sess_key_len;
 };
 
-/* from RFC 4880 3.7.1.3 */
+/* from RFC 4880 3.7.1.3
+ *
+ * 来自 RFC 4880 3.7.1.3
+ */
 #define s2k_decode_count(cval) \
 	(((unsigned) 16 + (cval & 15)) << ((cval >> 4) + 6))
 
@@ -189,7 +196,10 @@ struct PGP_PubKey
 	uint8		time[4];
 	uint8		algo;
 
-	/* public part */
+	/* public part
+	 *
+	 * 公共部分
+	 */
 	union
 	{
 		struct
@@ -212,7 +222,10 @@ struct PGP_PubKey
 		}			dsa;
 	}			pub;
 
-	/* secret part */
+	/* secret part
+	 *
+	 * 秘密部分
+	 */
 	union
 	{
 		struct
@@ -265,7 +278,10 @@ int			pgp_set_pubkey(PGP_Context *ctx, MBuf *keypkt,
 
 int			pgp_get_keyid(MBuf *pgp_data, char *dst);
 
-/* internal functions */
+/* internal functions
+ *
+ * 内部功能
+ */
 
 int			pgp_load_digest(int code, PX_MD **res);
 int			pgp_load_cipher(int code, PX_Cipher **res);

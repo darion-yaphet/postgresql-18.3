@@ -12,7 +12,10 @@
 
 typedef char GBT_NUMKEY;
 
-/* Better readable key */
+/* Better readable key
+ *
+ * 更好的可读密钥
+ */
 typedef struct
 {
 	const GBT_NUMKEY *lower,
@@ -20,7 +23,10 @@ typedef struct
 } GBT_NUMKEY_R;
 
 
-/* for sorting */
+/* for sorting
+ *
+ * 用于排序
+ */
 typedef struct
 {
 	int			i;
@@ -28,7 +34,10 @@ typedef struct
 } Nsrt;
 
 
-/* type description */
+/* type description
+ *
+ * 类型描述
+ */
 
 typedef struct
 {
@@ -53,12 +62,16 @@ typedef struct
 
 /*
  *	Numeric btree functions
+ *
+ * 数字 B 树函数
  */
 
 
 
 /*
  * Note: The factor 0.49 in following macro avoids floating point overflows
+ *
+ * 注意：以下宏中的系数 0.49 可以避免浮点溢出
  */
 #define penalty_num(result,olower,oupper,nlower,nupper) do { \
   double	tmp = 0.0F; \
@@ -80,6 +93,8 @@ typedef struct
  * Convert an Interval to an approximate equivalent number of seconds
  * (as a double).  Here because we need it for time/timetz as well as
  * interval.  See interval_cmp_internal for comparison.
+ *
+ * 将 Interval 转换为近似等效的秒数（作为双精度）。  这里是因为我们需要它来表示时间/timetz 以及间隔。  请参阅interval_cmp_internal进行比较。
  */
 #define INTERVAL_TO_SEC(ivp) \
 	(((double) (ivp)->time) / ((double) USECS_PER_SEC) + \

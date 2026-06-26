@@ -20,6 +20,8 @@ explain (costs off) SELECT * FROM test_enum WHERE i>='g'::rainbow ORDER BY i;
 
 
 -- make sure we handle the non-evenly-numbered oid case for enums
+--
+-- 确保我们处理枚举的非偶数 oid 情况
 create type e as enum ('0', '2', '3');
 alter type e add value '1' after '0';
 create table t as select (i % 4)::text::e from generate_series(0, 100000) as i;

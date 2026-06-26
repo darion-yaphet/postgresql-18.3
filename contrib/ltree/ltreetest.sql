@@ -1,6 +1,8 @@
 /* contrib/ltree/ltreetest.sql */
 
 -- Adjust this setting to control where the objects get created.
+--
+-- 调整此设置以控制创建对象的位置。
 SET search_path = public;
 
 CREATE TABLE test ( path ltree);

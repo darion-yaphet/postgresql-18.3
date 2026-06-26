@@ -9,6 +9,8 @@ use Test::More;
 
 #########################################
 # Basic checks
+#
+# 基本检查
 
 program_help_ok('oid2name');
 program_version_ok('oid2name');

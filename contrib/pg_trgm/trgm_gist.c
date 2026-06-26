@@ -10,7 +10,10 @@
 #include "trgm.h"
 #include "varatt.h"
 
-/* gist_trgm_ops opclass options */
+/* gist_trgm_ops opclass options
+ *
+ * gist_trgm_ops opclass 选项
+ */
 typedef struct
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
@@ -23,17 +26,28 @@ typedef struct
 
 typedef struct
 {
-	/* most recent inputs to gtrgm_consistent */
+	/* most recent inputs to gtrgm_consistent
+	 *
+	 * gtrgm_concient 的最新输入
+	 */
 	StrategyNumber strategy;
 	text	   *query;
-	/* extracted trigrams for query */
+	/* extracted trigrams for query
+	 *
+	 * 提取三元组进行查询
+	 */
 	TRGM	   *trigrams;
-	/* if a regex operator, the extracted graph */
+	/* if a regex operator, the extracted graph
+	 *
+	 * 如果是正则表达式运算符，则提取的图
+	 */
 	TrgmPackedGraph *graph;
 
 	/*
 	 * The "query" and "trigrams" are stored in the same palloc block as this
 	 * cache struct, at MAXALIGN'ed offsets.  The graph however isn't.
+	 *
+	 * “查询”和“三元组”存储在与此缓存结构相同的 palloc 块中，位于 MAXALIGN'ed 偏移量处。  然而图表却并非如此。
 	 */
 } gtrgm_consistent_cache;
 
@@ -162,7 +176,10 @@ gtrgm_decompress(PG_FUNCTION_ARGS)
 
 	if (key != (text *) DatumGetPointer(entry->key))
 	{
-		/* need to pass back the decompressed item */
+		/* need to pass back the decompressed item
+		 *
+		 * 需要传回解压后的item
+		 */
 		retval = palloc(sizeof(GISTENTRY));
 		gistentryinit(*retval, PointerGetDatum(key),
 					  entry->rel, entry->page, entry->offset, entry->leafkey);
@@ -170,7 +187,10 @@ gtrgm_decompress(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* we can return the entry as-is */
+		/* we can return the entry as-is
+		 *
+		 * 我们可以按原样返回条目
+		 */
 		PG_RETURN_POINTER(entry);
 	}
 }
@@ -200,7 +220,10 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 	text	   *query = PG_GETARG_TEXT_P(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	int			siglen = GET_SIGLEN();
 	TRGM	   *key = (TRGM *) DatumGetPointer(entry->key);
@@ -216,6 +239,8 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 	 * strategy number not just query itself, because trigram extraction
 	 * depends on strategy.
 	 *
+	 * 我们将提取的三元组保存在缓存中，因为三元组提取相对耗费 CPU 资源。  当尝试重用缓存值时，请检查策略编号而不仅仅是查询本身，因为三元组提取取决于策略。
+	 *
 	 * The cached structure is a single palloc chunk containing the
 	 * gtrgm_consistent_cache header, then the input query (4-byte length
 	 * word, uncompressed, starting at a MAXALIGN boundary), then the TRGM
@@ -223,6 +248,8 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 	 * include the regex graph (if any) in that struct.  (XXX currently, this
 	 * approach can leak regex graphs across index rescans.  Not clear if
 	 * that's worth fixing.)
+	 *
+	 * 缓存的结构是单个 palloc 块，其中包含 gtrgm_consistency_cache 标头，然后是输入查询（4 字节长度字，未压缩，从 MAXALIGN 边界开始），然后是 TRGM 值（也从 MAXALIGN 边界开始）。  但是，我们不会尝试在该结构中包含正则表达式图（如果有）。  （目前，这种方法可能会在索引重新扫描中泄漏正则表达式图。尚不清楚这是否值得修复。）
 	 */
 	cache = (gtrgm_consistent_cache *) fcinfo->flinfo->fn_extra;
 	if (cache == NULL ||
@@ -247,7 +274,10 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 #ifndef IGNORECASE
 				elog(ERROR, "cannot handle ~~* with case-sensitive trigrams");
 #endif
-				/* FALL THRU */
+				/* FALL THRU
+				 *
+				 * 跌倒
+				 */
 			case LikeStrategyNumber:
 				qtrg = generate_wildcard_trgm(VARDATA(query),
 											  querysize - VARHDRSZ);
@@ -256,11 +286,17 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 #ifndef IGNORECASE
 				elog(ERROR, "cannot handle ~* with case-sensitive trigrams");
 #endif
-				/* FALL THRU */
+				/* FALL THRU
+				 *
+				 * 跌倒
+				 */
 			case RegExpStrategyNumber:
 				qtrg = createTrgmNFA(query, PG_GET_COLLATION(),
 									 &graph, fcinfo->flinfo->fn_mcxt);
-				/* just in case an empty array is returned ... */
+				/* just in case an empty array is returned ...
+				 *
+				 * 以防万一返回空数组......
+				 */
 				if (qtrg && ARRNELEM(qtrg) <= 0)
 				{
 					pfree(qtrg);
@@ -290,7 +326,10 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 			newcache->trigrams = (TRGM *)
 				((char *) newcache->query + MAXALIGN(querysize));
 			memcpy((char *) newcache->trigrams, qtrg, qtrgsize);
-			/* release qtrg in case it was made in fn_mcxt */
+			/* release qtrg in case it was made in fn_mcxt
+			 *
+			 * 释放 qtrg，以防它是在 fn_mc​​xt 中制作的
+			 */
 			pfree(qtrg);
 		}
 		else
@@ -314,6 +353,8 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 			/*
 			 * Similarity search is exact. (Strict) word similarity search is
 			 * inexact
+			 *
+			 * 相似性搜索是准确的。 （严格）单词相似度搜索不精确
 			 */
 			*recheck = (strategy != SimilarityStrategyNumber);
 
@@ -344,15 +385,23 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 #ifndef IGNORECASE
 			elog(ERROR, "cannot handle ~~* with case-sensitive trigrams");
 #endif
-			/* FALL THRU */
+			/* FALL THRU
+			 *
+			 * 跌倒
+			 */
 		case LikeStrategyNumber:
 		case EqualStrategyNumber:
-			/* Wildcard and equal search are inexact */
+			/* Wildcard and equal search are inexact
+			 *
+			 * 通配符和相等搜索不精确
+			 */
 			*recheck = true;
 
 			/*
 			 * Check if all the extracted trigrams can be present in child
 			 * nodes.
+			 *
+			 * 检查所有提取的三元组是否可以出现在子节点中。
 			 */
 			if (GIST_LEAF(entry))
 			{					/* all leafs contains orig trgm */
@@ -386,12 +435,21 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 #ifndef IGNORECASE
 			elog(ERROR, "cannot handle ~* with case-sensitive trigrams");
 #endif
-			/* FALL THRU */
+			/* FALL THRU
+			 *
+			 * 跌倒
+			 */
 		case RegExpStrategyNumber:
-			/* Regexp search is inexact */
+			/* Regexp search is inexact
+			 *
+			 * 正则表达式搜索不精确
+			 */
 			*recheck = true;
 
-			/* Check regex match as much as we can with available info */
+			/* Check regex match as much as we can with available info
+			 *
+			 * 使用可用信息尽可能多地检查正则表达式匹配
+			 */
 			if (qtrg)
 			{
 				if (GIST_LEAF(entry))
@@ -422,6 +480,8 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 					 * in the check array can't lead to false negative answer.
 					 * So we can apply trigramsMatchGraph despite uncertainty,
 					 * and that usefully improves the quality of the search.
+					 *
+					 * 由于符号数组的大小有限，GETBIT() 测试可能会给出误报。  但由于 trigramsMatchGraph() 实现了单调布尔函数，因此检查数组中的误报不会导致误报。因此，尽管存在不确定性，我们仍然可以应用 trigramsMatchGraph，这有效地提高了搜索质量。
 					 */
 					check = (bool *) palloc(len * sizeof(bool));
 					for (k = 0; k < len; k++)
@@ -435,7 +495,10 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 			}
 			else
 			{
-				/* trigram-free query must be rechecked everywhere */
+				/* trigram-free query must be rechecked everywhere
+				 *
+				 * 必须在各处重新检查无三元组的查询
+				 */
 				res = true;
 			}
 			break;
@@ -455,7 +518,10 @@ gtrgm_distance(PG_FUNCTION_ARGS)
 	text	   *query = PG_GETARG_TEXT_P(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	int			siglen = GET_SIGLEN();
 	TRGM	   *key = (TRGM *) DatumGetPointer(entry->key);
@@ -466,6 +532,8 @@ gtrgm_distance(PG_FUNCTION_ARGS)
 
 	/*
 	 * Cache the generated trigrams across multiple calls with the same query.
+	 *
+	 * 使用同一查询在多个调用中缓存生成的三元组。
 	 */
 	if (cache == NULL ||
 		VARSIZE(cache) != querysize ||
@@ -495,7 +563,10 @@ gtrgm_distance(PG_FUNCTION_ARGS)
 		case DistanceStrategyNumber:
 		case WordDistanceStrategyNumber:
 		case StrictWordDistanceStrategyNumber:
-			/* Only plain trigram distance is exact */
+			/* Only plain trigram distance is exact
+			 *
+			 * 只有简单的三元组距离才是准确的
+			 */
 			*recheck = (strategy != DistanceStrategyNumber);
 			if (GIST_LEAF(entry))
 			{					/* all leafs contains orig trgm */
@@ -504,6 +575,8 @@ gtrgm_distance(PG_FUNCTION_ARGS)
 				 * Prevent gcc optimizing the sml variable using volatile
 				 * keyword. Otherwise res can differ from the
 				 * word_similarity_dist_op() function.
+				 *
+				 * 防止 gcc 使用 volatile 关键字优化 sml 变量。否则 res 可能与 word_similarity_dist_op() 函数不同。
 				 */
 				float4 volatile sml = cnt_sml(qtrg, key, *recheck);
 
@@ -661,7 +734,10 @@ hemdistsign(BITVECP a, BITVECP b, int siglen)
 	LOOPBYTE(siglen)
 	{
 		diff = (unsigned char) (a[i] ^ b[i]);
-		/* Using the popcount functions here isn't likely to win */
+		/* Using the popcount functions here isn't likely to win
+		 *
+		 * 在这里使用 popcount 函数不太可能获胜
+		 */
 		dist += pg_number_of_ones[diff];
 	}
 	return dist;
@@ -708,6 +784,8 @@ gtrgm_penalty(PG_FUNCTION_ARGS)
 
 		/*
 		 * Cache the sign data across multiple calls with the same newval.
+		 *
+		 * 使用相同的 newval 缓存多个调用中的符号数据。
 		 */
 		if (cache == NULL ||
 			VARSIZE(cachedVal) != newvalsize ||
@@ -822,7 +900,10 @@ gtrgm_picksplit(PG_FUNCTION_ARGS)
 	char	   *cache_sign;
 	SPLITCOST  *costvector;
 
-	/* cache the sign data for each existing item */
+	/* cache the sign data for each existing item
+	 *
+	 * 缓存每个现有项目的标志数据
+	 */
 	cache = (CACHESIGN *) palloc(sizeof(CACHESIGN) * (maxoff + 1));
 	cache_sign = palloc(siglen * (maxoff + 1));
 
@@ -830,7 +911,10 @@ gtrgm_picksplit(PG_FUNCTION_ARGS)
 		fillcache(&cache[k], GETENTRY(entryvec, k), &cache_sign[siglen * k],
 				  siglen);
 
-	/* now find the two furthest-apart items */
+	/* now find the two furthest-apart items
+	 *
+	 * 现在找到两个相距最远的项目
+	 */
 	for (k = FirstOffsetNumber; k < maxoff; k = OffsetNumberNext(k))
 	{
 		for (j = OffsetNumberNext(k); j <= maxoff; j = OffsetNumberNext(j))
@@ -845,28 +929,40 @@ gtrgm_picksplit(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* just in case we didn't make a selection ... */
+	/* just in case we didn't make a selection ...
+	 *
+	 * 以防万一我们没有做出选择......
+	 */
 	if (seed_1 == 0 || seed_2 == 0)
 	{
 		seed_1 = 1;
 		seed_2 = 2;
 	}
 
-	/* initialize the result vectors */
+	/* initialize the result vectors
+	 *
+	 * 初始化结果向量
+	 */
 	nbytes = maxoff * sizeof(OffsetNumber);
 	v->spl_left = left = (OffsetNumber *) palloc(nbytes);
 	v->spl_right = right = (OffsetNumber *) palloc(nbytes);
 	v->spl_nleft = 0;
 	v->spl_nright = 0;
 
-	/* form initial .. */
+	/* form initial ..
+	 *
+	 * 形成初始..
+	 */
 	datum_l = gtrgm_alloc(cache[seed_1].allistrue, siglen, cache[seed_1].sign);
 	datum_r = gtrgm_alloc(cache[seed_2].allistrue, siglen, cache[seed_2].sign);
 
 	union_l = GETSIGN(datum_l);
 	union_r = GETSIGN(datum_r);
 
-	/* sort before ... */
+	/* sort before ...
+	 *
+	 * 排序在...之前
+	 */
 	costvector = (SPLITCOST *) palloc(sizeof(SPLITCOST) * maxoff);
 	for (j = FirstOffsetNumber; j <= maxoff; j = OffsetNumberNext(j))
 	{

@@ -1,6 +1,8 @@
 /* contrib/ltree/ltree--1.1.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION ltree" to load this file. \quit
 
 CREATE FUNCTION ltree_in(cstring)
@@ -22,6 +24,8 @@ CREATE TYPE ltree (
 
 
 --Compare function for ltree
+--
+--ltree 的比较函数
 CREATE FUNCTION ltree_cmp(ltree,ltree)
 RETURNS int4
 AS 'MODULE_PATHNAME'
@@ -121,6 +125,8 @@ CREATE OPERATOR <> (
 );
 
 --util functions
+--
+--实用函数
 
 CREATE FUNCTION subltree(ltree,int4,int4)
 RETURNS ltree
@@ -288,6 +294,8 @@ CREATE OPERATOR || (
 
 
 -- B-tree support
+--
+-- B 树支持
 
 CREATE OPERATOR CLASS ltree_ops
     DEFAULT FOR TYPE ltree USING btree AS
@@ -300,6 +308,8 @@ CREATE OPERATOR CLASS ltree_ops
 
 
 --lquery type
+--
+--查询类型
 CREATE FUNCTION lquery_in(cstring)
 RETURNS lquery
 AS 'MODULE_PATHNAME'
@@ -429,6 +439,8 @@ CREATE TYPE ltxtquery (
 );
 
 -- operations WITH ltxtquery
+--
+-- 使用 ltxtquery 进行操作
 
 CREATE FUNCTION ltxtq_exec(ltree, ltxtquery)
 RETURNS bool
@@ -478,6 +490,8 @@ CREATE OPERATOR ^@ (
 );
 
 --GiST support for ltree
+--
+--GiST 对 ltree 的支持
 CREATE FUNCTION ltree_gist_in(cstring)
 RETURNS ltree_gist
 AS 'MODULE_PATHNAME'
@@ -543,6 +557,8 @@ CREATE OPERATOR CLASS gist_ltree_ops
 
 
 -- arrays of ltree
+--
+-- ltree 数组
 
 CREATE FUNCTION _ltree_isparent(_ltree,ltree)
 RETURNS bool
@@ -686,6 +702,8 @@ CREATE OPERATOR @ (
 
 
 --not indexed
+--
+--未编入索引
 CREATE OPERATOR ^@> (
         LEFTARG = _ltree,
 	RIGHTARG = ltree,
@@ -822,6 +840,8 @@ CREATE OPERATOR ?@ (
 );
 
 --GiST support for ltree[]
+--
+--GiST 对 ltree[] 的支持
 CREATE FUNCTION _ltree_consistent(internal,_ltree,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'

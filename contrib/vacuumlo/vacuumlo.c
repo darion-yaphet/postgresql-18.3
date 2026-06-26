@@ -57,6 +57,8 @@ static void usage(const char *progname);
 
 /*
  * This vacuums LOs of one database. It returns 0 on success, -1 on failure.
+ *
+ * 这会清理一个数据库的 LO。成功时返回 0，失败时返回 -1。
  */
 static int
 vacuumlo(const char *database, const struct _param *param)
@@ -72,13 +74,18 @@ vacuumlo(const char *database, const struct _param *param)
 	bool		success = true;
 	static char *password = NULL;
 
-	/* Note: password can be carried over from a previous call */
+	/* Note: password can be carried over from a previous call
+	 *
+	 * 注意：密码可以从之前的通话中继承
+	 */
 	if (param->pg_prompt == TRI_YES && !password)
 		password = simple_prompt("Password: ", false);
 
 	/*
 	 * Start the connection.  Loop until we have a password if requested by
 	 * backend.
+	 *
+	 * 开始连接。  如果后端请求，则循环直到我们获得密码。
 	 */
 	do
 	{
@@ -121,7 +128,10 @@ vacuumlo(const char *database, const struct _param *param)
 		}
 	} while (new_pass);
 
-	/* check to see that the backend connection was successfully made */
+	/* check to see that the backend connection was successfully made
+	 *
+	 * 检查后端连接是否成功
+	 */
 	if (PQstatus(conn) == CONNECTION_BAD)
 	{
 		pg_log_error("%s", PQerrorMessage(conn));
@@ -148,6 +158,8 @@ vacuumlo(const char *database, const struct _param *param)
 
 	/*
 	 * First we create and populate the LO temp table
+	 *
+	 * 首先我们创建并填充 LO 临时表
 	 */
 	buf[0] = '\0';
 	strcat(buf, "CREATE TEMP TABLE vacuum_l AS ");
@@ -168,6 +180,8 @@ vacuumlo(const char *database, const struct _param *param)
 	/*
 	 * Analyze the temp table so that planner will generate decent plans for
 	 * the DELETEs below.
+	 *
+	 * 分析临时表，以便规划器为下面的删除生成合适的计划。
 	 */
 	buf[0] = '\0';
 	strcat(buf, "ANALYZE vacuum_l");
@@ -184,11 +198,15 @@ vacuumlo(const char *database, const struct _param *param)
 	/*
 	 * Now find any candidate tables that have columns of type oid.
 	 *
+	 * 现在查找具有 oid 类型列的所有候选表。
+	 *
 	 * NOTE: we ignore system tables and temp tables by the expedient of
 	 * rejecting tables in schemas named 'pg_*'.  In particular, the temp
 	 * table formed above is ignored, and pg_largeobject will be too. If
 	 * either of these were scanned, obviously we'd end up with nothing to
 	 * delete...
+	 *
+	 * 注意：我们通过拒绝名为“pg_*”的模式中的表来忽略系统表和临时表。  特别是，上面形成的临时表将被忽略，pg_largeobject 也将被忽略。如果扫描其中任何一个，显然我们最终将没有任何可删除的内容......
 	 */
 	buf[0] = '\0';
 	strcat(buf, "SELECT s.nspname, c.relname, a.attname ");
@@ -265,11 +283,15 @@ vacuumlo(const char *database, const struct _param *param)
 	/*
 	 * Now, those entries remaining in vacuum_l are orphans.  Delete 'em.
 	 *
+	 * 现在，vacuum_l 中剩余的那些条目是孤立的。  删除它们。
+	 *
 	 * We don't want to run each delete as an individual transaction, because
 	 * the commit overhead would be high.  However, since 9.0 the backend will
 	 * acquire a lock per deleted LO, so deleting too many LOs per transaction
 	 * risks running out of room in the shared-memory lock table. Accordingly,
 	 * we delete up to transaction_limit LOs per transaction.
+	 *
+	 * 我们不想将每个删除作为单独的事务运行，因为提交开销会很高。  但是，从 9.0 开始，后端将为每个已删除的 LO 获取一个锁，因此每个事务删除过多的 LO 可能会导致共享内存锁表空间不足。因此，我们每笔交易最多删除 transaction_limit 个 LO。
 	 */
 	res = PQexec(conn, "begin");
 	if (PQresultStatus(res) != PGRES_COMMAND_OK)
@@ -313,7 +335,10 @@ vacuumlo(const char *database, const struct _param *param)
 		matched = PQntuples(res);
 		if (matched <= 0)
 		{
-			/* at end of resultset */
+			/* at end of resultset
+			 *
+			 * 在结果集末尾
+			 */
 			PQclear(res);
 			break;
 		}
@@ -379,6 +404,8 @@ vacuumlo(const char *database, const struct _param *param)
 
 	/*
 	 * That's all folks!
+	 *
+	 * 这就是大家！
 	 */
 	res = PQexec(conn, "commit");
 	if (PQresultStatus(res) != PGRES_COMMAND_OK)
@@ -460,7 +487,10 @@ main(int argc, char **argv)
 	pg_logging_init(argv[0]);
 	progname = get_progname(argv[0]);
 
-	/* Set default parameter values */
+	/* Set default parameter values
+	 *
+	 * 设置默认参数值
+	 */
 	param.pg_user = NULL;
 	param.pg_prompt = TRI_DEFAULT;
 	param.pg_host = NULL;
@@ -470,7 +500,10 @@ main(int argc, char **argv)
 	param.dry_run = 0;
 	param.transaction_limit = 1000;
 
-	/* Process command-line arguments */
+	/* Process command-line arguments
+	 *
+	 * 处理命令行参数
+	 */
 	if (argc > 1)
 	{
 		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0)
@@ -520,13 +553,19 @@ main(int argc, char **argv)
 				param.pg_prompt = TRI_YES;
 				break;
 			default:
-				/* getopt_long already emitted a complaint */
+				/* getopt_long already emitted a complaint
+				 *
+				 * getopt_long 已发出投诉
+				 */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
 				exit(1);
 		}
 	}
 
-	/* No database given? Show usage */
+	/* No database given? Show usage
+	 *
+	 * 没有给出数据库吗？显示用法
+	 */
 	if (optind >= argc)
 	{
 		pg_log_error("missing required argument: database name");
@@ -536,7 +575,10 @@ main(int argc, char **argv)
 
 	for (c = optind; c < argc; c++)
 	{
-		/* Work on selected database */
+		/* Work on selected database
+		 *
+		 * 在选定的数据库上工作
+		 */
 		rc += (vacuumlo(argv[c], &param) != 0);
 	}
 

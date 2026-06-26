@@ -1,16 +1,24 @@
 --
 -- 3DES cipher
 --
+-- 3DES 密码
+--
 
 -- test vector from somewhere
+--
+-- 来自某处的测试向量
 SELECT encrypt('\x8000000000000000',
                '\x010101010101010101010101010101010101010101010101',
                '3des-ecb/pad:none');
 
 select encrypt('', 'foo', '3des');
 -- 10 bytes key
+--
+-- 10字节密钥
 select encrypt('foo', '0123456789', '3des');
 -- 22 bytes key
+--
+-- 22字节密钥
 select encrypt('foo', '0123456789012345678901', '3des');
 
 -- decrypt
@@ -21,5 +29,7 @@ select encrypt_iv('foo', '0123456', 'abcd', '3des');
 select encode(decrypt_iv('\x50735067b073bb93', '0123456', 'abcd', '3des'), 'escape');
 
 -- long message
+--
+-- 长消息
 select encrypt('Lets try a longer message.', '0123456789012345678901', '3des');
 select encode(decrypt(encrypt('Lets try a longer message.', '0123456789012345678901', '3des'), '0123456789012345678901', '3des'), 'escape');

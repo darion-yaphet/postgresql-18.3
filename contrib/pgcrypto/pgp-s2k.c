@@ -195,15 +195,23 @@ calc_s2k_iter_salted(PGP_S2K *s2k, PX_MD *md, const uint8 *key,
 /*
  * Decide PGP_S2K_ISALTED iteration count (in OpenPGP one-byte representation)
  *
+ * 决定 PGP_S2K_ISALTED 迭代计数（以 OpenPGP 一字节表示）
+ *
  * Too small: weak
  * Too big: slow
  * gpg defaults to 96 => 65536 iters
  *
+ * 太小：弱 太大：慢 gpg 默认为 96 => 65536 iters
+ *
  * For our default (count=-1) we let it float a bit: 96 + 32 => between 65536
  * and 262144 iterations.
  *
+ * 对于我们的默认值 (count=-1)，我们让它稍微浮动：96 + 32 => 在 65536 和 262144 次迭代之间。
+ *
  * Otherwise, find the smallest number which provides at least the specified
  * iteration count.
+ *
+ * 否则，找到至少提供指定迭代计数的最小数字。
  */
 static uint8
 decide_s2k_iter(unsigned rand_byte, int count)
@@ -212,7 +220,10 @@ decide_s2k_iter(unsigned rand_byte, int count)
 
 	if (count == -1)
 		return 96 + (rand_byte & 0x1F);
-	/* this is a bit brute-force, but should be quick enough */
+	/* this is a bit brute-force, but should be quick enough
+	 *
+	 * 这有点暴力，但应该足够快
+	 */
 	for (iter = 0; iter <= 255; iter++)
 		if (s2k_decode_count(iter) >= count)
 			return iter;

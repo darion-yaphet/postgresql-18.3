@@ -26,6 +26,8 @@
  * It is determined in the runtime, not build time. So, it needs an internal
  * service to translate object class/access vectors which we want to check
  * into the code which kernel want to be given.
+ *
+ * This mapping table enables to translate the name of object classes and access vectors to/from their own codes.当我们询问 SELinux 是否允许所需的权限时，我们使用 security_compute_av(3)。它需要我们使用安全策略中定义的“外部”代码来表示对象类和访问向量。 It is determined in the runtime, not build time. So, it needs an internal service to translate object class/access vectors which we want to check into the code which kernel want to be given.
  */
 static struct
 {
@@ -606,6 +608,8 @@ static struct
  * SEPGSQL_MODE_DEFAULT: Same as system settings
  * SEPGSQL_MODE_PERMISSIVE: Always permissive mode
  * SEPGSQL_MODE_INTERNAL: Same as permissive, except for no audit logs
+ *
+ * SEPGSQL_MODE_DISABLED：在运行时禁用 SEPGSQL_MODE_DEFAULT：与系统设置相同 SEPGSQL_MODE_PERMISSIVE：始终许可模式 SEPGSQL_MODE_INTERNAL：与许可模式相同，但没有审核日志
  */
 static int	sepgsql_mode = SEPGSQL_MODE_INTERNAL;
 
@@ -646,6 +650,8 @@ sepgsql_set_mode(int new_mode)
  * It returns whether the current working mode tries to enforce access
  * control decision, or not. It shall be enforced when sepgsql_mode is
  * SEPGSQL_MODE_DEFAULT and system is running in enforcing mode.
+ *
+ * 它返回当前工作模式是否尝试强制执行访问控制决策。当 sepgsql_mode 为 SEPGSQL_MODE_DEFAULT 并且系统运行在强制模式下时，应强制执行。
  */
 bool
 sepgsql_getenforce(void)
@@ -663,6 +669,8 @@ sepgsql_getenforce(void)
  * It generates a security audit record. It writes out audit records
  * into standard PG's logfile.
  *
+ * 它生成安全审核记录。它将审计记录写入标准 PG 的日志文件中。
+ *
  * SELinux can control what should be audited and should not using
  * "auditdeny" and "auditallow" rules in the security policy. In the
  * default, all the access violations are audited, and all the access
@@ -670,9 +678,13 @@ sepgsql_getenforce(void)
  * we can have exceptions. So, it is necessary to follow the suggestion
  * come from the security policy. (av_decision.auditallow and auditdeny)
  *
+ * SELinux can control what should be audited and should not using "auditdeny" and "auditallow" rules in the security policy. In the default, all the access violations are audited, and all the access allowed are not audited. But we can set up the security policy, so we can have exceptions.因此，有必要遵循安全策略的建议。 (av_decision.auditallow and auditdeny)
+ *
  * Security audit is an important feature, because it enables us to check
  * what was happen if we have a security incident. In fact, ISO/IEC15408
  * defines several security functionalities for audit features.
+ *
+ * 安全审计是一项重要功能，因为它使我们能够在发生安全事件时检查发生了什么。事实上，ISO/IEC15408 定义了多种审计功能的安全功能。
  */
 void
 sepgsql_audit_log(bool denied,
@@ -688,11 +700,17 @@ sepgsql_audit_log(bool denied,
 	const char *av_name;
 	int			i;
 
-	/* lookup name of the object class */
+	/* lookup name of the object class
+	 *
+	 * 查找对象类的名称
+	 */
 	Assert(tclass < SEPG_CLASS_MAX);
 	class_name = selinux_catalog[tclass].class_name;
 
-	/* lookup name of the permissions */
+	/* lookup name of the permissions
+	 *
+	 * 查找权限名称
+	 */
 	initStringInfo(&buf);
 	appendStringInfo(&buf, "%s {",
 					 (denied ? "denied" : "allowed"));
@@ -708,6 +726,8 @@ sepgsql_audit_log(bool denied,
 
 	/*
 	 * Call external audit module, if loaded
+	 *
+	 * 调用外部审计模块（如果已加载）
 	 */
 	appendStringInfo(&buf, " scontext=%s tcontext=%s tclass=%s",
 					 scontext, tcontext, class_name);
@@ -731,9 +751,13 @@ sepgsql_audit_log(bool denied,
  * In most cases, subject's security context (scontext) is a client, and
  * target security context (tcontext) is a database object.
  *
+ * 它实际上询问 SELinux 在一对安全上下文和对象类上允许哪些权限。它还返回应在访问违规时审核或允许哪些权限。在大多数情况下，主体的安全上下文（scontext）是客户端，目标安全上下文（tcontext）是数据库对象。
+ *
  * The access control decision shall be set on the given av_decision.
  * The av_decision.allowed has a bitmask of SEPG_<class>__<perms>
  * to suggest a set of allowed actions in this object class.
+ *
+ * 访问控制决策应根据给定的 av_decision 设置。 av_decision.allowed 具有 SEPG_<class>__<perms> 位掩码，用于建议该对象类中允许的一组操作。
  */
 void
 sepgsql_compute_avd(const char *scontext,
@@ -747,7 +771,10 @@ sepgsql_compute_avd(const char *scontext,
 	int			i,
 				deny_unknown = security_deny_unknown();
 
-	/* Get external code of the object class */
+	/* Get external code of the object class
+	 *
+	 * 获取对象类的外部代码
+	 */
 	Assert(tclass < SEPG_CLASS_MAX);
 	Assert(tclass == selinux_catalog[tclass].class_code);
 
@@ -761,6 +788,8 @@ sepgsql_compute_avd(const char *scontext,
 		 * corresponding to database objects, we fill up them with dummy data.
 		 * If security_deny_unknown() returns positive value, undefined
 		 * permissions should be denied. Otherwise, allowed
+		 *
+		 * 如果当前的安全策略不支持数据库对象对应的权限，我们就用虚拟数据填充它们。如果 security_deny_unknown() 返回正值，则应拒绝未定义的权限。否则，允许
 		 */
 		avd->allowed = (security_deny_unknown() > 0 ? 0 : ~0);
 		avd->auditallow = 0U;
@@ -773,6 +802,8 @@ sepgsql_compute_avd(const char *scontext,
 	/*
 	 * Ask SELinux what is allowed set of permissions on a pair of the
 	 * security contexts and the given object class.
+	 *
+	 * 询问 SELinux 在一对安全上下文和给定的对象类上允许的权限集是什么。
 	 */
 	if (security_compute_av_flags_raw(scontext,
 									  tcontext,
@@ -788,6 +819,8 @@ sepgsql_compute_avd(const char *scontext,
 	 * represented in external code which depends on run-time environment. So,
 	 * we need to translate it to the internal representation before returning
 	 * results for the caller.
+	 *
+	 * SELinux 将其访问控制决策返回为一组以外部代码表示的权限，这取决于运行时环境。因此，在向调用者返回结果之前，我们需要将其转换为内部表示。
 	 */
 	memset(avd, 0, sizeof(struct av_decision));
 
@@ -800,7 +833,10 @@ sepgsql_compute_avd(const char *scontext,
 		av_code_ex = string_to_av_perm(tclass_ex, av_name);
 		if (av_code_ex == 0)
 		{
-			/* fill up undefined permissions */
+			/* fill up undefined permissions
+			 *
+			 * 填写未定义的权限
+			 */
 			if (!deny_unknown)
 				avd->allowed |= av_code;
 			avd->auditdeny |= av_code;
@@ -824,6 +860,8 @@ sepgsql_compute_avd(const char *scontext,
  * object. SELinux compute it based on a combination of client, upper object
  * which owns the new object and object class.
  *
+ * 它返回要分配给新数据库对象的默认安全上下文。 SELinux 基于客户端、拥有新对象的上层对象和对象类的组合来计算它。
+ *
  * For example, when a client (staff_u:staff_r:staff_t:s0) tries to create
  * a new table within a schema (system_u:object_r:sepgsql_schema_t:s0),
  * SELinux looks-up its security policy. If it has a special rule on the
@@ -831,12 +869,18 @@ sepgsql_compute_avd(const char *scontext,
  * it returns the security context suggested by the special rule.
  * Otherwise, it returns the security context of schema, as is.
  *
+ * 例如，当客户端 (staff_u:staff_r:staff_t:s0) 尝试在架构 (system_u:object_r:sepgsql_schema_t:s0) 中创建新表时，SELinux 会查找其安全策略。如果它对这些安全上下文和对象类（db_table）的组合有特殊规则，则它返回特殊规则建议的安全上下文。否则，它按原样返回模式的安全上下文。
+ *
  * We expect the caller already applies sanity/validation checks on the
  * given security context.
+ *
+ * 我们期望调用者已经对给定的安全上下文应用了健全性/验证检查。
  *
  * scontext: security context of the subject (mostly, peer process).
  * tcontext: security context of the upper database object.
  * tclass: class code (SEPG_CLASS_*) of the new object in creation
+ *
+ * scontext：主体的安全上下文（主要是对等进程）。 tcontext：上层数据库对象的安全上下文。 tclass：创建时新对象的类代码（SEPG_CLASS_*）
  */
 char *
 sepgsql_compute_create(const char *scontext,
@@ -849,7 +893,10 @@ sepgsql_compute_create(const char *scontext,
 	const char *tclass_name;
 	char	   *result;
 
-	/* Get external code of the object class */
+	/* Get external code of the object class
+	 *
+	 * 获取对象类的外部代码
+	 */
 	Assert(tclass < SEPG_CLASS_MAX);
 
 	tclass_name = selinux_catalog[tclass].class_name;
@@ -858,6 +905,8 @@ sepgsql_compute_create(const char *scontext,
 	/*
 	 * Ask SELinux what is the default context for the given object class on a
 	 * pair of security contexts
+	 *
+	 * 询问 SELinux 在一对安全上下文中给定对象类的默认上下文是什么
 	 */
 	if (security_compute_create_name_raw(scontext,
 										 tcontext,
@@ -873,6 +922,8 @@ sepgsql_compute_create(const char *scontext,
 	/*
 	 * libselinux returns malloc()'ed string, so we need to copy it on the
 	 * palloc()'ed region.
+	 *
+	 * libselinux 返回 malloc() 后的字符串，因此我们需要将其复制到 palloc() 后的区域。
 	 */
 	PG_TRY();
 	{

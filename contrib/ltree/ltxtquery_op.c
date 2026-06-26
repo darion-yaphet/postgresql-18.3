@@ -2,6 +2,8 @@
  * txtquery operations with ltree
  * Teodor Sigaev <teodor@stack.net>
  * contrib/ltree/ltxtquery_op.c
+ *
+ * 使用 ltree 进行 txtquery 操作 Teodor Sigaev <teodor@stack.net> contrib/ltree/ltxtquery_op.c
  */
 #include "postgres.h"
 
@@ -15,11 +17,16 @@ PG_FUNCTION_INFO_V1(ltxtq_rexec);
 
 /*
  * check for boolean condition
+ *
+ * 检查布尔条件
  */
 bool
 ltree_execute(ITEM *curitem, void *checkval, bool calcnot, bool (*chkcond) (void *checkval, ITEM *val))
 {
-	/* since this function recurses, it could be driven to stack overflow */
+	/* since this function recurses, it could be driven to stack overflow
+	 *
+	 * 由于该函数会递归，因此可能会导致堆栈溢出
+	 */
 	check_stack_depth();
 
 	if (curitem->type == VAL)

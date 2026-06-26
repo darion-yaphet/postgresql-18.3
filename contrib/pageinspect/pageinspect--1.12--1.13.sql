@@ -1,9 +1,13 @@
 /* contrib/pageinspect/pageinspect--1.12--1.13.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION pageinspect UPDATE TO '1.13'" to load this file. \quit
 
 -- Convert SQL functions to new style
+--
+-- 将 SQL 函数转换为新样式
 
 CREATE OR REPLACE FUNCTION heap_page_item_attrs(
     IN page bytea,

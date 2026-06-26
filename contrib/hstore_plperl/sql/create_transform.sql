@@ -1,4 +1,6 @@
 -- general regression test for transforms
+--
+-- 变换的一般回归测试
 
 DROP EXTENSION IF EXISTS hstore CASCADE;
 DROP EXTENSION IF EXISTS plperl CASCADE;

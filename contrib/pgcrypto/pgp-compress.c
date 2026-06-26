@@ -36,6 +36,8 @@
 
 /*
  * Compressed pkt writer
+ *
+ * 压缩 pkt 编写器
  */
 
 #ifdef HAVE_LIBZ
@@ -100,9 +102,15 @@ compress_init(PushFilter *next, void *init_arg, void **priv_p)
 	return ZIP_IN_BLOCK;
 }
 
-/* writes compressed data packet */
+/* writes compressed data packet
+ *
+ * 写入压缩数据包
+ */
 
-/* can handle zero-len incoming data, but shouldn't */
+/* can handle zero-len incoming data, but shouldn't
+ *
+ * 可以处理零长度传入数据，但不应该
+ */
 static int
 compress_process(PushFilter *next, void *priv, const uint8 *data, int len)
 {
@@ -112,6 +120,8 @@ compress_process(PushFilter *next, void *priv, const uint8 *data, int len)
 
 	/*
 	 * process data
+	 *
+	 * 过程数据
 	 */
 	st->stream.next_in = data;
 	st->stream.avail_in = len;
@@ -273,6 +283,8 @@ restart:
 	 * Z_SYNC_FLUSH is tell zlib to output as much as possible. It should do
 	 * it anyway (Z_NO_FLUSH), but seems to reserve the right not to.  So lets
 	 * follow the API.
+	 *
+	 * Z_SYNC_FLUSH是告诉zlib尽可能多地输出。无论如何它都应该这样做（Z_NO_FLUSH），但似乎保留不这样做的权利。  那么让我们按照 API 进行操作。
 	 */
 	flush = dec->stream.avail_in ? Z_SYNC_FLUSH : Z_FINISH;
 	res = inflate(&dec->stream, flush);
@@ -294,6 +306,8 @@ restart:
 		 * the compressed stream has been ended, we need to consume the
 		 * terminating packet here.  This read does not harm even if the
 		 * stream has already ended.
+		 *
+		 * 流必须由普通数据包终止。  如果源流中的最后一个流数据包是满数据包，则后面必须跟着一个普通的空数据包。  由于底层数据包读取器不知道压缩流已结束，因此我们需要在这里消耗终止数据包。  即使流已经结束，此读取也不会造成损害。
 		 */
 		res = pullf_read(src, 1, &tmp);
 

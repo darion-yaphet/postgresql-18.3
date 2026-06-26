@@ -44,6 +44,8 @@
 
 /*
  * public functions
+ *
+ * 公共职能
  */
 PG_FUNCTION_INFO_V1(pgp_sym_encrypt_bytea);
 PG_FUNCTION_INFO_V1(pgp_sym_encrypt_text);
@@ -63,6 +65,8 @@ PG_FUNCTION_INFO_V1(pgp_armor_headers);
 
 /*
  * returns src in case of no conversion or error
+ *
+ * 如果没有转换或错误则返回 src
  */
 static text *
 convert_charset(text *src, int cset_from, int cset_to)
@@ -102,6 +106,8 @@ clear_and_pfree(text *p)
 
 /*
  * expect-* arguments storage
+ *
+ * Expect-* 参数存储
  */
 struct debug_expect
 {
@@ -196,6 +202,8 @@ set_arg(PGP_Context *ctx, char *key, char *val,
 	/*
 	 * The remaining options are for debugging/testing and are therefore not
 	 * documented in the user-facing docs.
+	 *
+	 * 其余选项用于调试/测试，因此未记录在面向用户的文档中。
 	 */
 	else if (ex != NULL && strcmp(key, "debug") == 0)
 		ex->debug = atoi(val);
@@ -254,15 +262,23 @@ set_arg(PGP_Context *ctx, char *key, char *val,
  * Find next word.  Handle ',' and '=' as words.  Skip whitespace.
  * Put word info into res_p, res_len.
  * Returns ptr to next word.
+ *
+ * 查找下一个单词。  将 ',' 和 '=' 作为单词处理。  跳过空格。将单词信息放入res_p、res_len。返回指向下一个单词的 ptr。
  */
 static char *
 getword(char *p, char **res_p, int *res_len)
 {
-	/* whitespace at start */
+	/* whitespace at start
+	 *
+	 * 开头有空格
+	 */
 	while (*p && (*p == ' ' || *p == '\t' || *p == '\n'))
 		p++;
 
-	/* word data */
+	/* word data
+	 *
+	 * 字数据
+	 */
 	*res_p = p;
 	if (*p == '=' || *p == ',')
 		p++;
@@ -271,10 +287,16 @@ getword(char *p, char **res_p, int *res_len)
 					   || *p == '=' || *p == ','))
 			p++;
 
-	/* word end */
+	/* word end
+	 *
+	 * 词尾
+	 */
 	*res_len = p - *res_p;
 
-	/* whitespace at end */
+	/* whitespace at end
+	 *
+	 * 末尾有空格
+	 */
 	while (*p && (*p == ' ' || *p == '\t' || *p == '\n'))
 		p++;
 
@@ -283,6 +305,8 @@ getword(char *p, char **res_p, int *res_len)
 
 /*
  * Convert to lowercase asciiz string.
+ *
+ * 转换为小写 asciiz 字符串。
  */
 static char *
 downcase_convert(const uint8 *s, int len)
@@ -399,11 +423,15 @@ encrypt_internal(int is_pubenc, int is_text,
 
 	/*
 	 * reserve room for header
+	 *
+	 * 为标题预留空间
 	 */
 	mbuf_append(dst, tmp, VARHDRSZ);
 
 	/*
 	 * set key
+	 *
+	 * 设置键
 	 */
 	if (is_pubenc)
 	{
@@ -425,6 +453,8 @@ encrypt_internal(int is_pubenc, int is_text,
 
 	/*
 	 * check for error
+	 *
+	 * 检查错误
 	 */
 	if (err)
 	{
@@ -438,7 +468,10 @@ encrypt_internal(int is_pubenc, int is_text,
 		px_THROW_ERROR(err);
 	}
 
-	/* res_len includes VARHDRSZ */
+	/* res_len includes VARHDRSZ
+	 *
+	 * res_len 包括 VARHDRSZ
+	 */
 	res_len = mbuf_steal_data(dst, &restmp);
 	res = (bytea *) restmp;
 	SET_VARSIZE(res, res_len);
@@ -478,11 +511,15 @@ decrypt_internal(int is_pubenc, int need_text, text *data,
 
 	/*
 	 * reserve room for header
+	 *
+	 * 为标题预留空间
 	 */
 	mbuf_append(dst, tmp, VARHDRSZ);
 
 	/*
 	 * set key
+	 *
+	 * 设置键
 	 */
 	if (is_pubenc)
 	{
@@ -511,7 +548,10 @@ decrypt_internal(int is_pubenc, int need_text, text *data,
 		if (ex.expect)
 			check_expect(ctx, &ex);
 
-		/* remember the setting */
+		/* remember the setting
+		 *
+		 * 记住设置
+		 */
 		got_unicode = pgp_get_unicode_mode(ctx);
 	}
 
@@ -528,7 +568,10 @@ decrypt_internal(int is_pubenc, int need_text, text *data,
 	res_len = mbuf_steal_data(dst, &restmp);
 	mbuf_free(dst);
 
-	/* res_len includes VARHDRSZ */
+	/* res_len includes VARHDRSZ
+	 *
+	 * res_len 包括 VARHDRSZ
+	 */
 	res = (bytea *) restmp;
 	SET_VARSIZE(res, res_len);
 
@@ -549,6 +592,8 @@ decrypt_internal(int is_pubenc, int need_text, text *data,
 
 /*
  * Wrappers for symmetric-key functions
+ *
+ * 对称密钥函数的包装器
  */
 Datum
 pgp_sym_encrypt_bytea(PG_FUNCTION_ARGS)
@@ -642,6 +687,8 @@ pgp_sym_decrypt_text(PG_FUNCTION_ARGS)
 
 /*
  * Wrappers for public-key functions
+ *
+ * 公钥函数的包装器
  */
 
 Datum
@@ -747,11 +794,15 @@ pgp_pub_decrypt_text(PG_FUNCTION_ARGS)
 
 /*
  * Wrappers for PGP ascii armor
+ *
+ * PGP ascii 装甲的包装
  */
 
 /*
  * Helper function for pg_armor. Converts arrays of keys and values into
  * plain C arrays, and checks that they don't contain invalid characters.
+ *
+ * pg_armor 的辅助函数。将键和值数组转换为纯 C 数组，并检查它们是否不包含无效字符。
  */
 static int
 parse_key_value_arrays(ArrayType *key_array, ArrayType *val_array,
@@ -791,7 +842,10 @@ parse_key_value_arrays(ArrayType *key_array, ArrayType *val_array,
 	{
 		char	   *v;
 
-		/* Check that the key doesn't contain anything funny */
+		/* Check that the key doesn't contain anything funny
+		 *
+		 * 检查密钥是否包含任何有趣的内容
+		 */
 		if (key_nulls[i])
 			ereport(ERROR,
 					(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
@@ -813,7 +867,10 @@ parse_key_value_arrays(ArrayType *key_array, ArrayType *val_array,
 					 errmsg("header key must not contain newlines")));
 		keys[i] = v;
 
-		/* And the same for the value */
+		/* And the same for the value
+		 *
+		 * 值也一样
+		 */
 		if (val_nulls[i])
 			ereport(ERROR,
 					(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
@@ -902,7 +959,10 @@ pg_dearmor(PG_FUNCTION_ARGS)
 	PG_RETURN_TEXT_P(res);
 }
 
-/* cross-call state for pgp_armor_headers */
+/* cross-call state for pgp_armor_headers
+ *
+ * pgp_armor_headers 的交叉调用状态
+ */
 typedef struct
 {
 	int			nheaders;
@@ -929,10 +989,16 @@ pgp_armor_headers(PG_FUNCTION_ARGS)
 
 		funcctx = SRF_FIRSTCALL_INIT();
 
-		/* we need the state allocated in the multi call context */
+		/* we need the state allocated in the multi call context
+		 *
+		 * 我们需要在多调用上下文中分配的状态
+		 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* Build a tuple descriptor for our result type */
+		/* Build a tuple descriptor for our result type
+		 *
+		 * 为我们的结果类型构建一个元组描述符
+		 */
 		if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 			elog(ERROR, "return type must be a row type");
 
@@ -961,14 +1027,20 @@ pgp_armor_headers(PG_FUNCTION_ARGS)
 	{
 		char	   *values[2];
 
-		/* we assume that the keys (and values) are in UTF-8. */
+		/* we assume that the keys (and values) are in UTF-8.
+		 *
+		 * 我们假设键（和值）采用 UTF-8 格式。
+		 */
 		utf8key = state->keys[funcctx->call_cntr];
 		utf8val = state->values[funcctx->call_cntr];
 
 		values[0] = pg_any_to_server(utf8key, strlen(utf8key), PG_UTF8);
 		values[1] = pg_any_to_server(utf8val, strlen(utf8val), PG_UTF8);
 
-		/* build a tuple */
+		/* build a tuple
+		 *
+		 * 构建一个元组
+		 */
 		tuple = BuildTupleFromCStrings(funcctx->attinmeta, values);
 		SRF_RETURN_NEXT(funcctx, HeapTupleGetDatum(tuple));
 	}
@@ -978,6 +1050,8 @@ pgp_armor_headers(PG_FUNCTION_ARGS)
 
 /*
  * Wrappers for PGP key id
+ *
+ * PGP 密钥 ID 的包装
  */
 
 Datum

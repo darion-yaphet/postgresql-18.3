@@ -3,6 +3,8 @@ CREATE TABLE test_trgm2(t text COLLATE "C");
 \copy test_trgm2 from 'data/trgm2.data'
 
 -- reduce noise
+--
+-- 减少噪音
 set extra_float_digits = 0;
 
 select t,word_similarity('Baykal',t) as sml from test_trgm2 where 'Baykal' <% t order by sml desc, t;
@@ -45,4 +47,6 @@ select t,word_similarity('Baykal',t) as sml from test_trgm2 where t %> 'Baykal' 
 select t,word_similarity('Kabankala',t) as sml from test_trgm2 where t %> 'Kabankala' order by sml desc, t;
 
 -- test unsatisfiable pattern
+--
+-- 测试不可满足的模式
 select * from test_trgm2 where t ~ '.*$x';

@@ -87,8 +87,12 @@ static const struct error_desc px_err_list[] = {
  * Call ereport(ERROR, ...), with an error code and message corresponding to
  * the PXE_* error code given as argument.
  *
+ * 调用 ereport(ERROR, ...)，并使用与作为参数给出的 PXE_* 错误代码相对应的错误代码和消息。
+ *
  * This is similar to px_strerror(err), but for some errors, we fill in the
  * error code and detail fields more appropriately.
+ *
+ * 这与 px_strerror(err) 类似，但对于某些错误，我们更合适地填写错误代码和详细信息字段。
  */
 void
 px_THROW_ERROR(int err)
@@ -101,7 +105,10 @@ px_THROW_ERROR(int err)
 	}
 	else
 	{
-		/* For other errors, use the message from the above list. */
+		/* For other errors, use the message from the above list.
+		 *
+		 * 对于其他错误，请使用上面列表中的消息。
+		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_EXTERNAL_ROUTINE_INVOCATION_EXCEPTION),
 				 errmsg("%s", px_strerror(err))));
@@ -119,7 +126,10 @@ px_strerror(int err)
 	return "Bad error code";
 }
 
-/* memset that must not be optimized away */
+/* memset that must not be optimized away
+ *
+ * 不得优化掉的 memset
+ */
 void
 px_memset(void *ptr, int c, size_t len)
 {
@@ -164,6 +174,8 @@ px_debug(const char *fmt,...)
 
 /*
  * combo - cipher + padding (+ checksum)
+ *
+ * 组合 - 密码 + 填充（+ 校验和）
  */
 
 static unsigned

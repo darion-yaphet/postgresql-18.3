@@ -1,4 +1,6 @@
 -- char check
+--
+-- 字符检查
 
 CREATE TABLE vchartmp (a varchar(32));
 

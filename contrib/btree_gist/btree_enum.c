@@ -10,7 +10,10 @@
 #include "utils/fmgroids.h"
 #include "utils/sortsupport.h"
 
-/* enums are really Oids, so we just use the same structure */
+/* enums are really Oids, so we just use the same structure
+ *
+ * 枚举实际上是 Oids，所以我们只使用相同的结构
+ */
 
 typedef struct
 {
@@ -18,7 +21,10 @@ typedef struct
 	Oid			upper;
 } oidKEY;
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_enum_compress);
 PG_FUNCTION_INFO_V1(gbt_enum_fetch);
 PG_FUNCTION_INFO_V1(gbt_enum_union);
@@ -101,6 +107,8 @@ static const gbtree_ninfo tinfo =
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 Datum
@@ -126,12 +134,18 @@ gbt_enum_consistent(PG_FUNCTION_ARGS)
 	Oid			query = PG_GETARG_OID(1);
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	oidKEY	   *kkk = (oidKEY *) DatumGetPointer(entry->key);
 	GBT_NUMKEY_R key;
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	key.lower = (GBT_NUMKEY *) &kkk->lower;
@@ -189,7 +203,10 @@ gbt_enum_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	oidKEY	   *arg1 = (oidKEY *) DatumGetPointer(x);
 	oidKEY	   *arg2 = (oidKEY *) DatumGetPointer(y);
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	return DatumGetInt32(CallerFInfoFunctionCall2(enum_cmp,
 												  ssup->ssup_extra,
 												  InvalidOid,
@@ -211,6 +228,8 @@ gbt_enum_sortsupport(PG_FUNCTION_ARGS)
 	 * caller to a SortSupport comparison function doesn't provide an FmgrInfo
 	 * struct, so look it up now, save it in ssup_extra and use it in
 	 * gbt_enum_ssup_cmp() later.
+	 *
+	 * 由于gbt_enum_ssup_cmp()像其他比较函数一样使用enum_cmp()，因此在调用它时也需要传递flinfo。 SortSupport 比较函数的调用者不提供 FmgrInfo 结构，因此现在查找它，将其保存在 ssup_extra 中，并稍后在 gbt_enum_ssup_cmp() 中使用它。
 	 */
 	flinfo = MemoryContextAlloc(ssup->ssup_cxt, sizeof(FmgrInfo));
 	fmgr_info_cxt(F_ENUM_CMP, flinfo, ssup->ssup_cxt);

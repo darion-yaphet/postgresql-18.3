@@ -4,6 +4,8 @@
  *
  * op function for ltree[]
  * Teodor Sigaev <teodor@stack.net>
+ *
+ * ltree[] Teodor Sigaev <teodor@stack.net> 的 op 函数
  */
 #include "postgres.h"
 

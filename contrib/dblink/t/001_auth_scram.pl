@@ -1,10 +1,16 @@
 # Copyright (c) 2024-2025, PostgreSQL Global Development Group
 
 # Test SCRAM authentication when opening a new connection with a foreign
+#
+# 打开与外部的新连接时测试 SCRAM 身份验证
 # server.
 #
 # The test is executed by testing the SCRAM authentifcation on a loopback
+#
+# 通过测试环回上的 SCRAM 验证来执行测试
 # connection on the same server and with different servers.
+#
+# 同一服务器上和不同服务器上的连接。
 
 use strict;
 use warnings FATAL => 'all';
@@ -38,6 +44,8 @@ $node1->start;
 $node2->start;
 
 # Test setup
+#
+# 测试设置
 
 $node1->safe_psql('postgres', qq'CREATE USER $user WITH password \'pass\'');
 $node2->safe_psql('postgres', qq'CREATE USER $user WITH password \'pass\'');
@@ -61,7 +69,11 @@ setup_user_mapping($node1, $db0, $fdw_server2);
 setup_user_mapping($node1, $db0, $fdw_invalid_server);
 
 # Make the user have the same SCRAM key on both servers. Forcing to have the
+#
+# 让用户在两台服务器上拥有相同的 SCRAM 密钥。强迫拥有
 # same iteration and salt.
+#
+# 相同的迭代和盐。
 my $rolpassword = $node1->safe_psql('postgres',
 	qq"SELECT rolpassword FROM pg_authid WHERE rolname = '$user';");
 $node2->safe_psql('postgres', qq"ALTER ROLE $user PASSWORD '$rolpassword'");
@@ -85,6 +97,8 @@ $node1->restart;
 $node2->restart;
 
 # End of test setup
+#
+# 测试设置结束
 
 test_scram_keys_is_not_overwritten($node1, $db0, $fdw_invalid_server2);
 
@@ -97,6 +111,8 @@ test_fdw_auth($node1, $db0, "t2", $fdw_server2,
 test_fdw_auth_with_invalid_overwritten_require_auth($fdw_invalid_server);
 
 # Ensure that trust connections fail without superuser opt-in.
+#
+# 确保信任连接在没有超级用户选择加入的情况下失败。
 unlink($node1->data_dir . '/pg_hba.conf');
 unlink($node2->data_dir . '/pg_hba.conf');
 
@@ -138,6 +154,8 @@ like(
 	'expected error from loopback password (different cluster)');
 
 # Helper functions
+#
+# 辅助函数
 
 sub test_fdw_auth
 {

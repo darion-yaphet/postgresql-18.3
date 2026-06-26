@@ -1,6 +1,8 @@
 /* contrib/ltree_plpython/ltree_plpython3u--1.0.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION ltree_plpython3u" to load this file. \quit
 
 CREATE FUNCTION ltree_to_plpython3(val internal) RETURNS internal

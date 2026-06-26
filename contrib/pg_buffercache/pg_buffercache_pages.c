@@ -612,7 +612,10 @@ pg_buffercache_numa_pages(PG_FUNCTION_ARGS)
 
 	funcctx = SRF_PERCALL_SETUP();
 
-	/* Get the saved state */
+	/* Get the saved state
+	 *
+	 * 获取保存的状态
+	 */
 	fctx = funcctx->user_fctx;
 
 	if (funcctx->call_cntr < funcctx->max_calls)

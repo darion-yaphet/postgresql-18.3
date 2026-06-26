@@ -2,6 +2,12 @@
  * txtquery io
  * Teodor Sigaev <teodor@stack.net>
  * contrib/ltree/ltxtquery_io.c
+ *
+ * txtquery io Teodor Sigaev <teodor@stack.net> contrib/ltree/ltxtquery_io.c
+ *
+ * txtquery io Teodor Sigaev <teodor@stack.net> contrib/ltree/ltxtquery_io.c
+ *
+ * txtquery io Teodor Sigaev <teodor@stack.net> contrib/ltree/ltxtquery_io.c
  */
 #include "postgres.h"
 
@@ -15,7 +21,10 @@
 #include "varatt.h"
 
 
-/* parser's states */
+/* parser's states
+ *
+ * 解析器的状态
+ */
 #define WAITOPERAND 1
 #define INOPERAND 2
 #define WAITOPERATOR	3
@@ -23,6 +32,8 @@
 /*
  * node of query tree, also used
  * for storing polish notation in parser
+ *
+ * 查询树的节点，也用于在解析器中存储波兰表示法
  */
 typedef struct NODE
 {
@@ -40,12 +51,21 @@ typedef struct
 	int32		state;
 	int32		count;
 	struct Node *escontext;
-	/* reverse polish notation in list (for temporary usage) */
+	/* reverse polish notation in list (for temporary usage)
+	 *
+	 * 列表中的逆波兰表示法（供临时使用）
+	 */
 	NODE	   *str;
-	/* number in str */
+	/* number in str
+	 *
+	 * str 中的数字
+	 */
 	int32		num;
 
-	/* user-friendly operand */
+	/* user-friendly operand
+	 *
+	 * 用户友好的操作数
+	 */
 	int32		lenop;
 	int32		sumlen;
 	char	   *op;
@@ -55,7 +75,11 @@ typedef struct
 /*
  * get token from query string
  *
+ * 从查询字符串中获取令牌
+ *
  * caller needs to check if a soft-error was set if the result is ERR.
+ *
+ * 如果结果是 ERR，调用者需要检查是否设置了软错误。
  */
 static int32
 gettoken_query(QPRS_STATE *state, int32 *val, int32 *lenval, char **strval, uint16 *flag)
@@ -145,11 +169,16 @@ gettoken_query(QPRS_STATE *state, int32 *val, int32 *lenval, char **strval, uint
 		state->buf += charlen;
 	}
 
-	/* should not get here */
+	/* should not get here
+	 *
+	 * 不应该到达这里
+	 */
 }
 
 /*
  * push new one in polish notation reverse view
+ *
+ * 以波兰符号反向视图推送新的
  */
 static bool
 pushquery(QPRS_STATE *state, int32 type, int32 val, int32 distance, int32 lenval, uint16 flag)
@@ -177,6 +206,8 @@ pushquery(QPRS_STATE *state, int32 type, int32 val, int32 distance, int32 lenval
 
 /*
  * This function is used for query text parsing
+ *
+ * 该函数用于查询文本解析
  */
 static bool
 pushval_asis(QPRS_STATE *state, int type, char *strval, int lenval, uint16 flag)
@@ -209,6 +240,8 @@ pushval_asis(QPRS_STATE *state, int type, char *strval, int lenval, uint16 flag)
 #define STACKDEPTH		32
 /*
  * make polish notation of query
+ *
+ * 使用波兰语表示查询
  */
 static int32
 makepol(QPRS_STATE *state)
@@ -221,7 +254,10 @@ makepol(QPRS_STATE *state)
 	int32		lenstack = 0;
 	uint16		flag = 0;
 
-	/* since this function recurses, it could be driven to stack overflow */
+	/* since this function recurses, it could be driven to stack overflow
+	 *
+	 * 由于该函数会递归，因此可能会导致堆栈溢出
+	 */
 	check_stack_depth();
 
 	while ((type = gettoken_query(state, &val, &lenval, &strval, &flag)) != END)
@@ -248,7 +284,10 @@ makepol(QPRS_STATE *state)
 				else
 				{
 					if (lenstack == STACKDEPTH)
-						/* internal error */
+						/* internal error
+						 *
+						 * 内部错误
+						 */
 						elog(ERROR, "stack too short");
 					stack[lenstack] = val;
 					lenstack++;
@@ -277,7 +316,10 @@ makepol(QPRS_STATE *state)
 			case ERR:
 				if (SOFT_ERROR_OCCURRED(state->escontext))
 					return ERR;
-				/* fall through */
+				/* fall through
+				 *
+				 * 跌倒
+				 */
 			default:
 				ereturn(state->escontext, ERR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
@@ -297,7 +339,10 @@ makepol(QPRS_STATE *state)
 static void
 findoprnd(ITEM *ptr, int32 *pos)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* since this function recurses, it could be driven to stack overflow.
+	 *
+	 * 由于该函数会递归，因此可能会导致堆栈溢出。
+	 */
 	check_stack_depth();
 
 	if (ptr[*pos].type == VAL || ptr[*pos].type == VALTRUE)
@@ -343,7 +388,10 @@ queryin(char *buf, struct Node *escontext)
 			   *cur;
 #endif
 
-	/* init state */
+	/* init state
+	 *
+	 * 初始化状态
+	 */
 	state.buf = buf;
 	state.state = WAITOPERAND;
 	state.count = 0;
@@ -351,13 +399,19 @@ queryin(char *buf, struct Node *escontext)
 	state.str = NULL;
 	state.escontext = escontext;
 
-	/* init list of operand */
+	/* init list of operand
+	 *
+	 * 初始化操作数列表
+	 */
 	state.sumlen = 0;
 	state.lenop = 64;
 	state.curop = state.op = (char *) palloc(state.lenop);
 	*(state.curop) = '\0';
 
-	/* parse query & make polish notation (postfix, but in reverse order) */
+	/* parse query & make polish notation (postfix, but in reverse order)
+	 *
+	 * 解析查询并制作波兰符号（后缀，但顺序相反）
+	 */
 	if (makepol(&state) == ERR)
 		return NULL;
 	if (!state.num)
@@ -377,7 +431,10 @@ queryin(char *buf, struct Node *escontext)
 	query->size = state.num;
 	ptr = GETQUERY(query);
 
-	/* set item in polish notation */
+	/* set item in polish notation
+	 *
+	 * 以波兰表示法设置项目
+	 */
 	for (i = 0; i < state.num; i++)
 	{
 		ptr[i].type = state.str->type;
@@ -390,11 +447,17 @@ queryin(char *buf, struct Node *escontext)
 		state.str = tmp;
 	}
 
-	/* set user-friendly operand view */
+	/* set user-friendly operand view
+	 *
+	 * 设置用户友好的操作数视图
+	 */
 	memcpy(GETOPERAND(query), state.op, state.sumlen);
 	pfree(state.op);
 
-	/* set left operand's position for every operator */
+	/* set left operand's position for every operator
+	 *
+	 * 为每个运算符设置左操作数的位置
+	 */
 	pos = 0;
 	findoprnd(ptr, &pos);
 
@@ -403,6 +466,8 @@ queryin(char *buf, struct Node *escontext)
 
 /*
  * in without morphology
+ *
+ * 没有形态学
  */
 PG_FUNCTION_INFO_V1(ltxtq_in);
 Datum
@@ -418,10 +483,14 @@ ltxtq_in(PG_FUNCTION_ARGS)
 /*
  * ltxtquery type recv function
  *
+ * ltxtquery类型recv函数
+ *
  * The type is sent as text in binary mode, so this is almost the same
  * as the input function, but it's prefixed with a version number so we
  * can change the binary format sent in future if necessary. For now,
  * only version 1 is supported.
+ *
+ * 该类型以二进制模式作为文本发送，因此这与输入函数几乎相同，但它带有版本号前缀，因此我们可以在必要时更改将来发送的二进制格式。目前仅支持版本 1。
  */
 PG_FUNCTION_INFO_V1(ltxtq_recv);
 Datum
@@ -445,6 +514,8 @@ ltxtq_recv(PG_FUNCTION_ARGS)
 
 /*
  * out function
+ *
+ * 输出函数
  */
 typedef struct
 {
@@ -467,11 +538,16 @@ while( ( (inf)->cur - (inf)->buf ) + (addsize) + 1 >= (inf)->buflen ) \
 /*
  * recursive walk on tree and print it in
  * infix (human-readable) view
+ *
+ * 在树上递归行走并在中缀（人类可读）视图中打印它
  */
 static void
 infix(INFIX *in, bool first)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* since this function recurses, it could be driven to stack overflow.
+	 *
+	 * 由于该函数会递归，因此可能会导致堆栈溢出。
+	 */
 	check_stack_depth();
 
 	if (in->curpol->type == VAL)
@@ -545,14 +621,23 @@ infix(INFIX *in, bool first)
 		nrm.buflen = 16;
 		nrm.cur = nrm.buf = (char *) palloc(sizeof(char) * nrm.buflen);
 
-		/* get right operand */
+		/* get right operand
+		 *
+		 * 得到正确的操作数
+		 */
 		infix(&nrm, false);
 
-		/* get & print left operand */
+		/* get & print left operand
+		 *
+		 * 获取并打印左操作数
+		 */
 		in->curpol = nrm.curpol;
 		infix(in, false);
 
-		/* print operator & right operand */
+		/* print operator & right operand
+		 *
+		 * 打印运算符和右操作数
+		 */
 		RESIZEBUF(in, 3 + (nrm.cur - nrm.buf));
 		sprintf(in->cur, " %c %s", op, nrm.buf);
 		in->cur = strchr(in->cur, '\0');
@@ -593,10 +678,14 @@ ltxtq_out(PG_FUNCTION_ARGS)
 /*
  * ltxtquery type send function
  *
+ * ltxtquery类型发送函数
+ *
  * The type is sent as text in binary mode, so this is almost the same
  * as the output function, but it's prefixed with a version number so we
  * can change the binary format sent in future if necessary. For now,
  * only version 1 is supported.
+ *
+ * 该类型以二进制模式作为文本发送，因此这与输出函数几乎相同，但它带有版本号前缀，因此我们可以在必要时更改将来发送的二进制格式。目前仅支持版本 1。
  */
 PG_FUNCTION_INFO_V1(ltxtq_send);
 Datum

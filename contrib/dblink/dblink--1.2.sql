@@ -1,10 +1,16 @@
 /* contrib/dblink/dblink--1.2.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "CREATE EXTENSION dblink" to load this file. \quit
 
 -- dblink_connect now restricts non-superusers to password
+--
+-- dblink_connect 现在限制非超级用户使用密码
 -- authenticated connections
+--
+-- 经过身份验证的连接
 CREATE FUNCTION dblink_connect (text)
 RETURNS text
 AS 'MODULE_PATHNAME','dblink_connect'
@@ -16,8 +22,14 @@ AS 'MODULE_PATHNAME','dblink_connect'
 LANGUAGE C STRICT PARALLEL RESTRICTED;
 
 -- dblink_connect_u allows non-superusers to use
+--
+-- dblink_connect_u 允许非超级用户使用
 -- non-password authenticated connections, but initially
+--
+-- 非密码验证连接，但最初
 -- privileges are revoked from public
+--
+-- 公众的特权被取消
 CREATE FUNCTION dblink_connect_u (text)
 RETURNS text
 AS 'MODULE_PATHNAME','dblink_connect'
@@ -222,7 +234,10 @@ RETURNS setof record
 AS 'MODULE_PATHNAME', 'dblink_get_notify'
 LANGUAGE C STRICT PARALLEL RESTRICTED;
 
-/* New stuff in 1.1 begins here */
+/* New stuff in 1.1 begins here
+ *
+ * 1.1 中的新内容从这里开始
+ */
 
 CREATE FUNCTION dblink_fdw_validator(
     options text[],

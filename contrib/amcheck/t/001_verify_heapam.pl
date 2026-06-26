@@ -14,6 +14,8 @@ my $node;
 #
 # Test set-up
 #
+# 测试设置
+#
 $node = PostgreSQL::Test::Cluster->new('test');
 $node->init(no_data_checksums => 1);
 $node->append_conf('postgresql.conf', 'autovacuum=off');
@@ -23,11 +25,15 @@ $node->safe_psql('postgres', q(CREATE EXTENSION amcheck));
 #
 # Check a table with data loaded but no corruption, freezing, etc.
 #
+# 检查已加载数据但没有损坏、冻结等情况的表。
+#
 fresh_test_table('test');
 check_all_options_uncorrupted('test', 'plain');
 
 #
 # Check a corrupt table
+#
+# 检查损坏的表
 #
 fresh_test_table('test');
 corrupt_first_page('test');
@@ -48,6 +54,8 @@ detects_heap_corruption(
 #
 # Check a corrupt table with all-frozen data
 #
+# 检查包含全部冻结数据的损坏表
+#
 fresh_test_table('test');
 $node->safe_psql('postgres', q(VACUUM (FREEZE, DISABLE_PAGE_SKIPPING) test));
 detects_no_corruption("verify_heapam('test')",
@@ -61,10 +69,20 @@ detects_no_corruption(
 
 #
 # Check a sequence with no corruption.  The current implementation of sequences
+#
+# 检查序列没有损坏。  当前序列的实现
 # doesn't require its own test setup, since sequences are really just heap
+#
+# 不需要自己的测试设置，因为序列实际上只是堆
 # tables under-the-hood.  To guard against future implementation changes made
+#
+# 桌子在引擎盖下。  防止未来实施变更
 # without remembering to update verify_heapam, we create and exercise a
+#
+# 在不记得更新 verify_heapam 的情况下，我们创建并执行了
 # sequence, checking along the way that it passes corruption checks.
+#
+# 序列，沿途检查它是否通过损坏检查。
 #
 fresh_test_sequence('test_seq');
 check_all_options_uncorrupted('test_seq', 'plain');
@@ -76,6 +94,8 @@ reset_test_sequence('test_seq');
 check_all_options_uncorrupted('test_seq', 'plain');
 
 # Returns the filesystem path for the named relation.
+#
+# 返回命名关系的文件系统路径。
 sub relation_filepath
 {
 	my ($relname) = @_;
@@ -88,6 +108,8 @@ sub relation_filepath
 }
 
 # (Re)create and populate a test table of the given name.
+#
+# （重新）创建并填充给定名称的测试表。
 sub fresh_test_table
 {
 	my ($relname) = @_;
@@ -113,6 +135,8 @@ sub fresh_test_table
 }
 
 # Create a test sequence of the given name.
+#
+# 创建给定名称的测试序列。
 sub fresh_test_sequence
 {
 	my ($seqname) = @_;
@@ -130,6 +154,8 @@ sub fresh_test_sequence
 }
 
 # Call SQL functions to increment the sequence
+#
+# 调用 SQL 函数来递增序列
 sub advance_test_sequence
 {
 	my ($seqname) = @_;
@@ -141,6 +167,8 @@ sub advance_test_sequence
 }
 
 # Call SQL functions to set the sequence
+#
+# 调用SQL函数设置顺序
 sub set_test_sequence
 {
 	my ($seqname) = @_;
@@ -152,6 +180,8 @@ sub set_test_sequence
 }
 
 # Call SQL functions to reset the sequence
+#
+# 调用SQL函数重置序列
 sub reset_test_sequence
 {
 	my ($seqname) = @_;
@@ -163,7 +193,11 @@ sub reset_test_sequence
 }
 
 # Stops the test node, corrupts the first page of the named relation, and
+#
+# 停止测试节点，损坏指定关系的第一页，并且
 # restarts the node.
+#
+# 重新启动节点。
 sub corrupt_first_page
 {
 	my ($relname) = @_;
@@ -177,8 +211,14 @@ sub corrupt_first_page
 	binmode $fh;
 
 	# Corrupt some line pointers.  The values are chosen to hit the
+	#
+	# 损坏一些行指针。  选择的值是为了达到
 	# various line-pointer-corruption checks in verify_heapam.c
+	#
+	# verify_heapam.c 中的各种行指针损坏检查
 	# on both little-endian and big-endian architectures.
+	#
+	# 在小端和大端架构上。
 	sysseek($fh, 32, 0)
 	  or BAIL_OUT("sysseek failed: $!");
 	syswrite(
@@ -231,12 +271,22 @@ sub detects_no_corruption
 }
 
 # Check various options are stable (don't abort) and do not report corruption
+#
+# 检查各种选项是否稳定（不要中止）并且不报告损坏
 # when running verify_heapam on an uncorrupted test table.
+#
+# 在未损坏的测试表上运行 verify_heapam 时。
 #
 # The relname *must* be an uncorrupted table, or this will fail.
 #
+# relname *必须*是一个未损坏的表，否则将会失败。
+#
 # The prefix is used to identify the test, along with the options,
+#
+# 前缀用于识别测试以及选项，
 # and should be unique.
+#
+# 并且应该是唯一的。
 sub check_all_options_uncorrupted
 {
 	local $Test::Builder::Level = $Test::Builder::Level + 1;

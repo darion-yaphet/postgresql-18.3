@@ -2,15 +2,24 @@
  * EAN13.h
  *	  PostgreSQL type definitions for ISNs (ISBN, ISMN, ISSN, EAN13, UPC)
  *
+ * EAN13.h ISN 的 PostgreSQL 类型定义（ISBN、ISMN、ISSN、EAN13、UPC）
+ *
  * Information recompiled by Kronuz on August 23, 2006
  * http://www.gs1.org/productssolutions/idkeys/support/prefix_list.html
+ *
+ * Kronuz 于 2006 年 8 月 23 日重新编译的信息 http://www.gs1.org/productssolutions/idkeys/support/prefix_list.html
  *
  * IDENTIFICATION
  *	  contrib/isn/EAN13.h
  *
+ * 识别 contrib/isn/EAN13.h
+ *
  */
 
-/* where the digit set begins, and how many of them are in the table */
+/* where the digit set begins, and how many of them are in the table
+ *
+ * 数字集从哪里开始，以及表中有多少个数字
+ */
 static const unsigned EAN13_index[10][2] = {
 	{0, 6},
 	{6, 1},

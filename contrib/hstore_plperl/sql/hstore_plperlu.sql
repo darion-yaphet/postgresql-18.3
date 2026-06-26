@@ -9,6 +9,8 @@ ORDER BY 1, 2, 5, 6;
 
 
 -- test hstore -> perl
+--
+-- 测试 hstore -> perl
 CREATE FUNCTION test1(val hstore) RETURNS int
 LANGUAGE plperlu
 TRANSFORM FOR TYPE hstore
@@ -49,6 +51,8 @@ SELECT test1list('aa=>bb, cc=>NULL'::hstore);
 
 
 -- test hstore[] -> perl
+--
+-- 测试 hstore[] -> perl
 CREATE FUNCTION test1arr(val hstore[]) RETURNS int
 LANGUAGE plperlu
 TRANSFORM FOR TYPE hstore
@@ -64,6 +68,8 @@ SELECT test1arr(array['aa=>bb, cc=>NULL'::hstore, 'dd=>ee']);
 
 
 -- test as part of prepare/execute
+--
+-- 作为准备/执行的一部分进行测试
 CREATE FUNCTION test3() RETURNS void
 LANGUAGE plperlu
 TRANSFORM FOR TYPE hstore
@@ -85,6 +91,8 @@ SELECT test3();
 
 
 -- test trigger
+--
+-- 测试触发器
 CREATE TABLE test1 (a int, b hstore);
 INSERT INTO test1 VALUES (1, 'aa=>bb, cc=>NULL');
 SELECT * FROM test1;

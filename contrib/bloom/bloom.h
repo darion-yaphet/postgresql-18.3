@@ -20,29 +20,43 @@
 #include "fmgr.h"
 #include "nodes/pathnodes.h"
 
-/* Support procedures numbers */
+/* Support procedures numbers
+ *
+ * 支持程序编号
+ */
 #define BLOOM_HASH_PROC			1
 #define BLOOM_OPTIONS_PROC		2
 #define BLOOM_NPROC				2
 
-/* Scan strategies */
+/* Scan strategies
+ *
+ * 扫描策略
+ */
 #define BLOOM_EQUAL_STRATEGY	1
 #define BLOOM_NSTRATEGIES		1
 
-/* Opaque for bloom pages */
+/* Opaque for bloom pages
+ *
+ * 绽放页面不透明
+ */
 typedef struct BloomPageOpaqueData
 {
 	OffsetNumber maxoff;		/* number of index tuples on page */
 	uint16		flags;			/* see bit definitions below */
 	uint16		unused;			/* placeholder to force maxaligning of size of
 								 * BloomPageOpaqueData and to place
+								 *
+								 * BloomPageOpaqueData 并放置
 								 * bloom_page_id exactly at the end of page */
 	uint16		bloom_page_id;	/* for identification of BLOOM indexes */
 } BloomPageOpaqueData;
 
 typedef BloomPageOpaqueData *BloomPageOpaque;
 
-/* Bloom page flags */
+/* Bloom page flags
+ *
+ * 绽放页面标志
+ */
 #define BLOOM_META		(1<<0)
 #define BLOOM_DELETED	(2<<0)
 
@@ -52,11 +66,18 @@ typedef BloomPageOpaqueData *BloomPageOpaque;
  * types apart.  It should be the last 2 bytes on the page.  This is more or
  * less "free" due to alignment considerations.
  *
+ * 页面 ID 是为了方便 pg_filedump 和类似的实用程序，否则它们将很难区分不同索引类型的页面。  它应该是页面上的最后 2 个字节。  由于对齐考虑，这或多或少是“自由的”。
+ *
  * See comments above GinPageOpaqueData.
+ *
+ * 请参阅 GinPageOpaqueData 上面的评论。
  */
 #define BLOOM_PAGE_ID		0xFF83
 
-/* Macros for accessing bloom page structures */
+/* Macros for accessing bloom page structures
+ *
+ * 用于访问Bloom页面结构的宏
+ */
 #define BloomPageGetOpaque(page) ((BloomPageOpaque) PageGetSpecialPointer(page))
 #define BloomPageGetMaxOffset(page) (BloomPageGetOpaque(page)->maxoff)
 #define BloomPageIsMeta(page) \
@@ -74,12 +95,17 @@ typedef BloomPageOpaqueData *BloomPageOpaque;
 #define BloomPageGetNextTuple(state, tuple) \
 	((BloomTuple *)((Pointer)(tuple) + (state)->sizeOfBloomTuple))
 
-/* Preserved page numbers */
+/* Preserved page numbers
+ *
+ * 保留页码
+ */
 #define BLOOM_METAPAGE_BLKNO	(0)
 #define BLOOM_HEAD_BLKNO		(1) /* first data page */
 
 /*
  * We store Bloom signatures as arrays of uint16 words.
+ *
+ * 我们将 Bloom 签名存储为 uint16 字数组。
  */
 typedef uint16 BloomSignatureWord;
 
@@ -87,17 +113,24 @@ typedef uint16 BloomSignatureWord;
 
 /*
  * Default and maximum Bloom signature length in bits.
+ *
+ * 默认和最大 Bloom 签名长度（以位为单位）。
  */
 #define DEFAULT_BLOOM_LENGTH	(5 * SIGNWORDBITS)
 #define MAX_BLOOM_LENGTH		(256 * SIGNWORDBITS)
 
 /*
  * Default and maximum signature bits generated per index key.
+ *
+ * 每个索引密钥生成的默认和最大签名位。
  */
 #define DEFAULT_BLOOM_BITS		2
 #define MAX_BLOOM_BITS			(MAX_BLOOM_LENGTH - 1)
 
-/* Bloom index options */
+/* Bloom index options
+ *
+ * 布卢姆索引选项
+ */
 typedef struct BloomOptions
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
@@ -109,12 +142,17 @@ typedef struct BloomOptions
 /*
  * FreeBlockNumberArray - array of block numbers sized so that metadata fill
  * all space in metapage.
+ *
+ * FreeBlockNumberArray - 块号数组的大小使元数据填充元页中的所有空间。
  */
 typedef BlockNumber FreeBlockNumberArray[MAXALIGN_DOWN(BLCKSZ - SizeOfPageHeaderData - MAXALIGN(sizeof(BloomPageOpaqueData))
 													   - MAXALIGN(sizeof(uint16) * 2 + sizeof(uint32) + sizeof(BloomOptions)))
 										 / sizeof(BlockNumber)];
 
-/* Metadata of bloom index */
+/* Metadata of bloom index
+ *
+ * 布鲁姆指数元数据
+ */
 typedef struct BloomMetaPageData
 {
 	uint32		magickNumber;
@@ -124,10 +162,16 @@ typedef struct BloomMetaPageData
 	FreeBlockNumberArray notFullPage;
 } BloomMetaPageData;
 
-/* Magic number to distinguish bloom pages from others */
+/* Magic number to distinguish bloom pages from others
+ *
+ * 用于区分Bloom页面和其他页面的神奇数字
+ */
 #define BLOOM_MAGICK_NUMBER (0xDBAC0DED)
 
-/* Number of blocks numbers fit in BloomMetaPageData */
+/* Number of blocks numbers fit in BloomMetaPageData
+ *
+ * BloomMetaPageData 中适合的块数
+ */
 #define BloomMetaBlockN		(sizeof(FreeBlockNumberArray) / sizeof(BlockNumber))
 
 #define BloomPageGetMeta(page)	((BloomMetaPageData *) PageGetContents(page))
@@ -142,6 +186,8 @@ typedef struct BloomState
 	/*
 	 * sizeOfBloomTuple is index-specific, and it depends on reloptions, so
 	 * precompute it
+	 *
+	 * sizeOfBloomTuple 是特定于索引的，并且它取决于reloptions，因此需要预先计算它
 	 */
 	Size		sizeOfBloomTuple;
 } BloomState;
@@ -153,6 +199,8 @@ typedef struct BloomState
 
 /*
  * Tuples are very different from all other relations
+ *
+ * 元组与所有其他关系有很大不同
  */
 typedef struct BloomTuple
 {
@@ -162,7 +210,10 @@ typedef struct BloomTuple
 
 #define BLOOMTUPLEHDRSZ offsetof(BloomTuple, sign)
 
-/* Opaque data structure for bloom index scan */
+/* Opaque data structure for bloom index scan
+ *
+ * 布隆索引扫描的不透明数据结构
+ */
 typedef struct BloomScanOpaqueData
 {
 	BloomSignatureWord *sign;	/* Scan signature */
@@ -184,7 +235,10 @@ extern bool BloomPageAddItem(BloomState *state, Page page, BloomTuple *tuple);
 /* blvalidate.c */
 extern bool blvalidate(Oid opclassoid);
 
-/* index access method interface functions */
+/* index access method interface functions
+ *
+ * 索引访问方法接口函数
+ */
 extern bool blinsert(Relation index, Datum *values, bool *isnull,
 					 ItemPointer ht_ctid, Relation heapRel,
 					 IndexUniqueCheck checkUnique,

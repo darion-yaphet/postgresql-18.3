@@ -44,12 +44,18 @@ read_pubkey_keyid(PullFilter *pkt, uint8 *keyid_buf)
 	if (res < 0)
 		goto err;
 
-	/* skip secret key part, if it exists */
+	/* skip secret key part, if it exists
+	 *
+	 * 跳过密钥部分（如果存在）
+	 */
 	res = pgp_skip_packet(pkt);
 	if (res < 0)
 		goto err;
 
-	/* is it encryption key */
+	/* is it encryption key
+	 *
+	 * 是加密密钥吗
+	 */
 	switch (pk->algo)
 	{
 		case PGP_PUB_ELG_ENCRYPT:
@@ -107,6 +113,8 @@ static const uint8 any_key[] =
 
 /*
  * dst should have room for 17 bytes
+ *
+ * dst 应有 17 个字节的空间
  */
 int
 pgp_get_keyid(MBuf *pgp_data, char *dst)
@@ -141,7 +149,10 @@ pgp_get_keyid(MBuf *pgp_data, char *dst)
 		{
 			case PGP_PKT_SECRET_KEY:
 			case PGP_PKT_PUBLIC_KEY:
-				/* main key is for signing, so ignore it */
+				/* main key is for signing, so ignore it
+				 *
+				 * 主密钥用于签名，所以忽略它
+				 */
 				if (!got_main_key)
 				{
 					got_main_key = 1;
@@ -164,12 +175,18 @@ pgp_get_keyid(MBuf *pgp_data, char *dst)
 				break;
 			case PGP_PKT_SYMENCRYPTED_DATA:
 			case PGP_PKT_SYMENCRYPTED_DATA_MDC:
-				/* don't skip it, just stop */
+				/* don't skip it, just stop
+				 *
+				 * 不要跳过它，停下来
+				 */
 				got_data = 1;
 				break;
 			case PGP_PKT_SYMENCRYPTED_SESSKEY:
 				got_symenc_key++;
-				/* fall through */
+				/* fall through
+				 *
+				 * 跌倒
+				 */
 			case PGP_PKT_SIGNATURE:
 			case PGP_PKT_MARKER:
 			case PGP_PKT_TRUST:
@@ -197,7 +214,10 @@ pgp_get_keyid(MBuf *pgp_data, char *dst)
 	if (res < 0)
 		return res;
 
-	/* now check sanity */
+	/* now check sanity
+	 *
+	 * 现在检查理智
+	 */
 	if (got_pub_key && got_pubenc_key)
 		res = PXE_PGP_CORRUPT_DATA;
 
@@ -209,6 +229,8 @@ pgp_get_keyid(MBuf *pgp_data, char *dst)
 
 	/*
 	 * if still ok, look what we got
+	 *
+	 * 如果还可以，看看我们得到了什么
 	 */
 	if (res >= 0)
 	{

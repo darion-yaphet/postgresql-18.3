@@ -1,6 +1,8 @@
 /*
  *	PostgreSQL definitions for managed Large Objects.
  *
+ * 托管大对象的 PostgreSQL 定义。
+ *
  *	contrib/lo/lo.c
  *
  */
@@ -20,6 +22,8 @@ PG_MODULE_MAGIC_EXT(
 
 /*
  * This is the trigger that protects us from orphaned large objects
+ *
+ * 这是保护我们免受孤立大对象侵害的触发器
  */
 PG_FUNCTION_INFO_V1(lo_manage);
 
@@ -44,6 +48,8 @@ lo_manage(PG_FUNCTION_ARGS)
 
 	/*
 	 * Fetch some values from trigdata
+	 *
+	 * 从 trigdata 中获取一些值
 	 */
 	newtuple = trigdata->tg_newtuple;
 	trigtuple = trigdata->tg_trigtuple;
@@ -54,16 +60,25 @@ lo_manage(PG_FUNCTION_ARGS)
 		elog(ERROR, "%s: no column name provided in the trigger definition",
 			 trigdata->tg_trigger->tgname);
 
-	/* tuple to return to Executor */
+	/* tuple to return to Executor
+	 *
+	 * 元组返回到Executor
+	 */
 	if (TRIGGER_FIRED_BY_UPDATE(trigdata->tg_event))
 		rettuple = newtuple;
 	else
 		rettuple = trigtuple;
 
-	/* Are we deleting the row? */
+	/* Are we deleting the row?
+	 *
+	 * 我们要删除该行吗？
+	 */
 	isdelete = TRIGGER_FIRED_BY_DELETE(trigdata->tg_event);
 
-	/* Get the column we're interested in */
+	/* Get the column we're interested in
+	 *
+	 * 获取我们感兴趣的专栏
+	 */
 	attnum = SPI_fnumber(tupdesc, args[0]);
 
 	if (attnum <= 0)
@@ -73,8 +88,12 @@ lo_manage(PG_FUNCTION_ARGS)
 	/*
 	 * Handle updates
 	 *
+	 * 处理更新
+	 *
 	 * Here, if the value of the monitored attribute changes, then the large
 	 * object associated with the original value is unlinked.
+	 *
+	 * 这里，如果所监视的属性的值发生变化，则与原始值关联的大对象被取消链接。
 	 */
 	if (newtuple != NULL &&
 		bms_is_member(attnum - FirstLowInvalidHeapAttributeNumber, trigdata->tg_updatedcols))
@@ -95,7 +114,11 @@ lo_manage(PG_FUNCTION_ARGS)
 	/*
 	 * Handle deleting of rows
 	 *
+	 * 处理行的删除
+	 *
 	 * Here, we unlink the large object associated with the managed attribute
+	 *
+	 * 在这里，我们取消与托管属性关联的大对象的链接
 	 */
 	if (isdelete)
 	{

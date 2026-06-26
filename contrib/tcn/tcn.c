@@ -31,6 +31,8 @@ PG_MODULE_MAGIC_EXT(
 /*
  * Copy from s (for source) to r (for result), wrapping with q (quote)
  * characters and doubling any quote characters found.
+ *
+ * 从 s（对于源）复制到 r（对于结果），用 q（引号）字符换行并将找到的任何引号字符加倍。
  */
 static void
 strcpy_quoted(StringInfo r, const char *s, const char q)
@@ -52,6 +54,8 @@ strcpy_quoted(StringInfo r, const char *s, const char q)
  * This trigger function will send a notification of data modification with
  * primary key values.  The channel will be "tcn" unless the trigger is
  * created with a parameter, in which case that parameter will be used.
+ *
+ * 该触发函数将发送带有主键值的数据修改通知。  通道将为“tcn”，除非触发器是使用参数创建的，在这种情况下将使用该参数。
  */
 PG_FUNCTION_INFO_V1(triggered_change_notification);
 
@@ -72,19 +76,28 @@ triggered_change_notification(PG_FUNCTION_ARGS)
 	List	   *indexoidlist;
 	ListCell   *indexoidscan;
 
-	/* make sure it's called as a trigger */
+	/* make sure it's called as a trigger
+	 *
+	 * 确保它被称为触发器
+	 */
 	if (!CALLED_AS_TRIGGER(fcinfo))
 		ereport(ERROR,
 				(errcode(ERRCODE_E_R_I_E_TRIGGER_PROTOCOL_VIOLATED),
 				 errmsg("triggered_change_notification: must be called as trigger")));
 
-	/* and that it's called after the change */
+	/* and that it's called after the change
+	 *
+	 * 并在更改后调用它
+	 */
 	if (!TRIGGER_FIRED_AFTER(trigdata->tg_event))
 		ereport(ERROR,
 				(errcode(ERRCODE_E_R_I_E_TRIGGER_PROTOCOL_VIOLATED),
 				 errmsg("triggered_change_notification: must be called after the change")));
 
-	/* and that it's called for each row */
+	/* and that it's called for each row
+	 *
+	 * 每行都会调用它
+	 */
 	if (!TRIGGER_FIRED_FOR_ROW(trigdata->tg_event))
 		ereport(ERROR,
 				(errcode(ERRCODE_E_R_I_E_TRIGGER_PROTOCOL_VIOLATED),
@@ -114,7 +127,10 @@ triggered_change_notification(PG_FUNCTION_ARGS)
 	else
 		channel = trigger->tgargs[0];
 
-	/* get tuple data */
+	/* get tuple data
+	 *
+	 * 获取元组数据
+	 */
 	trigtuple = trigdata->tg_trigtuple;
 	rel = trigdata->tg_relation;
 	tupdesc = rel->rd_att;
@@ -125,6 +141,8 @@ triggered_change_notification(PG_FUNCTION_ARGS)
 	 * Get the list of index OIDs for the table from the relcache, and look up
 	 * each one in the pg_index syscache until we find one marked primary key
 	 * (hopefully there isn't more than one such).
+	 *
+	 * 从 relcache 中获取表的索引 OID 列表，并在 pg_index syscache 中查找每个索引 OID，直到找到一个标记的主键（希望这样的主键不超过一个）。
 	 */
 	indexoidlist = RelationGetIndexList(rel);
 
@@ -138,7 +156,10 @@ triggered_change_notification(PG_FUNCTION_ARGS)
 		if (!HeapTupleIsValid(indexTuple))	/* should not happen */
 			elog(ERROR, "cache lookup failed for index %u", indexoid);
 		index = (Form_pg_index) GETSTRUCT(indexTuple);
-		/* we're only interested if it is the primary key and valid */
+		/* we're only interested if it is the primary key and valid
+		 *
+		 * 我们只关心它是否是主键并且有效
+		 */
 		if (index->indisprimary && index->indisvalid)
 		{
 			int			indnkeyatts = index->indnkeyatts;

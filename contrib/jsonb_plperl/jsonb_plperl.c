@@ -104,7 +104,10 @@ Jsonb_to_SV(JsonbContainer *jsonb)
 				{
 					if (r == WJB_KEY)
 					{
-						/* json key in v, json value in val */
+						/* json key in v, json value in val
+						 *
+						 * v 中的 json 键，val 中的 json 值
+						 */
 						JsonbValue	val;
 
 						if (JsonbIteratorNext(&it, &val, true) == WJB_VALUE)
@@ -179,7 +182,10 @@ SV_to_JsonbValue(SV *in, JsonbParseState **jsonb_state, bool is_elem)
 	dTHX;
 	JsonbValue	out;			/* result */
 
-	/* Dereference references recursively. */
+	/* Dereference references recursively.
+	 *
+	 * 递归取消引用引用。
+	 */
 	while (SvROK(in))
 		in = SvRV(in);
 
@@ -203,6 +209,8 @@ SV_to_JsonbValue(SV *in, JsonbParseState **jsonb_state, bool is_elem)
 				 * happen than converting to text and back.  Given the low
 				 * usage of UV in Perl code, it's not clear it's worth working
 				 * hard to provide alternate code paths.
+				 *
+				 * 如果 UV >=64 位，我们没有比转换为文本更好的方法来实现这一点。  鉴于 Perl 代码中 UV 的使用率较低，目前尚不清楚是否值得努力提供备用代码路径。
 				 */
 				const char *strval = SvPV_nolen(in);
 
@@ -229,6 +237,8 @@ SV_to_JsonbValue(SV *in, JsonbParseState **jsonb_state, bool is_elem)
 				 * specification), but the numeric type that is used for the
 				 * storage accepts those, so we have to reject them here
 				 * explicitly.
+				 *
+				 * jsonb 不允许无穷大或 NaN（根据 JSON 规范），但用于存储的数字类型接受这些，因此我们必须在此处明确拒绝它们。
 				 */
 				if (isinf(nval))
 					ereport(ERROR,
@@ -255,6 +265,8 @@ SV_to_JsonbValue(SV *in, JsonbParseState **jsonb_state, bool is_elem)
 				/*
 				 * XXX It might be nice if we could include the Perl type in
 				 * the error message.
+				 *
+				 * XXX 如果我们可以在错误消息中包含 Perl 类型，那就太好了。
 				 */
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -263,7 +275,10 @@ SV_to_JsonbValue(SV *in, JsonbParseState **jsonb_state, bool is_elem)
 			}
 	}
 
-	/* Push result into 'jsonb_state' unless it is a raw scalar. */
+	/* Push result into 'jsonb_state' unless it is a raw scalar.
+	 *
+	 * 将结果推入“jsonb_state”，除非它是原始标量。
+	 */
 	return *jsonb_state
 		? pushJsonbValue(jsonb_state, is_elem ? WJB_ELEM : WJB_VALUE, &out)
 		: memcpy(palloc(sizeof(JsonbValue)), &out, sizeof(JsonbValue));

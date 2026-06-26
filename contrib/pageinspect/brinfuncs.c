@@ -57,7 +57,10 @@ brin_page_type(PG_FUNCTION_ARGS)
 	if (PageIsNew(page))
 		PG_RETURN_NULL();
 
-	/* verify the special space has the expected size */
+	/* verify the special space has the expected size
+	 *
+	 * 验证特殊空间是否具有预期的大小
+	 */
 	if (PageGetSpecialSize(page) != MAXALIGN(sizeof(BrinSpecialSpace)))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -88,6 +91,8 @@ brin_page_type(PG_FUNCTION_ARGS)
 /*
  * Verify that the given bytea contains a BRIN page of the indicated page
  * type, or die in the attempt.  A pointer to the page is returned.
+ *
+ * 验证给定的 bytea 是否包含指定页面类型的 BRIN 页面，否则会失败。  返回指向该页面的指针。
  */
 static Page
 verify_brin_page(bytea *raw_page, uint16 type, const char *strtype)
@@ -97,7 +102,10 @@ verify_brin_page(bytea *raw_page, uint16 type, const char *strtype)
 	if (PageIsNew(page))
 		return page;
 
-	/* verify the special space has the expected size */
+	/* verify the special space has the expected size
+	 *
+	 * 验证特殊空间是否具有预期的大小
+	 */
 	if (PageGetSpecialSize(page) != MAXALIGN(sizeof(BrinSpecialSpace)))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -106,7 +114,10 @@ verify_brin_page(bytea *raw_page, uint16 type, const char *strtype)
 						   (int) MAXALIGN(sizeof(BrinSpecialSpace)),
 						   (int) PageGetSpecialSize(page))));
 
-	/* verify the special space says this page is what we want */
+	/* verify the special space says this page is what we want
+	 *
+	 * 验证特殊空间是否表明此页面是我们想要的
+	 */
 	if (BrinPageType(page) != type)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -117,13 +128,20 @@ verify_brin_page(bytea *raw_page, uint16 type, const char *strtype)
 	return page;
 }
 
-/* Number of output arguments (columns) for brin_page_items() */
+/* Number of output arguments (columns) for brin_page_items()
+ *
+ * brin_page_items() 的输出参数（列）数
+ */
 #define BRIN_PAGE_ITEMS_V1_12	8
 
 /*
  * Extract all item values from a BRIN index page
  *
+ * 从 BRIN 索引页中提取所有项目值
+ *
  * Usage: SELECT * FROM brin_page_items(get_raw_page('idx', 1), 'idx'::regclass);
+ *
+ * 用法： SELECT * FROM brin_page_items(get_raw_page('idx', 1), 'idx'::regclass);
  */
 Datum
 brin_page_items(PG_FUNCTION_ARGS)
@@ -152,9 +170,13 @@ brin_page_items(PG_FUNCTION_ARGS)
 	 * it was added in the middle, it may cause crashes with function
 	 * definitions from older versions of the extension.
 	 *
+	 * 版本 1.12 为空范围标志添加了一个新的输出列。但由于它是在中间添加的，因此可能会导致旧版本扩展的函数定义崩溃。
+	 *
 	 * There is no way to reliably avoid the problems created by the old
 	 * function definition at this point, so insist that the user update the
 	 * extension.
+	 *
+	 * 目前没有办法可靠地避免旧函数定义造成的问题，因此坚持要求用户更新扩展。
 	 */
 	if (rsinfo->setDesc->natts < BRIN_PAGE_ITEMS_V1_12)
 		ereport(ERROR,
@@ -172,7 +194,10 @@ brin_page_items(PG_FUNCTION_ARGS)
 
 	bdesc = brin_build_desc(indexRel);
 
-	/* minimally verify the page we got */
+	/* minimally verify the page we got
+	 *
+	 * 至少验证我们得到的页面
+	 */
 	page = verify_brin_page(raw_page, BRIN_PAGETYPE_REGULAR, "regular");
 
 	if (PageIsNew(page))
@@ -185,6 +210,8 @@ brin_page_items(PG_FUNCTION_ARGS)
 	/*
 	 * Initialize output functions for all indexed datatypes; simplifies
 	 * calling them later.
+	 *
+	 * 初始化所有索引数据类型的输出函数；简化以后的呼叫。
 	 */
 	columns = palloc(sizeof(brin_column_state *) * RelationGetDescr(indexRel)->natts);
 	for (attno = 1; attno <= bdesc->bd_tupdesc->natts; attno++)
@@ -222,12 +249,17 @@ brin_page_items(PG_FUNCTION_ARGS)
 		 * page.  At the start of a tuple, we get a NULL dtup; that's our
 		 * signal for obtaining and decoding the next one.  If that's not the
 		 * case, we output the next attribute.
+		 *
+		 * 对于页面中每个元组的每个属性都会调用一次此循环。  在元组的开头，我们得到一个 NULL dtup；这是我们获取和解码下一个信号的信号。  如果不是这种情况，我们输出下一个属性。
 		 */
 		if (dtup == NULL)
 		{
 			ItemId		itemId;
 
-			/* verify item status: if there's no data, we can't decode */
+			/* verify item status: if there's no data, we can't decode
+			 *
+			 * 验证项目状态：如果没有数据，我们无法解码
+			 */
 			itemId = PageGetItemId(page, offset);
 			if (ItemIdIsUsed(itemId))
 			{
@@ -265,7 +297,10 @@ brin_page_items(PG_FUNCTION_ARGS)
 					values[1] = Int64GetDatum((int64) dtup->bt_blkno);
 					break;
 				case INT4OID:
-					/* support for old extension version */
+					/* support for old extension version
+					 *
+					 * 支持旧扩展版本
+					 */
 					values[1] = UInt32GetDatum(dtup->bt_blkno);
 					break;
 				default:
@@ -316,6 +351,8 @@ brin_page_items(PG_FUNCTION_ARGS)
 		 * If the item was unused, jump straight to the next one; otherwise,
 		 * the only cleanup needed here is to set our signal to go to the next
 		 * tuple in the following iteration, by freeing the current one.
+		 *
+		 * 如果该项目未使用，则直接跳到下一个；否则，这里唯一需要的清理是通过释放当前信号来将信号设置为在下一次迭代中转到下一个元组。
 		 */
 		if (unusedItem)
 			offset = OffsetNumberNext(offset);
@@ -328,6 +365,8 @@ brin_page_items(PG_FUNCTION_ARGS)
 
 		/*
 		 * If we're beyond the end of the page, we're done.
+		 *
+		 * 如果我们超出了页面的末尾，我们就完成了。
 		 */
 		if (offset > PageGetMaxOffsetNumber(page))
 			break;
@@ -360,12 +399,18 @@ brin_metapage_info(PG_FUNCTION_ARGS)
 	if (PageIsNew(page))
 		PG_RETURN_NULL();
 
-	/* Build a tuple descriptor for our result type */
+	/* Build a tuple descriptor for our result type
+	 *
+	 * 为我们的结果类型构建一个元组描述符
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 	tupdesc = BlessTupleDesc(tupdesc);
 
-	/* Extract values from the metapage */
+	/* Extract values from the metapage
+	 *
+	 * 从元页面中提取值
+	 */
 	meta = (BrinMetaPageData *) PageGetContents(page);
 	values[0] = CStringGetTextDatum(psprintf("0x%08X", meta->brinMagic));
 	values[1] = Int32GetDatum(meta->brinVersion);
@@ -379,6 +424,8 @@ brin_metapage_info(PG_FUNCTION_ARGS)
 
 /*
  * Return the TID array stored in a BRIN revmap page
+ *
+ * 返回存储在 BRIN revmap 页中的 TID 数组
  */
 Datum
 brin_revmap_data(PG_FUNCTION_ARGS)
@@ -401,13 +448,22 @@ brin_revmap_data(PG_FUNCTION_ARGS)
 		MemoryContext mctx;
 		Page		page;
 
-		/* create a function context for cross-call persistence */
+		/* create a function context for cross-call persistence
+		 *
+		 * 创建用于交叉调用持久化的函数上下文
+		 */
 		fctx = SRF_FIRSTCALL_INIT();
 
-		/* switch to memory context appropriate for multiple function calls */
+		/* switch to memory context appropriate for multiple function calls
+		 *
+		 * 切换到适合多个函数调用的内存上下文
+		 */
 		mctx = MemoryContextSwitchTo(fctx->multi_call_memory_ctx);
 
-		/* minimally verify the page we got */
+		/* minimally verify the page we got
+		 *
+		 * 至少验证我们得到的页面
+		 */
 		page = verify_brin_page(raw_page, BRIN_PAGETYPE_REVMAP, "revmap");
 
 		if (PageIsNew(page))

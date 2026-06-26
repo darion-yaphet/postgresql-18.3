@@ -37,6 +37,8 @@
  * padded msg = 02 || PS || 00 || M
  * PS - pad bytes
  * M - msg
+ *
+ * 填充消息 = 02 ||附注|| 00|| M PS - 填充字节 M - 消息
  */
 static uint8 *
 check_eme_pkcs1_v15(uint8 *data, int len)
@@ -69,6 +71,8 @@ check_eme_pkcs1_v15(uint8 *data, int len)
 /*
  * secret message: 1 byte algo, sesskey, 2 byte cksum
  * ignore algo in cksum
+ *
+ * 秘密消息：1 字节算法、sesskey、2 字节 cksum 忽略 cksum 中的算法
  */
 static int
 control_cksum(uint8 *msg, int msglen)
@@ -103,7 +107,10 @@ decrypt_elgamal(PGP_PubKey *pk, PullFilter *pkt, PGP_MPI **m_p)
 	if (pk->algo != PGP_PUB_ELG_ENCRYPT)
 		return PXE_PGP_WRONG_KEY;
 
-	/* read elgamal encrypted data */
+	/* read elgamal encrypted data
+	 *
+	 * 读取elgamal加密数据
+	 */
 	res = pgp_mpi_read(pkt, &c1);
 	if (res < 0)
 		goto out;
@@ -130,7 +137,10 @@ decrypt_rsa(PGP_PubKey *pk, PullFilter *pkt, PGP_MPI **m_p)
 		&& pk->algo != PGP_PUB_RSA_ENCRYPT_SIGN)
 		return PXE_PGP_WRONG_KEY;
 
-	/* read rsa encrypted data */
+	/* read rsa encrypted data
+	 *
+	 * 读取rsa加密数据
+	 */
 	res = pgp_mpi_read(pkt, &c);
 	if (res < 0)
 		return res;
@@ -142,7 +152,10 @@ decrypt_rsa(PGP_PubKey *pk, PullFilter *pkt, PGP_MPI **m_p)
 	return res;
 }
 
-/* key id is missing - user is expected to try all keys */
+/* key id is missing - user is expected to try all keys
+ *
+ * 密钥 ID 丢失 - 用户应尝试所有密钥
+ */
 static const uint8
 			any_key[] = {0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -175,6 +188,8 @@ pgp_parse_pubenc_sesskey(PGP_Context *ctx, PullFilter *pkt)
 
 	/*
 	 * check if keyid's match - user-friendly msg
+	 *
+	 * 检查 keyid 是否匹配 - 用户友好的消息
 	 */
 	res = pullf_read_fixed(pkt, 8, key_id);
 	if (res < 0)
@@ -207,6 +222,8 @@ pgp_parse_pubenc_sesskey(PGP_Context *ctx, PullFilter *pkt)
 
 	/*
 	 * extract message
+	 *
+	 * 提取消息
 	 */
 	msg = check_eme_pkcs1_v15(m->data, m->bytes);
 	if (msg == NULL)
@@ -231,6 +248,8 @@ pgp_parse_pubenc_sesskey(PGP_Context *ctx, PullFilter *pkt)
 
 	/*
 	 * got sesskey
+	 *
+	 * 得到了塞斯基
 	 */
 	ctx->cipher_algo = *msg;
 	ctx->sess_key_len = sess_key_len;

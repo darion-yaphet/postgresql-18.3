@@ -18,6 +18,8 @@ PG_MODULE_MAGIC_EXT(
 /*
  *		====================
  *		FORWARD DECLARATIONS
+ *
+ * 前瞻性声明
  *		====================
  */
 
@@ -27,6 +29,8 @@ static int32 internal_citext_pattern_cmp(text *left, text *right, Oid collid);
 /*
  *		=================
  *		UTILITY FUNCTIONS
+ *
+ * 实用功能
  *		=================
  */
 
@@ -34,6 +38,8 @@ static int32 internal_citext_pattern_cmp(text *left, text *right, Oid collid);
  * citextcmp()
  * Internal comparison function for citext strings.
  * Returns int32 negative, zero, or positive.
+ *
+ * citextcmp() citext 字符串的内部比较函数。返回 int32 负数、零或正数。
  */
 static int32
 citextcmp(text *left, text *right, Oid collid)
@@ -48,6 +54,8 @@ citextcmp(text *left, text *right, Oid collid)
 	 * citext's equality and hashing functions is not collation-dependent.  We
 	 * should change this once the core infrastructure is able to cope with
 	 * collation-dependent equality and hashing functions.
+	 *
+	 * 我们必须使用 DEFAULT_COLLATION_OID 进行 str_tolower 调用，而不是您可能期望的输入排序规则。  这样 citext 的相等函数和散列函数的行为就不会依赖于排序规则。  一旦核心基础设施能够处理依赖于排序规则的相等性和散列函数，我们就应该改变这一点。
 	 */
 
 	lcstr = str_tolower(VARDATA_ANY(left), VARSIZE_ANY_EXHDR(left), DEFAULT_COLLATION_OID);
@@ -67,6 +75,8 @@ citextcmp(text *left, text *right, Oid collid)
  * citext_pattern_cmp()
  * Internal character-by-character comparison function for citext strings.
  * Returns int32 negative, zero, or positive.
+ *
+ * citext_pattern_cmp() citext 字符串的内部逐字符比较函数。返回 int32 负数、零或正数。
  */
 static int32
 internal_citext_pattern_cmp(text *left, text *right, Oid collid)
@@ -101,6 +111,8 @@ internal_citext_pattern_cmp(text *left, text *right, Oid collid)
 /*
  *		==================
  *		INDEXING FUNCTIONS
+ *
+ * 索引功能
  *		==================
  */
 
@@ -151,7 +163,10 @@ citext_hash(PG_FUNCTION_ARGS)
 	result = hash_any((unsigned char *) str, strlen(str));
 	pfree(str);
 
-	/* Avoid leaking memory for toasted inputs */
+	/* Avoid leaking memory for toasted inputs
+	 *
+	 * 避免烘烤输入的内存泄漏
+	 */
 	PG_FREE_IF_COPY(txt, 0);
 
 	PG_RETURN_DATUM(result);
@@ -171,7 +186,10 @@ citext_hash_extended(PG_FUNCTION_ARGS)
 	result = hash_any_extended((unsigned char *) str, strlen(str), seed);
 	pfree(str);
 
-	/* Avoid leaking memory for toasted inputs */
+	/* Avoid leaking memory for toasted inputs
+	 *
+	 * 避免烘烤输入的内存泄漏
+	 */
 	PG_FREE_IF_COPY(txt, 0);
 
 	PG_RETURN_DATUM(result);
@@ -180,6 +198,8 @@ citext_hash_extended(PG_FUNCTION_ARGS)
 /*
  *		==================
  *		OPERATOR FUNCTIONS
+ *
+ * 操作员功能
  *		==================
  */
 
@@ -194,7 +214,10 @@ citext_eq(PG_FUNCTION_ARGS)
 			   *rcstr;
 	bool		result;
 
-	/* We can't compare lengths in advance of downcasing ... */
+	/* We can't compare lengths in advance of downcasing ...
+	 *
+	 * 我们无法在缩小之前比较长度......
+	 */
 
 	lcstr = str_tolower(VARDATA_ANY(left), VARSIZE_ANY_EXHDR(left), DEFAULT_COLLATION_OID);
 	rcstr = str_tolower(VARDATA_ANY(right), VARSIZE_ANY_EXHDR(right), DEFAULT_COLLATION_OID);
@@ -202,6 +225,8 @@ citext_eq(PG_FUNCTION_ARGS)
 	/*
 	 * Since we only care about equality or not-equality, we can avoid all the
 	 * expense of strcoll() here, and just do bitwise comparison.
+	 *
+	 * 由于我们只关心相等或不相等，因此我们可以在这里避免 strcoll() 的所有开销，而只进行按位比较。
 	 */
 	result = (strcmp(lcstr, rcstr) == 0);
 
@@ -224,7 +249,10 @@ citext_ne(PG_FUNCTION_ARGS)
 			   *rcstr;
 	bool		result;
 
-	/* We can't compare lengths in advance of downcasing ... */
+	/* We can't compare lengths in advance of downcasing ...
+	 *
+	 * 我们无法在缩小之前比较长度......
+	 */
 
 	lcstr = str_tolower(VARDATA_ANY(left), VARSIZE_ANY_EXHDR(left), DEFAULT_COLLATION_OID);
 	rcstr = str_tolower(VARDATA_ANY(right), VARSIZE_ANY_EXHDR(right), DEFAULT_COLLATION_OID);
@@ -232,6 +260,8 @@ citext_ne(PG_FUNCTION_ARGS)
 	/*
 	 * Since we only care about equality or not-equality, we can avoid all the
 	 * expense of strcoll() here, and just do bitwise comparison.
+	 *
+	 * 由于我们只关心相等或不相等，因此我们可以在这里避免 strcoll() 的所有开销，而只进行按位比较。
 	 */
 	result = (strcmp(lcstr, rcstr) != 0);
 
@@ -382,6 +412,8 @@ citext_pattern_ge(PG_FUNCTION_ARGS)
 /*
  *		===================
  *		AGGREGATE FUNCTIONS
+ *
+ * 聚合函数
  *		===================
  */
 

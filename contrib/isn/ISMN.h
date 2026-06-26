@@ -2,11 +2,17 @@
  * ISMN.h
  *	  PostgreSQL type definitions for ISNs (ISBN, ISMN, ISSN, EAN13, UPC)
  *
+ * ISMN.h ISN 的 PostgreSQL 类型定义（ISBN、ISMN、ISSN、EAN13、UPC）
+ *
  * Information recompiled by Kronuz on November 12, 2004
  * http://www.ismn-international.org
  *
+ * 信息由 Kronuz 于 2004 年 11 月 12 日重新编译 http://www.ismn-international.org
+ *
  * IDENTIFICATION
  *	  contrib/isn/ISMN.h
+ *
+ * 识别 contrib/isn/ISMN.h
  *
  * M-3452-4680-5 <=> (0)-3452-4680-5 <=> 0345246805 <=> 9790345246805 <=> 979-0-3452-4680-5
  *
@@ -18,6 +24,8 @@
  * Check digit	10 - 5 = 5
  * => M-3452-4680-5
  *
+ * (M算3) ISMN M 3 4 5 2 4 6 8 0 重量 3 1 3 1 3 1 3 1 3 产品 9 + 3 + 12 + 5 + 6 + 4 + 18 + 8 + 0 = 65 65 / 10 = 6 余数 5 校验位 10 - 5 = 5 => M-3452-4680-5
+ *
  * ISMN			9	7	 9	 0	 3	 4	  5   2   4   6    8   0
  * Weight		1	3	 1	 3	 1	 3	  1   3   1   3    1   3
  * Product		9 + 21 + 9 + 0 + 3 + 12 + 5 + 6 + 4 + 18 + 8 + 0 = 95
@@ -25,11 +33,18 @@
  * Check digit	10 - 5 = 5
  * => 979-0-3452-4680-5
  *
+ * ISMN 9 7 9 0 3 4 5 2 4 6 8 0 重量 1 3 1 3 1 3 1 3 1 3 1 3 产品 9 + 21 + 9 + 0 + 3 + 12 + 5 + 6 + 4 + 18 + 8 + 0 = 95 95 / 10 = 9 余数 5 校验位 10 - 5 = 5 => 979-0-3452-4680-5
+ *
  * Since mod10(9*1 + 7*3 + 9*1 + 0*3) = mod10(M*3) = mod10(3*3) = 9; the check digit remains the same.
+ *
+ * 因为 mod10(9*1 + 7*3 + 9*1 + 0*3) = mod10(M*3) = mod10(3*3) = 9;校验位保持不变。
  *
  */
 
-/* where the digit set begins, and how many of them are in the table */
+/* where the digit set begins, and how many of them are in the table
+ *
+ * 数字集从哪里开始，以及表中有多少个数字
+ */
 static const unsigned ISMN_index[10][2] = {
 	{0, 5},
 	{5, 0},

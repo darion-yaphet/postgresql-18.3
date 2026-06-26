@@ -18,7 +18,11 @@ PGFILEDESC = "sepgsql - SELinux integration"
 TAP_TESTS = 1
 
 # Note: because we don't tell the Makefile there are any regression tests,
+#
+# 注意：因为我们没有告诉 Makefile 有任何回归测试，
 # we have to clean those result files explicitly
+#
+# 我们必须明确地清理这些结果文件
 EXTRA_CLEAN = -r $(pg_regress_clean_files) tmp/ *.pp sepgsql-regtest.if sepgsql-regtest.fc
 
 ifdef USE_PGXS

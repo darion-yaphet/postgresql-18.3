@@ -1,9 +1,13 @@
 /* contrib/btree_gin/btree_gin--1.2--1.3.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "ALTER EXTENSION btree_gin UPDATE TO '1.3'" to load this file. \quit
 
 -- uuid datatype support new in 1.3.
+--
+-- 1.3 中新增 uuid 数据类型支持。
 CREATE FUNCTION gin_extract_value_uuid(uuid, internal)
 RETURNS internal
 AS 'MODULE_PATHNAME'
@@ -35,6 +39,8 @@ AS
 STORAGE         uuid;
 
 -- name datatype support new in 1.3.
+--
+-- 1.3 中新增的名称数据类型支持。
 CREATE FUNCTION gin_extract_value_name(name, internal)
 RETURNS internal
 AS 'MODULE_PATHNAME'
@@ -66,6 +72,8 @@ AS
 STORAGE         name;
 
 -- bool datatype support new in 1.3.
+--
+-- bool 数据类型支持 1.3 中的新功能。
 CREATE FUNCTION gin_extract_value_bool(bool, internal)
 RETURNS internal
 AS 'MODULE_PATHNAME'
@@ -97,6 +105,8 @@ AS
 STORAGE         bool;
 
 -- bpchar datatype support new in 1.3.
+--
+-- 1.3 中新增 bpchar 数据类型支持。
 CREATE FUNCTION gin_extract_value_bpchar(bpchar, internal)
 RETURNS internal
 AS 'MODULE_PATHNAME'

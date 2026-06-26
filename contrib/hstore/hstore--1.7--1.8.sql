@@ -1,6 +1,8 @@
 /* contrib/hstore/hstore--1.7--1.8.sql */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 ALTER EXTENSION
 \echo Use "ALTER EXTENSION hstore UPDATE TO '1.8'" to load this file. \quit
 
 CREATE FUNCTION hstore_subscript_handler(internal)
@@ -13,5 +15,7 @@ ALTER TYPE hstore SET (
 );
 
 -- Remove @ and ~
+--
+-- 删除@和~
 DROP OPERATOR @ (hstore, hstore);
 DROP OPERATOR ~ (hstore, hstore);

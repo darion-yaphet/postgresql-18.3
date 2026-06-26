@@ -46,7 +46,10 @@ PG_MODULE_MAGIC_EXT(
 					.version = PG_VERSION
 );
 
-/* private stuff */
+/* private stuff
+ *
+ * 私人物品
+ */
 
 static const struct config_enum_entry builtin_crypto_options[] = {
 	{"on", BC_ON, false},
@@ -63,6 +66,8 @@ int			builtin_crypto_enabled = BC_ON;
 
 /*
  * Entrypoint of this module.
+ *
+ * 该模块的入口点。
  */
 void
 _PG_init(void)
@@ -82,7 +87,10 @@ _PG_init(void)
 	MarkGUCPrefixReserved("pgcrypto");
 }
 
-/* SQL function: hash(bytea, text) returns bytea */
+/* SQL function: hash(bytea, text) returns bytea
+ *
+ * SQL函数：hash(bytea, text) 返回bytea
+ */
 PG_FUNCTION_INFO_V1(pg_digest);
 
 Datum
@@ -97,7 +105,10 @@ pg_digest(PG_FUNCTION_ARGS)
 
 	name = PG_GETARG_TEXT_PP(1);
 
-	/* will give error if fails */
+	/* will give error if fails
+	 *
+	 * 如果失败会报错
+	 */
 	md = find_provider(name, (PFN) px_find_digest, "Digest", 0);
 
 	hlen = px_md_result_size(md);
@@ -118,7 +129,10 @@ pg_digest(PG_FUNCTION_ARGS)
 	PG_RETURN_BYTEA_P(res);
 }
 
-/* SQL function: hmac(data:bytea, key:bytea, type:text) returns bytea */
+/* SQL function: hmac(data:bytea, key:bytea, type:text) returns bytea
+ *
+ * SQL函数：hmac(data:bytea, key:bytea, type:text) 返回bytea
+ */
 PG_FUNCTION_INFO_V1(pg_hmac);
 
 Datum
@@ -135,7 +149,10 @@ pg_hmac(PG_FUNCTION_ARGS)
 
 	name = PG_GETARG_TEXT_PP(2);
 
-	/* will give error if fails */
+	/* will give error if fails
+	 *
+	 * 如果失败会报错
+	 */
 	h = find_provider(name, (PFN) px_find_hmac, "HMAC", 0);
 
 	hlen = px_hmac_result_size(h);
@@ -161,7 +178,10 @@ pg_hmac(PG_FUNCTION_ARGS)
 }
 
 
-/* SQL function: pg_gen_salt(text) returns text */
+/* SQL function: pg_gen_salt(text) returns text
+ *
+ * SQL 函数：pg_gen_salt(text) 返回文本
+ */
 PG_FUNCTION_INFO_V1(pg_gen_salt);
 
 Datum
@@ -183,7 +203,10 @@ pg_gen_salt(PG_FUNCTION_ARGS)
 	PG_RETURN_TEXT_P(cstring_to_text_with_len(buf, len));
 }
 
-/* SQL function: pg_gen_salt(text, int4) returns text */
+/* SQL function: pg_gen_salt(text, int4) returns text
+ *
+ * SQL 函数：pg_gen_salt(text, int4) 返回文本
+ */
 PG_FUNCTION_INFO_V1(pg_gen_salt_rounds);
 
 Datum
@@ -206,7 +229,10 @@ pg_gen_salt_rounds(PG_FUNCTION_ARGS)
 	PG_RETURN_TEXT_P(cstring_to_text_with_len(buf, len));
 }
 
-/* SQL function: pg_crypt(psw:text, salt:text) returns text */
+/* SQL function: pg_crypt(psw:text, salt:text) returns text
+ *
+ * SQL 函数：pg_crypt(psw:text, salt:text) 返回文本
+ */
 PG_FUNCTION_INFO_V1(pg_crypt);
 
 Datum
@@ -245,7 +271,10 @@ pg_crypt(PG_FUNCTION_ARGS)
 	PG_RETURN_TEXT_P(res);
 }
 
-/* SQL function: pg_encrypt(bytea, bytea, text) returns bytea */
+/* SQL function: pg_encrypt(bytea, bytea, text) returns bytea
+ *
+ * SQL函数：pg_encrypt(bytea, bytea, text) 返回bytea
+ */
 PG_FUNCTION_INFO_V1(pg_encrypt);
 
 Datum
@@ -294,7 +323,10 @@ pg_encrypt(PG_FUNCTION_ARGS)
 	PG_RETURN_BYTEA_P(res);
 }
 
-/* SQL function: pg_decrypt(bytea, bytea, text) returns bytea */
+/* SQL function: pg_decrypt(bytea, bytea, text) returns bytea
+ *
+ * SQL函数：pg_decrypt(bytea, bytea, text) 返回bytea
+ */
 PG_FUNCTION_INFO_V1(pg_decrypt);
 
 Datum
@@ -342,7 +374,10 @@ pg_decrypt(PG_FUNCTION_ARGS)
 	PG_RETURN_BYTEA_P(res);
 }
 
-/* SQL function: pg_encrypt_iv(bytea, bytea, bytea, text) returns bytea */
+/* SQL function: pg_encrypt_iv(bytea, bytea, bytea, text) returns bytea
+ *
+ * SQL函数：pg_encrypt_iv(bytea, bytea, bytea, text) 返回bytea
+ */
 PG_FUNCTION_INFO_V1(pg_encrypt_iv);
 
 Datum
@@ -396,7 +431,10 @@ pg_encrypt_iv(PG_FUNCTION_ARGS)
 	PG_RETURN_BYTEA_P(res);
 }
 
-/* SQL function: pg_decrypt_iv(bytea, bytea, bytea, text) returns bytea */
+/* SQL function: pg_decrypt_iv(bytea, bytea, bytea, text) returns bytea
+ *
+ * SQL函数：pg_decrypt_iv(bytea, bytea, bytea, text) 返回bytea
+ */
 PG_FUNCTION_INFO_V1(pg_decrypt_iv);
 
 Datum
@@ -450,7 +488,10 @@ pg_decrypt_iv(PG_FUNCTION_ARGS)
 	PG_RETURN_BYTEA_P(res);
 }
 
-/* SQL function: pg_random_bytes(int4) returns bytea */
+/* SQL function: pg_random_bytes(int4) returns bytea
+ *
+ * SQL函数：pg_random_bytes(int4)返回bytea
+ */
 PG_FUNCTION_INFO_V1(pg_random_bytes);
 
 Datum
@@ -467,20 +508,29 @@ pg_random_bytes(PG_FUNCTION_ARGS)
 	res = palloc(VARHDRSZ + len);
 	SET_VARSIZE(res, VARHDRSZ + len);
 
-	/* generate result */
+	/* generate result
+	 *
+	 * 生成结果
+	 */
 	if (!pg_strong_random(VARDATA(res), len))
 		px_THROW_ERROR(PXE_NO_RANDOM);
 
 	PG_RETURN_BYTEA_P(res);
 }
 
-/* SQL function: gen_random_uuid() returns uuid */
+/* SQL function: gen_random_uuid() returns uuid
+ *
+ * SQL函数：gen_random_uuid()返回uuid
+ */
 PG_FUNCTION_INFO_V1(pg_random_uuid);
 
 Datum
 pg_random_uuid(PG_FUNCTION_ARGS)
 {
-	/* redirect to built-in function */
+	/* redirect to built-in function
+	 *
+	 * 重定向到内置函数
+	 */
 	return gen_random_uuid(fcinfo);
 }
 

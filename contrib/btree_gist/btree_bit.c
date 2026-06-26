@@ -9,7 +9,10 @@
 #include "utils/sortsupport.h"
 #include "utils/varbit.h"
 
-/* GiST support functions */
+/* GiST support functions
+ *
+ * GiST 支持功能
+ */
 PG_FUNCTION_INFO_V1(gbt_bit_compress);
 PG_FUNCTION_INFO_V1(gbt_bit_union);
 PG_FUNCTION_INFO_V1(gbt_bit_picksplit);
@@ -20,7 +23,10 @@ PG_FUNCTION_INFO_V1(gbt_bit_sortsupport);
 PG_FUNCTION_INFO_V1(gbt_varbit_sortsupport);
 
 
-/* define for comparison */
+/* define for comparison
+ *
+ * 定义用于比较
+ */
 
 static bool
 gbt_bitgt(const void *a, const void *b, Oid collation, FmgrInfo *flinfo)
@@ -79,7 +85,10 @@ gbt_bit_xfrm(bytea *leaf)
 	int			padded_sz = INTALIGN(sz);
 
 	out = (bytea *) palloc(padded_sz);
-	/* initialize the padding bytes to zero */
+	/* initialize the padding bytes to zero
+	 *
+	 * 将填充字节初始化为零
+	 */
 	while (sz < padded_sz)
 		((char *) out)[sz++] = 0;
 	SET_VARSIZE(out, padded_sz);
@@ -122,6 +131,8 @@ static const gbtree_vinfo tinfo =
 
 /**************************************************
  * GiST support functions
+ *
+ * GiST 支持功能
  **************************************************/
 
 Datum
@@ -139,13 +150,19 @@ gbt_bit_consistent(PG_FUNCTION_ARGS)
 	void	   *query = DatumGetByteaP(PG_GETARG_DATUM(1));
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 
-	/* Oid		subtype = PG_GETARG_OID(3); */
+	/* Oid		subtype = PG_GETARG_OID(3);
+	 *
+	 * Oid 子类型 = PG_GETARG_OID(3);
+	 */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	bool		retval;
 	GBT_VARKEY *key = (GBT_VARKEY *) DatumGetPointer(entry->key);
 	GBT_VARKEY_R r = gbt_var_key_readable(key);
 
-	/* All cases served by this function are exact */
+	/* All cases served by this function are exact
+	 *
+	 * 该函数服务的所有案例都是准确的
+	 */
 	*recheck = false;
 
 	if (GIST_LEAF(entry))
@@ -214,7 +231,10 @@ gbt_bit_ssup_cmp(Datum x, Datum y, SortSupport ssup)
 	GBT_VARKEY_R arg2 = gbt_var_key_readable(key2);
 	Datum		result;
 
-	/* for leaf items we expect lower == upper, so only compare lower */
+	/* for leaf items we expect lower == upper, so only compare lower
+	 *
+	 * 对于叶子项，我们期望 lower == upper，所以只比较 lower
+	 */
 	result = DirectFunctionCall2(byteacmp,
 								 PointerGetDatum(arg1.lower),
 								 PointerGetDatum(arg2.lower));

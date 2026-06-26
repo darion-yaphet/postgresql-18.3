@@ -1,6 +1,8 @@
 CREATE EXTENSION hstore;
 
 -- Check whether any of our opclasses fail amvalidate
+--
+-- 检查我们的任何 opclass 是否未通过 amvalidate
 SELECT amname, opcname
 FROM pg_opclass opc LEFT JOIN pg_am am ON am.oid = opcmethod
 WHERE opc.oid >= 16384 AND NOT amvalidate(opc.oid);
@@ -8,6 +10,8 @@ WHERE opc.oid >= 16384 AND NOT amvalidate(opc.oid);
 set escape_string_warning=off;
 
 --hstore;
+--
+--存储库；
 
 select ''::hstore;
 select 'a=>b'::hstore;
@@ -54,10 +58,14 @@ select ''::hstore;
 select '	'::hstore;
 
 -- invalid input
+--
+-- 无效输入
 select '  =>null'::hstore;
 select 'aa=>"'::hstore;
 
 -- also try it with non-error-throwing API
+--
+-- 也可以尝试使用非错误抛出 API
 select pg_input_is_valid('a=>b', 'hstore');
 select pg_input_is_valid('a=b', 'hstore');
 select * from pg_input_error_info('a=b', 'hstore');
@@ -65,6 +73,8 @@ select * from pg_input_error_info(' =>b', 'hstore');
 
 
 -- -> operator
+--
+-- -> 运算符
 
 select 'aa=>b, c=>d , b=>16'::hstore->'c';
 select 'aa=>b, c=>d , b=>16'::hstore->'b';
@@ -74,6 +84,8 @@ select ('aa=>NULL, c=>d , b=>16'::hstore->'aa') is null;
 select ('aa=>"NULL", c=>d , b=>16'::hstore->'aa') is null;
 
 -- -> array operator
+--
+-- -> 数组运算符
 
 select 'aa=>"NULL", c=>d , b=>16'::hstore -> ARRAY['aa','c'];
 select 'aa=>"NULL", c=>d , b=>16'::hstore -> ARRAY['c','aa'];
@@ -121,6 +133,8 @@ select pg_column_size('a=>1 , b=>2, c=>3'::hstore - 'b'::text)
          = pg_column_size('a=>1, b=>2'::hstore);
 
 -- delete (array)
+--
+-- 删除（数组）
 
 select delete('a=>1 , b=>2, c=>3'::hstore, ARRAY['d','e']);
 select delete('a=>1 , b=>2, c=>3'::hstore, ARRAY['d','b']);
@@ -138,6 +152,8 @@ select pg_column_size('a=>1 , b=>2, c=>3'::hstore - '{}'::text[])
          = pg_column_size('a=>1, b=>2, c=>3'::hstore);
 
 -- delete (hstore)
+--
+-- 删除（hstore）
 
 select delete('aa=>1 , b=>2, c=>3'::hstore, 'aa=>4, b=>2'::hstore);
 select delete('aa=>1 , b=>2, c=>3'::hstore, 'aa=>NULL, c=>3'::hstore);
@@ -169,6 +185,8 @@ select pg_column_size(''::hstore || 'aa=>1, b=>2'::hstore)
          = pg_column_size('aa=>1, b=>2'::hstore);
 
 -- hstore(text,text)
+--
+-- hstore（文本，文本）
 select 'a=>g, b=>c'::hstore || hstore('asd', 'gf');
 select 'a=>g, b=>c'::hstore || hstore('b', 'gf');
 select 'a=>g, b=>c'::hstore || hstore('b', 'NULL');
@@ -190,6 +208,8 @@ select pg_column_size(slice(hstore 'aa=>1, b=>2, c=>3', ARRAY['c','b','aa']))
          = pg_column_size('aa=>1, b=>2, c=>3'::hstore);
 
 -- array input
+--
+-- 数组输入
 select '{}'::text[]::hstore;
 select ARRAY['a','g','b','h','asd']::hstore;
 select ARRAY['a','g','b','h','asd','i']::hstore;
@@ -206,6 +226,8 @@ select hstore('[0:5]={a,g,b,h,asd,i}'::text[]);
 select hstore('[0:2][1:2]={{a,g},{b,h},{asd,i}}'::text[]);
 
 -- pairs of arrays
+--
+-- 数组对
 select hstore(ARRAY['a','b','asd'], ARRAY['g','h','i']);
 select hstore(ARRAY['a','b','asd'], ARRAY['g','h',NULL]);
 select hstore(ARRAY['z','y','x'], ARRAY['1','2','3']);
@@ -361,6 +383,8 @@ select count(*) from testhstore where h #># 'p=>1';
 select count(*) from testhstore where h = 'pos=>98, line=>371, node=>CBA, indexed=>t';
 
 -- json and jsonb
+--
+-- json 和 jsonb
 select hstore_to_json('"a key" =>1, b => t, c => null, d=> 12345, e => 012345, f=> 1.234, g=> 2.345e+4');
 select cast( hstore  '"a key" =>1, b => t, c => null, d=> 12345, e => 012345, f=> 1.234, g=> 2.345e+4' as json);
 select hstore_to_json_loose('"a key" =>1, b => t, c => null, d=> 12345, e => 012345, f=> 1.234, g=> 2.345e+4, h=> "2016-01-01"');
@@ -376,6 +400,8 @@ select json_agg(q) from test_json_agg q;
 select json_agg(q) from (select f1, hstore_to_json_loose(f2) as f2 from test_json_agg) q;
 
 -- Test subscripting
+--
+-- 测试下标
 insert into test_json_agg default values;
 select f2['d'], f2['x'] is null as x_isnull from test_json_agg;
 select f2['d']['e'] from test_json_agg;  -- error
@@ -384,10 +410,14 @@ update test_json_agg set f2['d'] = f2['e'], f2['x'] = 'xyzzy';
 select f2 from test_json_agg;
 
 -- Test subscripting in plpgsql
+--
+-- 在 plpgsql 中测试下标
 do $$ declare h hstore;
 begin h['a'] := 'b'; raise notice 'h = %, h[a] = %', h, h['a']; end $$;
 
 -- Check the hstore_hash() and hstore_hash_extended() function explicitly.
+--
+-- 显式检查 hstore_hash() 和 hstore_hash_extended() 函数。
 SELECT v as value, hstore_hash(v)::bit(32) as standard,
        hstore_hash_extended(v, 0)::bit(32) as extended0,
        hstore_hash_extended(v, 1)::bit(32) as extended1

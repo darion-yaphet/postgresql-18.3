@@ -63,7 +63,10 @@ static char
 soundex_code(char letter)
 {
 	letter = toupper((unsigned char) letter);
-	/* Defend against non-ASCII letters */
+	/* Defend against non-ASCII letters
+	 *
+	 * 防御非 ASCII 字母
+	 */
 	if (letter >= 'A' && letter <= 'Z')
 		return soundex_table[letter - 'A'];
 	return letter;
@@ -77,11 +80,15 @@ soundex_code(char letter)
 /*
  * Original code by Michael G Schwern starts here.
  * Code slightly modified for use as PostgreSQL function.
+ *
+ * Michael G Schwern 的原始代码从这里开始。代码稍作修改即可用作 PostgreSQL 函数。
  */
 
 
 /**************************************************************************
 	metaphone -- Breaks english phrases down into their phonemes.
+ *
+ * 变音位——将英语短语分解为音素。
 
 	Input
 		word			--	An english word to be phonized
@@ -91,29 +98,47 @@ soundex_code(char letter)
 							memory.)
 	Output
 		error	--	A simple error flag, returns true or false
+ *
+ * 输入单词 -- 需要语音化的英文单词 max_phonemes -- 计算多少个音素。  如果为 0，则它将发音整个短语。 Phoned_word——最终的语音单词。  （我们将分配内存。） 输出错误——一个简单的错误标志，返回 true 或 false
 
 	NOTES:	ALL non-alpha characters are ignored, this includes whitespace,
 	although non-alpha characters will break up phonemes.
+ *
+ * 注意：所有非字母字符都会被忽略，包括空格，尽管非字母字符会破坏音素。
 ****************************************************************************/
 
 
 /*	I add modifications to the traditional metaphone algorithm that you
 	might find in books.  Define this if you want metaphone to behave
+ *
+ * 可能会在书上找到。  如果您希望变音位起作用，请定义此项
 	traditionally */
 #undef USE_TRADITIONAL_METAPHONE
 
-/* Special encodings */
+/* Special encodings
+ *
+ * 特殊编码
+ */
 #define  SH		'X'
 #define  TH		'0'
 
 static char Lookahead(char *word, int how_far);
 static void _metaphone(char *word, int max_phonemes, char **phoned_word);
 
-/* Metachar.h ... little bits about characters for metaphone */
+/* Metachar.h ... little bits about characters for metaphone
+ *
+ * Metachar.h ...有关变音位字符的一些知识
+ */
 
 
-/*-- Character encoding array & accessing macros --*/
-/* Stolen directly out of the book... */
+/* -- Character encoding array & accessing macros --
+ *
+ * -- 字符编码数组和访问宏 --
+ */
+/* Stolen directly out of the book...
+ *
+ * 直接从书里盗来的...
+ */
 static const char _codes[26] = {
 	1, 16, 4, 16, 9, 2, 4, 16, 9, 2, 0, 2, 2, 2, 1, 4, 0, 2, 4, 4, 1, 0, 0, 0, 8, 0
 /*	a  b c	d e f g  h i j k l m n o p q r s t u v w x y z */
@@ -125,7 +150,10 @@ getcode(char c)
 	if (isalpha((unsigned char) c))
 	{
 		c = toupper((unsigned char) c);
-		/* Defend against non-ASCII letters */
+		/* Defend against non-ASCII letters
+		 *
+		 * 防御非 ASCII 字母
+		 */
 		if (c >= 'A' && c <= 'Z')
 			return _codes[c - 'A'];
 	}
@@ -134,16 +162,28 @@ getcode(char c)
 
 #define isvowel(c)	(getcode(c) & 1)	/* AEIOU */
 
-/* These letters are passed through unchanged */
+/* These letters are passed through unchanged
+ *
+ * 这些字母不变地通过
+ */
 #define NOCHANGE(c) (getcode(c) & 2)	/* FJMNR */
 
-/* These form diphthongs when preceding H */
+/* These form diphthongs when preceding H
+ *
+ * 这些在 H 之前形成双元音
+ */
 #define AFFECTH(c)	(getcode(c) & 4)	/* CGPST */
 
-/* These make C and G soft */
+/* These make C and G soft
+ *
+ * 这些使 C 和 G 变得柔软
+ */
 #define MAKESOFT(c) (getcode(c) & 8)	/* EIY */
 
-/* These prevent GH from becoming F */
+/* These prevent GH from becoming F
+ *
+ * 这些可以防止 GH 变成 F
+ */
 #define NOGHTOF(c)	(getcode(c) & 16)	/* BDH */
 
 PG_FUNCTION_INFO_V1(levenshtein_with_costs);
@@ -160,10 +200,16 @@ levenshtein_with_costs(PG_FUNCTION_ARGS)
 	int			s_bytes,
 				t_bytes;
 
-	/* Extract a pointer to the actual character data */
+	/* Extract a pointer to the actual character data
+	 *
+	 * 提取指向实际字符数据的指针
+	 */
 	s_data = VARDATA_ANY(src);
 	t_data = VARDATA_ANY(dst);
-	/* Determine length of each string in bytes */
+	/* Determine length of each string in bytes
+	 *
+	 * 确定每个字符串的长度（以字节为单位）
+	 */
 	s_bytes = VARSIZE_ANY_EXHDR(src);
 	t_bytes = VARSIZE_ANY_EXHDR(dst);
 
@@ -183,10 +229,16 @@ levenshtein(PG_FUNCTION_ARGS)
 	int			s_bytes,
 				t_bytes;
 
-	/* Extract a pointer to the actual character data */
+	/* Extract a pointer to the actual character data
+	 *
+	 * 提取指向实际字符数据的指针
+	 */
 	s_data = VARDATA_ANY(src);
 	t_data = VARDATA_ANY(dst);
-	/* Determine length of each string in bytes */
+	/* Determine length of each string in bytes
+	 *
+	 * 确定每个字符串的长度（以字节为单位）
+	 */
 	s_bytes = VARSIZE_ANY_EXHDR(src);
 	t_bytes = VARSIZE_ANY_EXHDR(dst);
 
@@ -210,10 +262,16 @@ levenshtein_less_equal_with_costs(PG_FUNCTION_ARGS)
 	int			s_bytes,
 				t_bytes;
 
-	/* Extract a pointer to the actual character data */
+	/* Extract a pointer to the actual character data
+	 *
+	 * 提取指向实际字符数据的指针
+	 */
 	s_data = VARDATA_ANY(src);
 	t_data = VARDATA_ANY(dst);
-	/* Determine length of each string in bytes */
+	/* Determine length of each string in bytes
+	 *
+	 * 确定每个字符串的长度（以字节为单位）
+	 */
 	s_bytes = VARSIZE_ANY_EXHDR(src);
 	t_bytes = VARSIZE_ANY_EXHDR(dst);
 
@@ -236,10 +294,16 @@ levenshtein_less_equal(PG_FUNCTION_ARGS)
 	int			s_bytes,
 				t_bytes;
 
-	/* Extract a pointer to the actual character data */
+	/* Extract a pointer to the actual character data
+	 *
+	 * 提取指向实际字符数据的指针
+	 */
 	s_data = VARDATA_ANY(src);
 	t_data = VARDATA_ANY(dst);
-	/* Determine length of each string in bytes */
+	/* Determine length of each string in bytes
+	 *
+	 * 确定每个字符串的长度（以字节为单位）
+	 */
 	s_bytes = VARSIZE_ANY_EXHDR(src);
 	t_bytes = VARSIZE_ANY_EXHDR(dst);
 
@@ -254,6 +318,8 @@ levenshtein_less_equal(PG_FUNCTION_ARGS)
  * Calculates the metaphone of an input string.
  * Returns number of characters requested
  * (suggested value is 4)
+ *
+ * 计算输入字符串的变音位。返回请求的字符数（建议值为 4）
  */
 PG_FUNCTION_INFO_V1(metaphone);
 Datum
@@ -264,7 +330,10 @@ metaphone(PG_FUNCTION_ARGS)
 	int			reqlen;
 	char	   *metaph;
 
-	/* return an empty string if we receive one */
+	/* return an empty string if we receive one
+	 *
+	 * 如果我们收到一个空字符串，则返回一个空字符串
+	 */
 	if (!(str_i_len > 0))
 		PG_RETURN_TEXT_P(cstring_to_text(""));
 
@@ -295,28 +364,51 @@ metaphone(PG_FUNCTION_ARGS)
  * Original code by Michael G Schwern starts here.
  * Code slightly modified for use as PostgreSQL
  * function (palloc, etc).
+ *
+ * Michael G Schwern 的原始代码从这里开始。代码稍作修改即可用作 PostgreSQL 函数（palloc 等）。
  */
 
 /* I suppose I could have been using a character pointer instead of
  * accessing the array directly... */
 
-/* Look at the next letter in the word */
+/* Look at the next letter in the word
+ *
+ * 查看单词中的下一个字母
+ */
 #define Next_Letter (toupper((unsigned char) word[w_idx+1]))
-/* Look at the current letter in the word */
+/* Look at the current letter in the word
+ *
+ * 查看单词中当前的字母
+ */
 #define Curr_Letter (toupper((unsigned char) word[w_idx]))
-/* Go N letters back. */
+/* Go N letters back.
+ *
+ * 往回走N个字母。
+ */
 #define Look_Back_Letter(n) \
 	(w_idx >= (n) ? toupper((unsigned char) word[w_idx-(n)]) : '\0')
-/* Previous letter.  I dunno, should this return null on failure? */
+/* Previous letter.  I dunno, should this return null on failure?
+ *
+ * 上一封信。  我不知道，失败时应该返回 null 吗？
+ */
 #define Prev_Letter (Look_Back_Letter(1))
-/* Look two letters down.  It makes sure you don't walk off the string. */
+/* Look two letters down.  It makes sure you don't walk off the string.
+ *
+ * 向下看两个字母。  它可以确保您不会脱离控制线。
+ */
 #define After_Next_Letter \
 	(Next_Letter != '\0' ? toupper((unsigned char) word[w_idx+2]) : '\0')
 #define Look_Ahead_Letter(n) toupper((unsigned char) Lookahead(word+w_idx, n))
 
 
-/* Allows us to safely look ahead an arbitrary # of letters */
-/* I probably could have just used strlen... */
+/* Allows us to safely look ahead an arbitrary # of letters
+ *
+ * 允许我们安全地向前查看任意数量的字母
+ */
+/* I probably could have just used strlen...
+ *
+ * 我可能可以只使用 strlen...
+ */
 static char
 Lookahead(char *word, int how_far)
 {
@@ -324,7 +416,10 @@ Lookahead(char *word, int how_far)
 	int			idx;
 
 	for (idx = 0; word[idx] != '\0' && idx < how_far; idx++);
-	/* Edge forward in the string... */
+	/* Edge forward in the string...
+	 *
+	 * 在字符串中向前移动...
+	 */
 
 	letter_ahead = word[idx];	/* idx will be either == to how_far or at the
 								 * end of the string */
@@ -332,14 +427,26 @@ Lookahead(char *word, int how_far)
 }
 
 
-/* phonize one letter */
+/* phonize one letter
+ *
+ * 拼音一个字母
+ */
 #define Phonize(c)	do {(*phoned_word)[p_idx++] = c;} while (0)
-/* Slap a null character on the end of the phoned word */
+/* Slap a null character on the end of the phoned word
+ *
+ * 在所调用的单词末尾添加一个空字符
+ */
 #define End_Phoned_Word do {(*phoned_word)[p_idx] = '\0';} while (0)
-/* How long is the phoned word? */
+/* How long is the phoned word?
+ *
+ * 打电话的字词有多长？
+ */
 #define Phone_Len	(p_idx)
 
-/* Note is a letter is a 'break' in the word */
+/* Note is a letter is a 'break' in the word
+ *
+ * 注意，字母是单词中的“中断”
+ */
 #define Isbreak(c)	(!isalpha((unsigned char) (c)))
 
 
@@ -351,23 +458,43 @@ _metaphone(char *word,			/* IN */
 	int			w_idx = 0;		/* point in the phonization we're at. */
 	int			p_idx = 0;		/* end of the phoned phrase */
 
-	/*-- Parameter checks --*/
+	/* -- Parameter checks --
+	 *
+	 * -- 参数检查 --
+	 */
 
 	/*
 	 * Shouldn't be necessary, but left these here anyway jec Aug 3, 2001
+	 *
+	 * 应该没有必要，但还是把这些留在这里 jec Aug 3, 2001
 	 */
 
-	/* Negative phoneme length is meaningless */
+	/* Negative phoneme length is meaningless
+	 *
+	 * 负音素长度没有意义
+	 */
 	if (!(max_phonemes > 0))
-		/* internal error */
+		/* internal error
+		 *
+		 * 内部错误
+		 */
 		elog(ERROR, "metaphone: Requested output length must be > 0");
 
-	/* Empty/null string is meaningless */
+	/* Empty/null string is meaningless
+	 *
+	 * 空/null 字符串没有意义
+	 */
 	if ((word == NULL) || !(strlen(word) > 0))
-		/* internal error */
+		/* internal error
+		 *
+		 * 内部错误
+		 */
 		elog(ERROR, "metaphone: Input string length must be > 0");
 
-	/*-- Allocate memory for our phoned_phrase --*/
+	/* -- Allocate memory for our phoned_phrase --
+	 *
+	 * -- 为我们的 Phoned_phrase 分配内存 --
+	 */
 	if (max_phonemes == 0)
 	{							/* Assume largest possible */
 		*phoned_word = palloc(sizeof(char) * strlen(word) + 1);
@@ -377,11 +504,20 @@ _metaphone(char *word,			/* IN */
 		*phoned_word = palloc(sizeof(char) * max_phonemes + 1);
 	}
 
-	/*-- The first phoneme has to be processed specially. --*/
-	/* Find our first letter */
+	/* -- The first phoneme has to be processed specially. --
+	 *
+	 * -- 第一个音素必须经过特殊处理。 --
+	 */
+	/* Find our first letter
+	 *
+	 * 找到我们的第一封信
+	 */
 	for (; !isalpha((unsigned char) (Curr_Letter)); w_idx++)
 	{
-		/* On the off chance we were given nothing but crap... */
+		/* On the off chance we were given nothing but crap...
+		 *
+		 * 万一我们除了垃圾什么也没有得到......
+		 */
 		if (Curr_Letter == '\0')
 		{
 			End_Phoned_Word;
@@ -391,21 +527,30 @@ _metaphone(char *word,			/* IN */
 
 	switch (Curr_Letter)
 	{
-			/* AE becomes E */
+			/* AE becomes E
+			 *
+			 * AE 变为 E
+			 */
 		case 'A':
 			if (Next_Letter == 'E')
 			{
 				Phonize('E');
 				w_idx += 2;
 			}
-			/* Remember, preserve vowels at the beginning */
+			/* Remember, preserve vowels at the beginning
+			 *
+			 * 记住，保留开头的元音
+			 */
 			else
 			{
 				Phonize('A');
 				w_idx++;
 			}
 			break;
-			/* [GKP]N becomes N */
+			/* [GKP]N becomes N
+			 *
+			 * [GKP]N 变为 N
+			 */
 		case 'G':
 		case 'K':
 		case 'P':
@@ -418,6 +563,8 @@ _metaphone(char *word,			/* IN */
 
 			/*
 			 * WH becomes H, WR becomes R W if followed by a vowel
+			 *
+			 * 如果后面跟元音，WH 变为 H，WR 变为 R W
 			 */
 		case 'W':
 			if (Next_Letter == 'H' ||
@@ -431,17 +578,28 @@ _metaphone(char *word,			/* IN */
 				Phonize('W');
 				w_idx += 2;
 			}
-			/* else ignore */
+			/* else ignore
+			 *
+			 * 否则忽略
+			 */
 			break;
-			/* X becomes S */
+			/* X becomes S
+			 *
+			 * X 变成 S
+			 */
 		case 'X':
 			Phonize('S');
 			w_idx++;
 			break;
-			/* Vowels are kept */
+			/* Vowels are kept
+			 *
+			 * 元音被保留
+			 */
 
 			/*
 			 * We did A already case 'A': case 'a':
+			 *
+			 * 我们已经做了 A 案例 'A'： 案例 'a'：
 			 */
 		case 'E':
 		case 'I':
@@ -451,13 +609,19 @@ _metaphone(char *word,			/* IN */
 			w_idx++;
 			break;
 		default:
-			/* do nothing */
+			/* do nothing
+			 *
+			 * 什么都不做
+			 */
 			break;
 	}
 
 
 
-	/* On to the metaphoning */
+	/* On to the metaphoning
+	 *
+	 * 转喻
+	 */
 	for (; Curr_Letter != '\0' &&
 		 (max_phonemes == 0 || Phone_Len < max_phonemes);
 		 w_idx++)
@@ -465,6 +629,8 @@ _metaphone(char *word,			/* IN */
 		/*
 		 * How many letters to skip because an earlier encoding handled
 		 * multiple letters
+		 *
+		 * 由于早期编码处理多个字母而要跳过多少个字母
 		 */
 		unsigned short int skip_letter = 0;
 
@@ -475,20 +641,31 @@ _metaphone(char *word,			/* IN */
 		 * the C.  So the phonome SCI invades both S and C.  It would be
 		 * better, IMHO, to skip the C from the S part of the encoding. Hell,
 		 * I'm trying it.
+		 *
+		 * 想法：如果不是像……嗯，SCI 这样的东西，那就太好了。  对于 SCI，您对 S 进行编码，然后必须记住跳过 C。因此音素 SCI 会同时侵入 S 和 C。恕我直言，从编码的 S 部分跳过 C 会更好。天哪，我正在尝试。
 		 */
 
-		/* Ignore non-alphas */
+		/* Ignore non-alphas
+		 *
+		 * 忽略非阿尔法
+		 */
 		if (!isalpha((unsigned char) (Curr_Letter)))
 			continue;
 
-		/* Drop duplicates, except CC */
+		/* Drop duplicates, except CC
+		 *
+		 * 删除重复项（CC 除外）
+		 */
 		if (Curr_Letter == Prev_Letter &&
 			Curr_Letter != 'C')
 			continue;
 
 		switch (Curr_Letter)
 		{
-				/* B -> B unless in MB */
+				/* B -> B unless in MB
+				 *
+				 * B -> B 除非以 MB 为单位
+				 */
 			case 'B':
 				if (Prev_Letter != 'M')
 					Phonize('B');
@@ -498,6 +675,8 @@ _metaphone(char *word,			/* IN */
 				 * 'sh' if -CIA- or -CH, but not SCH, except SCHW. (SCHW is
 				 * handled in S) S if -CI-, -CE- or -CY- dropped if -SCI-,
 				 * SCE-, -SCY- (handed in S) else K
+				 *
+				 * 如果是 -CIA- 或 -CH，则为“sh”，但不是 SCH，SCHW 除外。 （SCHW 在 S 中处理） 如果 -CI-、-CE- 或​​ -CY- 被丢弃，则 S 如果 -SCI-、SCE-、-SCY-（在 S 中提交）否则 K
 				 */
 			case 'C':
 				if (MAKESOFT(Next_Letter))
@@ -507,7 +686,12 @@ _metaphone(char *word,			/* IN */
 					{			/* CIA */
 						Phonize(SH);
 					}
-					/* SC[IEY] */
+					/* SC[IEY]
+					 *
+					 * SC[IEY]
+					 *
+					 * SC[IEY]
+					 */
 					else if (Prev_Letter == 'S')
 					{
 						/* Dropped */
@@ -536,6 +720,8 @@ _metaphone(char *word,			/* IN */
 
 				/*
 				 * J if in -DGE-, -DGI- or -DGY- else T
+				 *
+				 * J 如果在 -DGE-、-DGI- 或 -DGY- 中，否则 T
 				 */
 			case 'D':
 				if (Next_Letter == 'G' &&
@@ -553,6 +739,8 @@ _metaphone(char *word,			/* IN */
 				 * dropped if -GNED, -GN, else dropped if -DGE-, -DGI- or
 				 * -DGY- (handled in D) else J if in -GE-, -GI, -GY and not GG
 				 * else K
+				 *
+				 * F 如果在 -GH 中且不在 B--GH、D--GH、-H--GH、-H---GH 中，否则被丢弃，如果 -GNED、-GN，则被丢弃，如果 -DGE-、-DGI- 或 -DGY-（在 D 中处理），否则 J 如果在 -GE-、-GI、-GY 中且不在 GG 中，否则 K
 				 */
 			case 'G':
 				if (Next_Letter == 'H')
@@ -585,7 +773,10 @@ _metaphone(char *word,			/* IN */
 				else
 					Phonize('K');
 				break;
-				/* H if before a vowel and not after C,G,P,S,T */
+				/* H if before a vowel and not after C,G,P,S,T
+				 *
+				 * H 如果在元音之前且不在 C、G、P、S、T 之后
+				 */
 			case 'H':
 				if (isvowel(Next_Letter) &&
 					!AFFECTH(Prev_Letter))
@@ -594,6 +785,8 @@ _metaphone(char *word,			/* IN */
 
 				/*
 				 * dropped if after C else K
+				 *
+				 * 删除 if 在 C else K 之后
 				 */
 			case 'K':
 				if (Prev_Letter != 'C')
@@ -602,6 +795,8 @@ _metaphone(char *word,			/* IN */
 
 				/*
 				 * F if before H else P
+				 *
+				 * F if 在 H else 之前 P
 				 */
 			case 'P':
 				if (Next_Letter == 'H')
@@ -619,6 +814,8 @@ _metaphone(char *word,			/* IN */
 
 				/*
 				 * 'sh' in -SH-, -SIO- or -SIA- or -SCHW- else S
+				 *
+				 * -SH-、-SIO- 或 -SIA- 或 -SCHW- 中的“sh”，否则 S
 				 */
 			case 'S':
 				if (Next_Letter == 'I' &&
@@ -645,6 +842,8 @@ _metaphone(char *word,			/* IN */
 
 				/*
 				 * 'sh' in -TIA- or -TIO- else 'th' before H else T
+				 *
+				 * -TIA- 或 -TIO- 中的“sh”，否则 H else T 之前的“th”
 				 */
 			case 'T':
 				if (Next_Letter == 'I' &&
@@ -663,7 +862,10 @@ _metaphone(char *word,			/* IN */
 			case 'V':
 				Phonize('F');
 				break;
-				/* W before a vowel, else dropped */
+				/* W before a vowel, else dropped
+				 *
+				 * W 位于元音之前，否则省略
+				 */
 			case 'W':
 				if (isvowel(Next_Letter))
 					Phonize('W');
@@ -674,7 +876,10 @@ _metaphone(char *word,			/* IN */
 				if (max_phonemes == 0 || Phone_Len < max_phonemes)
 					Phonize('S');
 				break;
-				/* Y if followed by a vowel */
+				/* Y if followed by a vowel
+				 *
+				 * Y 如果后跟元音
+				 */
 			case 'Y':
 				if (isvowel(Next_Letter))
 					Phonize('Y');
@@ -683,7 +888,10 @@ _metaphone(char *word,			/* IN */
 			case 'Z':
 				Phonize('S');
 				break;
-				/* No transformation */
+				/* No transformation
+				 *
+				 * 没有转变
+				 */
 			case 'F':
 			case 'J':
 			case 'L':
@@ -706,6 +914,8 @@ _metaphone(char *word,			/* IN */
 
 /*
  * SQL function: soundex(text) returns text
+ *
+ * SQL 函数：soundex(text) 返回文本
  */
 PG_FUNCTION_INFO_V1(soundex);
 
@@ -730,18 +940,27 @@ _soundex(const char *instr, char *outstr)
 	Assert(instr);
 	Assert(outstr);
 
-	/* Skip leading non-alphabetic characters */
+	/* Skip leading non-alphabetic characters
+	 *
+	 * 跳过前导非字母字符
+	 */
 	while (*instr && !isalpha((unsigned char) *instr))
 		++instr;
 
-	/* If no string left, return all-zeroes buffer */
+	/* If no string left, return all-zeroes buffer
+	 *
+	 * 如果没有剩余字符串，则返回全零缓冲区
+	 */
 	if (!*instr)
 	{
 		memset(outstr, '\0', SOUNDEX_LEN + 1);
 		return;
 	}
 
-	/* Take the first letter as is */
+	/* Take the first letter as is
+	 *
+	 * 照原样取第一个字母
+	 */
 	*outstr++ = (char) toupper((unsigned char) *instr++);
 
 	count = 1;
@@ -760,7 +979,10 @@ _soundex(const char *instr, char *outstr)
 		++instr;
 	}
 
-	/* Fill with 0's */
+	/* Fill with 0's
+	 *
+	 * 用0填充
+	 */
 	while (count < SOUNDEX_LEN)
 	{
 		*outstr = '0';
@@ -768,7 +990,10 @@ _soundex(const char *instr, char *outstr)
 		++count;
 	}
 
-	/* And null-terminate */
+	/* And null-terminate
+	 *
+	 * 并以空终止
+	 */
 	*outstr = '\0';
 }
 

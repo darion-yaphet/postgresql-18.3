@@ -2,6 +2,8 @@
 SET enable_seqscan to false;
 
 -- test search for "not equals"
+--
+-- 测试搜索“不等于”
 
 CREATE TABLE test_ne (
    a  TIMESTAMP,
@@ -23,6 +25,8 @@ SELECT * FROM test_ne WHERE a <> '2009-01-01' AND b <> 10.7;
 RESET enable_indexscan;
 
 -- test search for "not equals" using an exclusion constraint
+--
+-- 使用排除约束测试搜索“不等于”
 
 CREATE TABLE zoo (
    cage   INTEGER,

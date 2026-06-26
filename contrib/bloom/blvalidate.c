@@ -25,6 +25,8 @@
 
 /*
  * Validator for a bloom opclass.
+ *
+ * Bloom opclass 的验证器。
  */
 bool
 blvalidate(Oid opclassoid)
@@ -44,7 +46,10 @@ blvalidate(Oid opclassoid)
 	int			i;
 	ListCell   *lc;
 
-	/* Fetch opclass information */
+	/* Fetch opclass information
+	 *
+	 * 获取opclass信息
+	 */
 	classtup = SearchSysCache1(CLAOID, ObjectIdGetDatum(opclassoid));
 	if (!HeapTupleIsValid(classtup))
 		elog(ERROR, "cache lookup failed for operator class %u", opclassoid);
@@ -57,14 +62,23 @@ blvalidate(Oid opclassoid)
 		opckeytype = opcintype;
 	opclassname = NameStr(classform->opcname);
 
-	/* Fetch opfamily information */
+	/* Fetch opfamily information
+	 *
+	 * 获取opfamily信息
+	 */
 	opfamilyname = get_opfamily_name(opfamilyoid, false);
 
-	/* Fetch all operators and support functions of the opfamily */
+	/* Fetch all operators and support functions of the opfamily
+	 *
+	 * 获取opfamily的所有操作符和支持函数
+	 */
 	oprlist = SearchSysCacheList1(AMOPSTRATEGY, ObjectIdGetDatum(opfamilyoid));
 	proclist = SearchSysCacheList1(AMPROCNUM, ObjectIdGetDatum(opfamilyoid));
 
-	/* Check individual support functions */
+	/* Check individual support functions
+	 *
+	 * 检查个别支持功能
+	 */
 	for (i = 0; i < proclist->n_members; i++)
 	{
 		HeapTuple	proctup = &proclist->members[i]->tuple;
@@ -74,6 +88,8 @@ blvalidate(Oid opclassoid)
 		/*
 		 * All bloom support functions should be registered with matching
 		 * left/right types
+		 *
+		 * 所有Bloom支持函数都应使用匹配的左/右类型进行注册
 		 */
 		if (procform->amproclefttype != procform->amprocrighttype)
 		{
@@ -88,11 +104,16 @@ blvalidate(Oid opclassoid)
 		/*
 		 * We can't check signatures except within the specific opclass, since
 		 * we need to know the associated opckeytype in many cases.
+		 *
+		 * 我们无法检查除特定 opclass 之外的签名，因为在许多情况下我们需要知道关联的 opckeytype。
 		 */
 		if (procform->amproclefttype != opcintype)
 			continue;
 
-		/* Check procedure numbers and function signatures */
+		/* Check procedure numbers and function signatures
+		 *
+		 * 检查过程号和函数签名
+		 */
 		switch (procform->amprocnum)
 		{
 			case BLOOM_HASH_PROC:
@@ -125,13 +146,19 @@ blvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Check individual operators */
+	/* Check individual operators
+	 *
+	 * 检查个别运营商
+	 */
 	for (i = 0; i < oprlist->n_members; i++)
 	{
 		HeapTuple	oprtup = &oprlist->members[i]->tuple;
 		Form_pg_amop oprform = (Form_pg_amop) GETSTRUCT(oprtup);
 
-		/* Check it's allowed strategy for bloom */
+		/* Check it's allowed strategy for bloom
+		 *
+		 * 检查允许的绽放策略
+		 */
 		if (oprform->amopstrategy < 1 ||
 			oprform->amopstrategy > BLOOM_NSTRATEGIES)
 		{
@@ -144,7 +171,10 @@ blvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* bloom doesn't support ORDER BY operators */
+		/* bloom doesn't support ORDER BY operators
+		 *
+		 * Bloom 不支持 ORDER BY 运算符
+		 */
 		if (oprform->amoppurpose != AMOP_SEARCH ||
 			OidIsValid(oprform->amopsortfamily))
 		{
@@ -156,7 +186,10 @@ blvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* Check operator signature --- same for all bloom strategies */
+		/* Check operator signature --- same for all bloom strategies
+		 *
+		 * 检查操作员签名——所有Bloom策略都相同
+		 */
 		if (!check_amop_signature(oprform->amopopr, BOOLOID,
 								  oprform->amoplefttype,
 								  oprform->amoprighttype))
@@ -170,14 +203,20 @@ blvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Now check for inconsistent groups of operators/functions */
+	/* Now check for inconsistent groups of operators/functions
+	 *
+	 * 现在检查不一致的运算符/函数组
+	 */
 	grouplist = identify_opfamily_groups(oprlist, proclist);
 	opclassgroup = NULL;
 	foreach(lc, grouplist)
 	{
 		OpFamilyOpFuncGroup *thisgroup = (OpFamilyOpFuncGroup *) lfirst(lc);
 
-		/* Remember the group exactly matching the test opclass */
+		/* Remember the group exactly matching the test opclass
+		 *
+		 * 记住与测试 opclass 完全匹配的组
+		 */
 		if (thisgroup->lefttype == opcintype &&
 			thisgroup->righttype == opcintype)
 			opclassgroup = thisgroup;
@@ -189,10 +228,15 @@ blvalidate(Oid opclassoid)
 		 * (meaning that empty operator sets can be OK).  That case also means
 		 * that we shouldn't insist on nonempty function sets except for the
 		 * opclass's own group.
+		 *
+		 * 我们可以做的不多来检查操作符集，因为每个Bloom opclass或多或少都是它自己的法则，并且有些只包含与opclass数据类型二进制兼容的操作符（意味着空操作符集可以是好的）。  这种情况也意味着我们不应该坚持使用非空函数集，除了 opclass 自己的组之外。
 		 */
 	}
 
-	/* Check that the originally-named opclass is complete */
+	/* Check that the originally-named opclass is complete
+	 *
+	 * 检查原来命名的opclass是否完整
+	 */
 	for (i = 1; i <= BLOOM_NPROC; i++)
 	{
 		if (opclassgroup &&

@@ -29,6 +29,8 @@ install_data(
 )
 
 # XXX: Implement downlo
+#
+# XXX：实施下载
 tests += {
   'name': 'unaccent',
   'sd': meson.current_source_dir(),

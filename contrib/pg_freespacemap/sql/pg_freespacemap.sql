@@ -6,6 +6,8 @@ CREATE INDEX freespace_btree ON freespace_tab USING btree (c1);
 CREATE INDEX freespace_hash ON freespace_tab USING hash (c1);
 
 -- report all the sizes of the FSMs for all the relation blocks.
+--
+-- 报告所有关系块的 FSM 的所有大小。
 WITH rel AS (SELECT oid::regclass AS id FROM pg_class WHERE relname ~ 'freespace')
   SELECT rel.id, fsm.blkno, (fsm.avail > 0) AS is_avail
     FROM rel, LATERAL pg_freespace(rel.id) AS fsm
@@ -26,6 +28,8 @@ WITH rel AS (SELECT oid::regclass AS id FROM pg_class WHERE relname ~ 'freespace
     ORDER BY 1, 2;
 
 -- failures with incorrect block number
+--
+-- 区块编号错误导致失败
 SELECT * FROM pg_freespace('freespace_tab', -1);
 SELECT * FROM pg_freespace('freespace_tab', 4294967295);
 

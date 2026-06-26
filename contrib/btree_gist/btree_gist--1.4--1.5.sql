@@ -1,6 +1,8 @@
 /* contrib/btree_gist/btree_gist--1.4--1.5.sql */
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
+--
+-- 抱怨脚本是否源自 psql，而不是通过 CREATE EXTENSION
 \echo Use "ALTER EXTENSION btree_gist UPDATE TO '1.5'" to load this file. \quit
 
 --
@@ -8,9 +10,13 @@
 --
 -- enum ops
 --
+-- 枚举操作
+--
 --
 --
 -- define the GiST support methods
+--
+-- 定义 GiST 支持方法
 CREATE FUNCTION gbt_enum_consistent(internal,anyenum,int2,oid,internal)
 RETURNS bool
 AS 'MODULE_PATHNAME'
@@ -47,6 +53,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C IMMUTABLE STRICT;
 
 -- Create the operator class
+--
+-- 创建运算符类
 CREATE OPERATOR CLASS gist_enum_ops
 DEFAULT FOR TYPE anyenum USING gist
 AS

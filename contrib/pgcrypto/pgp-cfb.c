@@ -89,6 +89,8 @@ pgp_cfb_free(PGP_CFB *ctx)
 
 /*
  * Data processing for normal CFB.  (PGP_PKT_SYMENCRYPTED_DATA_MDC)
+ *
+ * 正常 CFB 的数据处理。  (PGP_PKT_SYMENCRYPTED_DATA_MDC)
  */
 static int
 mix_encrypt_normal(PGP_CFB *ctx, const uint8 *data, int len, uint8 *dst)
@@ -118,8 +120,12 @@ mix_decrypt_normal(PGP_CFB *ctx, const uint8 *data, int len, uint8 *dst)
 /*
  * Data processing for old PGP CFB mode. (PGP_PKT_SYMENCRYPTED_DATA)
  *
+ * 旧PGP CFB模式的数据处理。 (PGP_PKT_SYMENCRYPTED_DATA)
+ *
  * The goal is to hide the horror from the rest of the code,
  * thus its all concentrated here.
+ *
+ * 目标是向代码的其余部分隐藏恐怖，因此所有内容都集中在这里。
  */
 static int
 mix_encrypt_resync(PGP_CFB *ctx, const uint8 *data, int len, uint8 *dst)
@@ -127,7 +133,10 @@ mix_encrypt_resync(PGP_CFB *ctx, const uint8 *data, int len, uint8 *dst)
 	int			i,
 				n;
 
-	/* block #2 is 2 bytes long */
+	/* block #2 is 2 bytes long
+	 *
+	 * 块 #2 的长度为 2 个字节
+	 */
 	if (ctx->block_no == 2)
 	{
 		n = 2 - ctx->pos;
@@ -159,7 +168,10 @@ mix_decrypt_resync(PGP_CFB *ctx, const uint8 *data, int len, uint8 *dst)
 	int			i,
 				n;
 
-	/* block #2 is 2 bytes long */
+	/* block #2 is 2 bytes long
+	 *
+	 * 块 #2 的长度为 2 个字节
+	 */
 	if (ctx->block_no == 2)
 	{
 		n = 2 - ctx->pos;
@@ -192,6 +204,8 @@ mix_decrypt_resync(PGP_CFB *ctx, const uint8 *data, int len, uint8 *dst)
 
 /*
  * common code for both encrypt and decrypt.
+ *
+ * 加密和解密的通用代码。
  */
 static int
 cfb_process(PGP_CFB *ctx, const uint8 *data, int len, uint8 *dst,
@@ -246,6 +260,8 @@ cfb_process(PGP_CFB *ctx, const uint8 *data, int len, uint8 *dst,
 
 /*
  * public interface
+ *
+ * 公共接口
  */
 
 int

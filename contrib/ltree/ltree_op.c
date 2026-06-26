@@ -2,6 +2,8 @@
  * op function for ltree
  * Teodor Sigaev <teodor@stack.net>
  * contrib/ltree/ltree_op.c
+ *
+ * ltree 的 op 函数 Teodor Sigaev <teodor@stack.net> contrib/ltree/ltree_op.c
  */
 #include "postgres.h"
 
@@ -18,7 +20,10 @@ PG_MODULE_MAGIC_EXT(
 					.version = PG_VERSION
 );
 
-/* compare functions */
+/* compare functions
+ *
+ * 比较函数
+ */
 PG_FUNCTION_INFO_V1(ltree_cmp);
 PG_FUNCTION_INFO_V1(ltree_lt);
 PG_FUNCTION_INFO_V1(ltree_le);
@@ -133,7 +138,10 @@ ltree_ne(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(res != 0);
 }
 
-/* Compute a hash for the ltree */
+/* Compute a hash for the ltree
+ *
+ * 计算 ltree 的哈希值
+ */
 Datum
 hash_ltree(PG_FUNCTION_ARGS)
 {
@@ -150,8 +158,12 @@ hash_ltree(PG_FUNCTION_ARGS)
 		 * Combine hash values of successive elements by multiplying the
 		 * current value by 31 and adding on the new element's hash value.
 		 *
+		 * 通过将当前值乘以 31 并添加新元素的哈希值来组合连续元素的哈希值。
+		 *
 		 * This method is borrowed from hash_array(), which see for further
 		 * commentary.
+		 *
+		 * 这个方法是从 hash_array() 借用的，请参阅进一步的注释。
 		 */
 		result = (result << 5) - result + levelHash;
 
@@ -163,7 +175,10 @@ hash_ltree(PG_FUNCTION_ARGS)
 	PG_RETURN_UINT32(result);
 }
 
-/* Compute an extended hash for the ltree */
+/* Compute an extended hash for the ltree
+ *
+ * 计算 ltree 的扩展哈希
+ */
 Datum
 hash_ltree_extended(PG_FUNCTION_ARGS)
 {
@@ -178,6 +193,8 @@ hash_ltree_extended(PG_FUNCTION_ARGS)
 	 * bits of the result match hash_ltree when the seed is 0, as required by
 	 * the hash index support functions, but to also return a different value
 	 * when there is a seed.
+	 *
+	 * 如果路径长度为零，则返回 1 + 种子，以确保当种子为 0 时结果的低 32 位与 hash_ltree 匹配，正如哈希索引支持函数所要求的那样，但当存在种子时也返回不同的值。
 	 */
 	if (an == 0)
 	{
@@ -489,8 +506,12 @@ ltree_textadd(PG_FUNCTION_ARGS)
 /*
  * Common code for variants of lca(), find longest common ancestor of inputs
  *
+ * lca() 变体的通用代码，查找输入的最长公共祖先
+ *
  * Returns NULL if there is no common ancestor, ie, the longest common
  * prefix is empty.
+ *
+ * 如果没有共同祖先，即最长公共前缀为空，则返回 NULL。
  */
 ltree *
 lca_inner(ltree **a, int len)
@@ -509,10 +530,16 @@ lca_inner(ltree **a, int len)
 	if ((*a)->numlevel == 0)
 		return NULL;			/* any empty input means NULL result */
 
-	/* num is the length of the longest common ancestor so far */
+	/* num is the length of the longest common ancestor so far
+	 *
+	 * num 是迄今为止最长共同祖先的长度
+	 */
 	num = (*a)->numlevel - 1;
 
-	/* Compare each additional input to *a */
+	/* Compare each additional input to *a
+	 *
+	 * 将每个附加输入与 *a 进行比较
+	 */
 	ptr = a + 1;
 	while (ptr - a < len)
 	{
@@ -540,7 +567,10 @@ lca_inner(ltree **a, int len)
 		ptr++;
 	}
 
-	/* Now compute size of result ... */
+	/* Now compute size of result ...
+	 *
+	 * 现在计算结果的大小......
+	 */
 	reslen = LTREE_HDRSIZE;
 	l1 = LTREE_FIRST(*a);
 	for (i = 0; i < num; i++)
@@ -549,7 +579,10 @@ lca_inner(ltree **a, int len)
 		l1 = LEVEL_NEXT(l1);
 	}
 
-	/* ... and construct it by copying from *a */
+	/* ... and construct it by copying from *a
+	 *
+	 * ...并通过从 *a 复制来构造它
+	 */
 	res = (ltree *) palloc0(reslen);
 	SET_VARSIZE(res, reslen);
 	res->numlevel = num;
@@ -639,8 +672,12 @@ ltree2text(PG_FUNCTION_ARGS)
 /*
  *	ltreeparentsel - Selectivity of parent relationship for ltree data types.
  *
+ * ltreeparentsel - ltree 数据类型的父关系的选择性。
+ *
  * This function is not used anymore, if the ltree extension has been
  * updated to 1.2 or later.
+ *
+ * 如果 ltree 扩展已更新到 1.2 或更高版本，则不再使用此函数。
  */
 Datum
 ltreeparentsel(PG_FUNCTION_ARGS)
@@ -651,7 +688,10 @@ ltreeparentsel(PG_FUNCTION_ARGS)
 	int			varRelid = PG_GETARG_INT32(3);
 	double		selec;
 
-	/* Use generic restriction selectivity logic, with default 0.001. */
+	/* Use generic restriction selectivity logic, with default 0.001.
+	 *
+	 * 使用通用限制选择性逻辑，默认为 0.001。
+	 */
 	selec = generic_restriction_selectivity(root, operator, InvalidOid,
 											args, varRelid,
 											0.001);

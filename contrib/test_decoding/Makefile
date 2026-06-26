@@ -15,7 +15,11 @@ REGRESS_OPTS = --temp-config $(top_srcdir)/contrib/test_decoding/logical.conf
 ISOLATION_OPTS = --temp-config $(top_srcdir)/contrib/test_decoding/logical.conf
 
 # Disabled because these tests require "wal_level=logical", which
+#
+# 禁用，因为这些测试需要“wal_level=逻辑”，这
 # typical installcheck users do not have (e.g. buildfarm clients).
+#
+# 典型的 installcheck 用户没有（例如 buildfarm 客户端）。
 NO_INSTALLCHECK = 1
 
 TAP_TESTS = 1
@@ -32,7 +36,11 @@ include $(top_srcdir)/contrib/contrib-global.mk
 endif
 
 # But it can nonetheless be very helpful to run tests on preexisting
+#
+# 但对预先存在的运行测试仍然非常有帮助
 # installation, allow to do so, but only if requested explicitly.
+#
+# 安装，允许这样做，但前提是明确要求。
 installcheck-force:
 	$(pg_regress_installcheck) $(REGRESS)
 	$(pg_isolation_regress_installcheck) $(ISOLATION)

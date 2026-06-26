@@ -1,6 +1,8 @@
 --
 -- PGP info functions
 --
+-- PGP 信息功能
+--
 
 -- pgp_key_id
 

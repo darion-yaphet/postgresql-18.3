@@ -1,4 +1,6 @@
 -- money check
+--
+-- 金钱支票
 
 CREATE TABLE moneytmp (a money);
 

@@ -27,6 +27,8 @@
 /*
  * NOTE: For any code change or issue fix here, it is highly recommended to
  * give a thought about doing the same in pg_waldump tool as well.
+ *
+ * 注意：对于此处的任何代码更改或问题修复，强烈建议考虑在 pg_waldump 工具中执行相同的操作。
  */
 
 PG_MODULE_MAGIC_EXT(
@@ -67,6 +69,8 @@ static void GetWALBlockInfo(FunctionCallInfo fcinfo, XLogReaderState *record,
 
 /*
  * Return the LSN up to which the server has WAL.
+ *
+ * 返回服务器拥有 WAL 的 LSN。
  */
 static XLogRecPtr
 GetCurrentLSN(void)
@@ -76,6 +80,8 @@ GetCurrentLSN(void)
 	/*
 	 * We determine the current LSN of the server similar to how page_read
 	 * callback read_local_xlog_page_no_wait does.
+	 *
+	 * 我们确定服务器的当前LSN，类似于page_read回调read_local_xlog_page_no_wait的做法。
 	 */
 	if (!RecoveryInProgress())
 		curr_lsn = GetFlushRecPtr(NULL);
@@ -89,6 +95,8 @@ GetCurrentLSN(void)
 
 /*
  * Initialize WAL reader and identify first valid LSN.
+ *
+ * 初始化 WAL 读取器并识别第一个有效的 LSN。
  */
 static XLogReaderState *
 InitXLogReaderState(XLogRecPtr lsn)
@@ -101,6 +109,8 @@ InitXLogReaderState(XLogRecPtr lsn)
 	 * Reading WAL below the first page of the first segments isn't allowed.
 	 * This is a bootstrap WAL page and the page_read callback fails to read
 	 * it.
+	 *
+	 * 不允许读取第一个段的第一页下方的 WAL。这是一个引导 WAL 页面，page_read 回调无法读取它。
 	 */
 	if (lsn < XLOG_BLCKSZ)
 		ereport(ERROR,
@@ -123,7 +133,10 @@ InitXLogReaderState(XLogRecPtr lsn)
 				 errmsg("out of memory"),
 				 errdetail("Failed while allocating a WAL reading processor.")));
 
-	/* first find a valid recptr to start from */
+	/* first find a valid recptr to start from
+	 *
+	 * 首先找到一个有效的recptr开始
+	 */
 	first_valid_record = XLogFindNextRecord(xlogreader, lsn);
 
 	if (XLogRecPtrIsInvalid(first_valid_record))
@@ -137,14 +150,20 @@ InitXLogReaderState(XLogRecPtr lsn)
 /*
  * Read next WAL record.
  *
+ * 读取下一条 WAL 记录。
+ *
  * By design, to be less intrusive in a running system, no slot is allocated
  * to reserve the WAL we're about to read. Therefore this function can
  * encounter read errors for historical WAL.
+ *
+ * 根据设计，为了减少对正在运行的系统的干扰，没有分配任何插槽来保留我们将要读取的 WAL。因此，此函数可能会遇到历史 WAL 的读取错误。
  *
  * We guard against ordinary errors trying to read WAL that hasn't been
  * written yet by limiting end_lsn to the flushed WAL, but that can also
  * encounter errors if the flush pointer falls in the middle of a record. In
  * that case we'll return NULL.
+ *
+ * 我们通过将 end_lsn 限制为刷新的 WAL 来防止试图读取尚未写入的 WAL 时出现的普通错误，但如果刷新指针落在记录的中间，也可能会遇到错误。在这种情况下，我们将返回 NULL。
  */
 static XLogRecord *
 ReadNextXLogRecord(XLogReaderState *xlogreader)
@@ -158,7 +177,10 @@ ReadNextXLogRecord(XLogReaderState *xlogreader)
 	{
 		ReadLocalXLogPageNoWaitPrivate *private_data;
 
-		/* return NULL, if end of WAL is reached */
+		/* return NULL, if end of WAL is reached
+		 *
+		 * 如果到达 WAL 末尾，则返回 NULL
+		 */
 		private_data = (ReadLocalXLogPageNoWaitPrivate *)
 			xlogreader->private_data;
 
@@ -183,10 +205,16 @@ ReadNextXLogRecord(XLogReaderState *xlogreader)
 /*
  * Output values that make up a row describing caller's WAL record.
  *
+ * 组成描述调用者 WAL 记录的行的输出值。
+ *
  * This function leaks memory.  Caller may need to use its own custom memory
  * context.
  *
+ * 该函数会泄漏内存。  调用者可能需要使用自己的自定义内存上下文。
+ *
  * Keep this in sync with GetWALBlockInfo.
+ *
+ * 使其与 GetWALBlockInfo 保持同步。
  */
 static void
 GetWALRecordInfo(XLogReaderState *record, Datum *values,
@@ -243,10 +271,16 @@ GetWALRecordInfo(XLogReaderState *record, Datum *values,
  * block reference from caller's WAL record. (Should only be called with
  * records that have block references.)
  *
+ * 输出 rsinfo 元组存储中的一行或多行，每行描述来自调用者的 WAL 记录的单个块引用。 （只能使用具有块引用的记录来调用。）
+ *
  * This function leaks memory.  Caller may need to use its own custom memory
  * context.
  *
+ * 该函数会泄漏内存。  调用者可能需要使用自己的自定义内存上下文。
+ *
  * Keep this in sync with GetWALRecordInfo.
+ *
+ * 使其与 GetWALRecordInfo 保持同步。
  */
 static void
 GetWALBlockInfo(FunctionCallInfo fcinfo, XLogReaderState *record,
@@ -292,21 +326,33 @@ GetWALBlockInfo(FunctionCallInfo fcinfo, XLogReaderState *record,
 		(void) XLogRecGetBlockTagExtended(record, block_id,
 										  &rnode, &forknum, &blkno, NULL);
 
-		/* Save block_data_len */
+		/* Save block_data_len
+		 *
+		 * 保存block_data_len
+		 */
 		if (blk->has_data)
 			block_data_len = blk->data_len;
 
 		if (blk->has_image)
 		{
-			/* Block reference has an FPI, so prepare relevant output */
+			/* Block reference has an FPI, so prepare relevant output
+			 *
+			 * 块引用有FPI，所以准备相关输出
+			 */
 			int			bitcnt;
 			int			cnt = 0;
 			Datum	   *flags;
 
-			/* Save block_fpi_len */
+			/* Save block_fpi_len
+			 *
+			 * 保存 block_fpi_len
+			 */
 			block_fpi_len = blk->bimg_len;
 
-			/* Construct and save block_fpi_info */
+			/* Construct and save block_fpi_info
+			 *
+			 * 构造并保存block_fpi_info
+			 */
 			bitcnt = pg_popcount((const char *) &blk->bimg_info,
 								 sizeof(uint8));
 			flags = (Datum *) palloc0(sizeof(Datum) * bitcnt);
@@ -325,20 +371,29 @@ GetWALBlockInfo(FunctionCallInfo fcinfo, XLogReaderState *record,
 			block_fpi_info = construct_array_builtin(flags, cnt, TEXTOID);
 		}
 
-		/* start_lsn, end_lsn, prev_lsn, and blockid outputs */
+		/* start_lsn, end_lsn, prev_lsn, and blockid outputs
+		 *
+		 * start_lsn、end_lsn、prev_lsn 和 blockid 输出
+		 */
 		values[i++] = LSNGetDatum(record->ReadRecPtr);
 		values[i++] = LSNGetDatum(record->EndRecPtr);
 		values[i++] = LSNGetDatum(XLogRecGetPrev(record));
 		values[i++] = Int16GetDatum(block_id);
 
-		/* relfile and block related outputs */
+		/* relfile and block related outputs
+		 *
+		 * relfile 和块相关输出
+		 */
 		values[i++] = ObjectIdGetDatum(blk->rlocator.spcOid);
 		values[i++] = ObjectIdGetDatum(blk->rlocator.dbOid);
 		values[i++] = ObjectIdGetDatum(blk->rlocator.relNumber);
 		values[i++] = Int16GetDatum(forknum);
 		values[i++] = Int64GetDatum((int64) blkno);
 
-		/* xid, resource_manager, and record_type outputs */
+		/* xid, resource_manager, and record_type outputs
+		 *
+		 * xid、resource_manager 和 record_type 输出
+		 */
 		values[i++] = TransactionIdGetDatum(XLogRecGetXid(record));
 		values[i++] = CStringGetTextDatum(desc.rm_name);
 		values[i++] = CStringGetTextDatum(record_type);
@@ -346,25 +401,36 @@ GetWALBlockInfo(FunctionCallInfo fcinfo, XLogReaderState *record,
 		/*
 		 * record_length, main_data_length, block_data_len, and
 		 * block_fpi_length outputs
+		 *
+		 * record_length、main_data_length、block_data_len 和 block_fpi_length 输出
 		 */
 		values[i++] = UInt32GetDatum(XLogRecGetTotalLen(record));
 		values[i++] = UInt32GetDatum(XLogRecGetDataLen(record));
 		values[i++] = UInt32GetDatum(block_data_len);
 		values[i++] = UInt32GetDatum(block_fpi_len);
 
-		/* block_fpi_info (text array) output */
+		/* block_fpi_info (text array) output
+		 *
+		 * block_fpi_info（文本数组）输出
+		 */
 		if (block_fpi_info)
 			values[i++] = PointerGetDatum(block_fpi_info);
 		else
 			nulls[i++] = true;
 
-		/* description output (describes WAL record) */
+		/* description output (describes WAL record)
+		 *
+		 * 描述输出（描述WAL记录）
+		 */
 		if (rec_desc.len > 0)
 			values[i++] = CStringGetTextDatum(rec_desc.data);
 		else
 			nulls[i++] = true;
 
-		/* block_data output */
+		/* block_data output
+		 *
+		 * 块数据输出
+		 */
 		if (blk->has_data && show_data)
 		{
 			bytea	   *block_data;
@@ -377,7 +443,10 @@ GetWALBlockInfo(FunctionCallInfo fcinfo, XLogReaderState *record,
 		else
 			nulls[i++] = true;
 
-		/* block_fpi_data output */
+		/* block_fpi_data output
+		 *
+		 * block_fpi_data 输出
+		 */
 		if (blk->has_image && show_data)
 		{
 			PGAlignedBlock buf;
@@ -400,7 +469,10 @@ GetWALBlockInfo(FunctionCallInfo fcinfo, XLogReaderState *record,
 
 		Assert(i == PG_GET_WAL_BLOCK_INFO_COLS);
 
-		/* Store a tuple for this block reference */
+		/* Store a tuple for this block reference
+		 *
+		 * 存储此块引用的元组
+		 */
 		tuplestore_putvalues(rsinfo->setResult, rsinfo->setDesc,
 							 values, nulls);
 	}
@@ -410,6 +482,8 @@ GetWALBlockInfo(FunctionCallInfo fcinfo, XLogReaderState *record,
 
 /*
  * Get WAL record info, unnested by block reference
+ *
+ * 获取 WAL 记录信息，不通过块引用嵌套
  */
 Datum
 pg_get_wal_block_info(PG_FUNCTION_ARGS)
@@ -439,12 +513,18 @@ pg_get_wal_block_info(PG_FUNCTION_ARGS)
 		if (!XLogRecHasAnyBlockRefs(xlogreader))
 			continue;
 
-		/* Use the tmp context so we can clean up after each tuple is done */
+		/* Use the tmp context so we can clean up after each tuple is done
+		 *
+		 * 使用 tmp 上下文，以便我们可以在每个元组完成后进行清理
+		 */
 		old_cxt = MemoryContextSwitchTo(tmp_cxt);
 
 		GetWALBlockInfo(fcinfo, xlogreader, show_data);
 
-		/* clean up and switch back */
+		/* clean up and switch back
+		 *
+		 * 清理并切换回来
+		 */
 		MemoryContextSwitchTo(old_cxt);
 		MemoryContextReset(tmp_cxt);
 	}
@@ -458,6 +538,8 @@ pg_get_wal_block_info(PG_FUNCTION_ARGS)
 
 /*
  * Get WAL record info.
+ *
+ * 获取WAL记录信息。
  */
 Datum
 pg_get_wal_record_info(PG_FUNCTION_ARGS)
@@ -482,7 +564,10 @@ pg_get_wal_record_info(PG_FUNCTION_ARGS)
 				 errdetail("Current WAL LSN on the database system is at %X/%X.",
 						   LSN_FORMAT_ARGS(curr_lsn))));
 
-	/* Build a tuple descriptor for our result type. */
+	/* Build a tuple descriptor for our result type.
+	 *
+	 * 为我们的结果类型构建一个元组描述符。
+	 */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
@@ -509,8 +594,12 @@ pg_get_wal_record_info(PG_FUNCTION_ARGS)
 /*
  * Validate start and end LSNs coming from the function inputs.
  *
+ * 验证来自函数输入的开始和结束 LSN。
+ *
  * If end_lsn is found to be higher than the current LSN reported by the
  * cluster, use the current LSN as the upper bound.
+ *
+ * 如果发现end_lsn高于集群报告的当前LSN，则使用当前LSN作为上限。
  */
 static void
 ValidateInputLSNs(XLogRecPtr start_lsn, XLogRecPtr *end_lsn)
@@ -535,6 +624,8 @@ ValidateInputLSNs(XLogRecPtr start_lsn, XLogRecPtr *end_lsn)
 
 /*
  * Get info of all WAL records between start LSN and end LSN.
+ *
+ * 获取起始 LSN 和结束 LSN 之间的所有 WAL 记录的信息。
  */
 static void
 GetWALRecordsInfo(FunctionCallInfo fcinfo, XLogRecPtr start_lsn,
@@ -562,7 +653,10 @@ GetWALRecordsInfo(FunctionCallInfo fcinfo, XLogRecPtr start_lsn,
 		Datum		values[PG_GET_WAL_RECORDS_INFO_COLS] = {0};
 		bool		nulls[PG_GET_WAL_RECORDS_INFO_COLS] = {0};
 
-		/* Use the tmp context so we can clean up after each tuple is done */
+		/* Use the tmp context so we can clean up after each tuple is done
+		 *
+		 * 使用 tmp 上下文，以便我们可以在每个元组完成后进行清理
+		 */
 		old_cxt = MemoryContextSwitchTo(tmp_cxt);
 
 		GetWALRecordInfo(xlogreader, values, nulls,
@@ -571,7 +665,10 @@ GetWALRecordsInfo(FunctionCallInfo fcinfo, XLogRecPtr start_lsn,
 		tuplestore_putvalues(rsinfo->setResult, rsinfo->setDesc,
 							 values, nulls);
 
-		/* clean up and switch back */
+		/* clean up and switch back
+		 *
+		 * 清理并切换回来
+		 */
 		MemoryContextSwitchTo(old_cxt);
 		MemoryContextReset(tmp_cxt);
 
@@ -587,6 +684,8 @@ GetWALRecordsInfo(FunctionCallInfo fcinfo, XLogRecPtr start_lsn,
 
 /*
  * Get info of all WAL records between start LSN and end LSN.
+ *
+ * 获取起始 LSN 和结束 LSN 之间的所有 WAL 记录的信息。
  */
 Datum
 pg_get_wal_records_info(PG_FUNCTION_ARGS)
@@ -602,6 +701,8 @@ pg_get_wal_records_info(PG_FUNCTION_ARGS)
 
 /*
  * Fill single row of record counts and sizes for an rmgr or record.
+ *
+ * 填写 rmgr 或记录的单行记录计数和大小。
  */
 static void
 FillXLogStatsRow(const char *name,
@@ -648,6 +749,8 @@ FillXLogStatsRow(const char *name,
 
 /*
  * Get summary statistics about the records seen so far.
+ *
+ * 获取有关迄今为止看到的记录的摘要统计数据。
  */
 static void
 GetXLogSummaryStats(XLogStats *stats, ReturnSetInfo *rsinfo,
@@ -665,6 +768,8 @@ GetXLogSummaryStats(XLogStats *stats, ReturnSetInfo *rsinfo,
 	/*
 	 * Each row shows its percentages of the total, so make a first pass to
 	 * calculate column totals.
+	 *
+	 * 每行显示其占总数的百分比，因此请首先计算列总数。
 	 */
 	for (ri = 0; ri <= RM_MAX_ID; ri++)
 	{
@@ -710,13 +815,19 @@ GetXLogSummaryStats(XLogStats *stats, ReturnSetInfo *rsinfo,
 				fpi_len = stats->record_stats[ri][rj].fpi_len;
 				tot_len = rec_len + fpi_len;
 
-				/* Skip undefined combinations and ones that didn't occur */
+				/* Skip undefined combinations and ones that didn't occur
+				 *
+				 * 跳过未定义的组合和未发生的组合
+				 */
 				if (count == 0)
 					continue;
 
 				old_cxt = MemoryContextSwitchTo(tmp_cxt);
 
-				/* the upper four bits in xl_info are the rmgr's */
+				/* the upper four bits in xl_info are the rmgr's
+				 *
+				 * xl_info 中的高四位是 rmgr 的
+				 */
 				id = desc.rm_identify(rj << 4);
 				if (id == NULL)
 					id = psprintf("UNKNOWN (%x)", rj << 4);
@@ -729,7 +840,10 @@ GetXLogSummaryStats(XLogStats *stats, ReturnSetInfo *rsinfo,
 				tuplestore_putvalues(rsinfo->setResult, rsinfo->setDesc,
 									 values, nulls);
 
-				/* clean up and switch back */
+				/* clean up and switch back
+				 *
+				 * 清理并切换回来
+				 */
 				MemoryContextSwitchTo(old_cxt);
 				MemoryContextReset(tmp_cxt);
 			}
@@ -750,7 +864,10 @@ GetXLogSummaryStats(XLogStats *stats, ReturnSetInfo *rsinfo,
 			tuplestore_putvalues(rsinfo->setResult, rsinfo->setDesc,
 								 values, nulls);
 
-			/* clean up and switch back */
+			/* clean up and switch back
+			 *
+			 * 清理并切换回来
+			 */
 			MemoryContextSwitchTo(old_cxt);
 			MemoryContextReset(tmp_cxt);
 		}
@@ -761,6 +878,8 @@ GetXLogSummaryStats(XLogStats *stats, ReturnSetInfo *rsinfo,
 
 /*
  * Get WAL stats between start LSN and end LSN.
+ *
+ * 获取起始 LSN 和结束 LSN 之间的 WAL 统计信息。
  */
 static void
 GetWalStats(FunctionCallInfo fcinfo, XLogRecPtr start_lsn, XLogRecPtr end_lsn,
@@ -799,6 +918,8 @@ GetWalStats(FunctionCallInfo fcinfo, XLogRecPtr start_lsn, XLogRecPtr end_lsn,
 
 /*
  * Get stats of all WAL records between start LSN and end LSN.
+ *
+ * 获取起始 LSN 和结束 LSN 之间的所有 WAL 记录的统计信息。
  */
 Datum
 pg_get_wal_stats(PG_FUNCTION_ARGS)
@@ -816,6 +937,8 @@ pg_get_wal_stats(PG_FUNCTION_ARGS)
 /*
  * The following functions have been removed in newer versions in 1.1, but
  * they are kept around for compatibility.
+ *
+ * 以下功能已在 1.1 的新版本中删除，但为了兼容性而保留。
  */
 Datum
 pg_get_wal_records_info_till_end_of_wal(PG_FUNCTION_ARGS)

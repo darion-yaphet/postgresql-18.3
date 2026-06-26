@@ -18,6 +18,8 @@
  * Bison doesn't allocate anything that needs to live across parser calls,
  * so we can easily have it use palloc instead of malloc.  This prevents
  * memory leaks if we error out during parsing.
+ *
+ * Bison 不会分配任何需要跨解析器调用的东西，因此我们可以轻松地让它使用 palloc 而不是 malloc。  如果我们在解析过程中出错，这可以防止内存泄漏。
  */
 #define YYMALLOC palloc
 #define YYFREE   pfree
@@ -28,7 +30,10 @@ static int sig_digits(const char *value);
 
 %}
 
-/* BISON Declarations */
+/* BISON Declarations
+ *
+ * 野牛声明
+ */
 %parse-param {SEG *result}
 %parse-param {struct Node *escontext}
 %parse-param {yyscan_t yyscanner}
@@ -55,7 +60,10 @@ static int sig_digits(const char *value);
 %type  <bnd>  deviation
 %start range
 
-/* Grammar follows */
+/* Grammar follows
+ *
+ * 语法如下
+ */
 %%
 
 
@@ -123,7 +131,10 @@ range: boundary PLUMIN deviation
 
 boundary: SEGFLOAT
 	{
-		/* temp variable avoids a gcc 3.3.x bug on Sparc64 */
+		/* temp variable avoids a gcc 3.3.x bug on Sparc64
+		 *
+		 * temp 变量避免了 Sparc64 上的 gcc 3.3.x 错误
+		 */
 		float		val;
 
 		if (!seg_atof($1, &val, escontext))
@@ -135,7 +146,10 @@ boundary: SEGFLOAT
 	}
 	| EXTENSION SEGFLOAT
 	{
-		/* temp variable avoids a gcc 3.3.x bug on Sparc64 */
+		/* temp variable avoids a gcc 3.3.x bug on Sparc64
+		 *
+		 * temp 变量避免了 Sparc64 上的 gcc 3.3.x 错误
+		 */
 		float		val;
 
 		if (!seg_atof($2, &val, escontext))
@@ -149,7 +163,10 @@ boundary: SEGFLOAT
 
 deviation: SEGFLOAT
 	{
-		/* temp variable avoids a gcc 3.3.x bug on Sparc64 */
+		/* temp variable avoids a gcc 3.3.x bug on Sparc64
+		 *
+		 * temp 变量避免了 Sparc64 上的 gcc 3.3.x 错误
+		 */
 		float		val;
 
 		if (!seg_atof($1, &val, escontext))
@@ -178,6 +195,9 @@ sig_digits(const char *value)
 {
 	int			n = significant_digits(value);
 
-	/* Clamp, to ensure value will fit in sigd fields */
+	/* Clamp, to ensure value will fit in sigd fields
+	 *
+	 * 夹紧，以确保值适合 sigd 字段
+	 */
 	return Min(n, FLT_DIG);
 }

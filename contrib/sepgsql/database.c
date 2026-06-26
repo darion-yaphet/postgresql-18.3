@@ -28,6 +28,8 @@
  *
  * This routine assigns a default security label on a newly defined
  * database, and check permission needed for its creation.
+ *
+ * 此例程在新定义的数据库上分配默认安全标签，并检查创建该数据库所需的权限。
  */
 void
 sepgsql_database_post_create(Oid databaseId, const char *dtemplate)
@@ -46,6 +48,8 @@ sepgsql_database_post_create(Oid databaseId, const char *dtemplate)
 	 * Oid of the source database is not saved in pg_database catalog, so we
 	 * collect its identifier using contextual information. If NULL, its
 	 * default is "template1" according to createdb().
+	 *
+	 * 源数据库的 oid 未保存在 pg_database 目录中，因此我们使用上下文信息收集其标识符。如果为 NULL，则根据 createdb()，其默认值为“template1”。
 	 */
 	if (!dtemplate)
 		dtemplate = "template1";
@@ -60,6 +64,8 @@ sepgsql_database_post_create(Oid databaseId, const char *dtemplate)
 
 	/*
 	 * check db_database:{getattr} permission
+	 *
+	 * 检查 db_database:{getattr} 权限
 	 */
 	initStringInfo(&audit_name);
 	appendStringInfoString(&audit_name, quote_identifier(dtemplate));
@@ -73,8 +79,12 @@ sepgsql_database_post_create(Oid databaseId, const char *dtemplate)
 	 * Compute a default security label of the newly created database based on
 	 * a pair of security label of client and source database.
 	 *
+	 * 根据客户端和源数据库的一对安全标签计算新创建的数据库的默认安全标签。
+	 *
 	 * XXX - upcoming version of libselinux supports to take object name to
 	 * handle special treatment on default security label.
+	 *
+	 * XXX - 即将推出的 libselinux 版本支持使用对象名称来处理默认安全标签的特殊处理。
 	 */
 	rel = table_open(DatabaseRelationId, AccessShareLock);
 
@@ -98,6 +108,8 @@ sepgsql_database_post_create(Oid databaseId, const char *dtemplate)
 
 	/*
 	 * check db_database:{create} permission
+	 *
+	 * 检查 db_database:{create} 权限
 	 */
 	resetStringInfo(&audit_name);
 	appendStringInfoString(&audit_name,
@@ -113,6 +125,8 @@ sepgsql_database_post_create(Oid databaseId, const char *dtemplate)
 
 	/*
 	 * Assign the default security label on the new database
+	 *
+	 * 在新数据库上分配默认安全标签
 	 */
 	object.classId = DatabaseRelationId;
 	object.objectId = databaseId;
@@ -128,6 +142,8 @@ sepgsql_database_post_create(Oid databaseId, const char *dtemplate)
  * sepgsql_database_drop
  *
  * It checks privileges to drop the supplied database
+ *
+ * 它检查删除提供的数据库的权限
  */
 void
 sepgsql_database_drop(Oid databaseId)
@@ -137,6 +153,8 @@ sepgsql_database_drop(Oid databaseId)
 
 	/*
 	 * check db_database:{drop} permission
+	 *
+	 * 检查 db_database:{drop} 权限
 	 */
 	object.classId = DatabaseRelationId;
 	object.objectId = databaseId;
@@ -155,6 +173,8 @@ sepgsql_database_drop(Oid databaseId)
  * sepgsql_database_post_alter
  *
  * It checks privileges to alter the supplied database
+ *
+ * 它检查更改提供的数据库的权限
  */
 void
 sepgsql_database_setattr(Oid databaseId)
@@ -164,6 +184,8 @@ sepgsql_database_setattr(Oid databaseId)
 
 	/*
 	 * check db_database:{setattr} permission
+	 *
+	 * 检查 db_database:{setattr} 权限
 	 */
 	object.classId = DatabaseRelationId;
 	object.objectId = databaseId;
@@ -182,6 +204,8 @@ sepgsql_database_setattr(Oid databaseId)
  * sepgsql_database_relabel
  *
  * It checks privileges to relabel the supplied database with the `seclabel'
+ *
+ * 它检查使用“seclabel”重新标记提供的数据库的权限
  */
 void
 sepgsql_database_relabel(Oid databaseId, const char *seclabel)
@@ -196,6 +220,8 @@ sepgsql_database_relabel(Oid databaseId, const char *seclabel)
 
 	/*
 	 * check db_database:{setattr relabelfrom} permission
+	 *
+	 * 检查 db_database:{setattr relabelfrom} 权限
 	 */
 	sepgsql_avc_check_perms(&object,
 							SEPG_CLASS_DB_DATABASE,
@@ -206,6 +232,8 @@ sepgsql_database_relabel(Oid databaseId, const char *seclabel)
 
 	/*
 	 * check db_database:{relabelto} permission
+	 *
+	 * 检查 db_database:{relabelto} 权限
 	 */
 	sepgsql_avc_check_perms_label(seclabel,
 								  SEPG_CLASS_DB_DATABASE,

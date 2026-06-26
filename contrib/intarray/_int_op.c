@@ -21,7 +21,10 @@ PG_FUNCTION_INFO_V1(_int_inter);
 Datum
 _int_contained(PG_FUNCTION_ARGS)
 {
-	/* just reverse the operands and call _int_contains */
+	/* just reverse the operands and call _int_contains
+	 *
+	 * 只需反转操作数并调用 _int_contains
+	 */
 	return DirectFunctionCall2(_int_contains,
 							   PG_GETARG_DATUM(1),
 							   PG_GETARG_DATUM(0));
@@ -30,7 +33,10 @@ _int_contained(PG_FUNCTION_ARGS)
 Datum
 _int_contains(PG_FUNCTION_ARGS)
 {
-	/* Force copy so we can modify the arrays in-place */
+	/* Force copy so we can modify the arrays in-place
+	 *
+	 * 强制复制，以便我们可以就地修改数组
+	 */
 	ArrayType  *a = PG_GETARG_ARRAYTYPE_P_COPY(0);
 	ArrayType  *b = PG_GETARG_ARRAYTYPE_P_COPY(1);
 	bool		res;

@@ -2,6 +2,8 @@ CREATE EXTENSION hstore_plpython3u CASCADE;
 
 
 -- test hstore -> python
+--
+-- 测试 hstore -> python
 CREATE FUNCTION test1(val hstore) RETURNS int
 LANGUAGE plpython3u
 TRANSFORM FOR TYPE hstore
@@ -15,6 +17,8 @@ SELECT test1('aa=>bb, cc=>NULL'::hstore);
 
 
 -- the same with the versioned language name
+--
+-- 与版本化语言名称相同
 CREATE FUNCTION test1n(val hstore) RETURNS int
 LANGUAGE plpython3u
 TRANSFORM FOR TYPE hstore
@@ -28,6 +32,8 @@ SELECT test1n('aa=>bb, cc=>NULL'::hstore);
 
 
 -- test that a non-mapping result is correctly rejected
+--
+-- 测试非映射结果是否被正确拒绝
 CREATE FUNCTION test1bad() RETURNS hstore
 LANGUAGE plpython3u
 TRANSFORM FOR TYPE hstore
@@ -39,6 +45,8 @@ SELECT test1bad();
 
 
 -- test hstore[] -> python
+--
+-- 测试 hstore[] -> python
 CREATE FUNCTION test1arr(val hstore[]) RETURNS int
 LANGUAGE plpython3u
 TRANSFORM FOR TYPE hstore
@@ -51,6 +59,8 @@ SELECT test1arr(array['aa=>bb, cc=>NULL'::hstore, 'dd=>ee']);
 
 
 -- test python -> hstore
+--
+-- 测试 python -> hstore
 CREATE FUNCTION test2(a int, b text) RETURNS hstore
 LANGUAGE plpython3u
 TRANSFORM FOR TYPE hstore
@@ -62,10 +72,14 @@ $$;
 SELECT test2(1, 'boo');
 
 --- test ruleutils
+--
+--- 测试规则实用程序
 \sf test2
 
 
 -- test python -> hstore[]
+--
+-- 测试 python -> hstore[]
 CREATE FUNCTION test2arr() RETURNS hstore[]
 LANGUAGE plpython3u
 TRANSFORM FOR TYPE hstore
@@ -78,6 +92,8 @@ SELECT test2arr();
 
 
 -- test python -> domain over hstore
+--
+-- 测试 python -> hstore 上的域
 CREATE DOMAIN hstore_foo AS hstore CHECK(VALUE ? 'foo');
 
 CREATE FUNCTION test2dom(fn text) RETURNS hstore_foo
@@ -92,6 +108,8 @@ SELECT test2dom('bar');  -- fail
 
 
 -- test as part of prepare/execute
+--
+-- 作为准备/执行的一部分进行测试
 CREATE FUNCTION test3() RETURNS void
 LANGUAGE plpython3u
 TRANSFORM FOR TYPE hstore
@@ -109,6 +127,8 @@ SELECT test3();
 
 
 -- test trigger
+--
+-- 测试触发器
 CREATE TABLE test1 (a int, b hstore);
 INSERT INTO test1 VALUES (1, 'aa=>bb, cc=>NULL');
 SELECT * FROM test1;

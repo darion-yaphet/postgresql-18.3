@@ -12,7 +12,10 @@
 #include "mb/pg_wchar.h"
 #include "utils/rel.h"
 
-/* used for key sorting */
+/* used for key sorting
+ *
+ * 用于键排序
+ */
 typedef struct
 {
 	int			i;
@@ -51,7 +54,10 @@ gbt_var_decompress(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(entry);
 }
 
-/* Returns a better readable representation of variable key ( sets pointer ) */
+/* Returns a better readable representation of variable key ( sets pointer )
+ *
+ * 返回变量键的更好可读的表示（设置指针）
+ */
 GBT_VARKEY_R
 gbt_var_key_readable(const GBT_VARKEY *k)
 {
@@ -68,6 +74,8 @@ gbt_var_key_readable(const GBT_VARKEY *k)
 
 /*
  * Create a leaf-entry to store in the index, from a single Datum.
+ *
+ * 从单个数据创建一个叶条目以存储在索引中。
  */
 static GBT_VARKEY *
 gbt_var_key_from_datum(const struct varlena *u)
@@ -84,6 +92,8 @@ gbt_var_key_from_datum(const struct varlena *u)
 
 /*
  * Create an entry to store in the index, from lower and upper bound.
+ *
+ * 创建一个条目以存储在索引中，从下限到上限。
  */
 GBT_VARKEY *
 gbt_var_key_copy(const GBT_VARKEY_R *u)
@@ -116,8 +126,12 @@ gbt_var_leaf2node(GBT_VARKEY *leaf, const gbtree_vinfo *tinfo, FmgrInfo *flinfo)
 /*
  * returns the common prefix length of a node key
  *
+ * 返回节点键的公共前缀长度
+ *
  * If the underlying type is character data, the prefix length may point in
  * the middle of a multibyte character.
+ *
+ * 如果基础类型是字符数据，则前缀长度可能指向多字节字符的中间。
 */
 static int32
 gbt_var_node_cp_len(const GBT_VARKEY *node, const gbtree_vinfo *tinfo)
@@ -154,7 +168,10 @@ gbt_var_node_cp_len(const GBT_VARKEY *node, const gbtree_vinfo *tinfo)
 			{
 				int32		l_matched_subset = l_total - l_left_to_match;
 
-				/* end common prefix at final byte of last matching char */
+				/* end common prefix at final byte of last matching char
+				 *
+				 * 最后一个匹配字符的最后一个字节处的结束公共前缀
+				 */
 				return i - l_matched_subset;
 			}
 			else
@@ -174,6 +191,8 @@ gbt_var_node_cp_len(const GBT_VARKEY *node, const gbtree_vinfo *tinfo)
 
 /*
  * returns true, if query matches prefix ( common prefix )
+ *
+ * 如果查询匹配前缀（公共前缀），则返回 true
  */
 static bool
 gbt_bytea_pf_match(const bytea *pf, const bytea *query, const gbtree_vinfo *tinfo)
@@ -196,6 +215,8 @@ gbt_bytea_pf_match(const bytea *pf, const bytea *query, const gbtree_vinfo *tinf
 
 /*
  * returns true, if query matches node using common prefix
+ *
+ * 如果查询使用公共前缀匹配节点，则返回 true
  */
 static bool
 gbt_var_node_pf_match(const GBT_VARKEY_R *node, const bytea *query, const gbtree_vinfo *tinfo)
@@ -209,6 +230,8 @@ gbt_var_node_pf_match(const GBT_VARKEY_R *node, const bytea *query, const gbtree
 /*
 *  truncates / compresses the node key
 *  cpf_length .. common prefix length
+*
+* 截断/压缩节点键 cpf_length .. 公共前缀长度
 */
 static GBT_VARKEY *
 gbt_var_node_truncate(const GBT_VARKEY *node, int32 cpf_length, const gbtree_vinfo *tinfo)
@@ -351,7 +374,10 @@ gbt_var_union(const GistEntryVector *entryvec, int32 *size, Oid collation,
 	}
 
 
-	/* Truncate (=compress) key */
+	/* Truncate (=compress) key
+	 *
+	 * 截断（=压缩）键
+	 */
 	if (tinfo->trnc)
 	{
 		int32		plen;
@@ -488,7 +514,10 @@ gbt_var_picksplit(const GistEntryVector *entryvec, GIST_SPLITVEC *v,
 
 	sv = palloc(sizeof(bytea *) * (maxoff + 1));
 
-	/* Sort entries */
+	/* Sort entries
+	 *
+	 * 对条目进行排序
+	 */
 
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 	{
@@ -518,7 +547,10 @@ gbt_var_picksplit(const GistEntryVector *entryvec, GIST_SPLITVEC *v,
 			  gbt_vsrt_cmp,
 			  &varg);
 
-	/* We do simply create two parts */
+	/* We do simply create two parts
+	 *
+	 * 我们只是简单地创建两个部分
+	 */
 
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 	{
@@ -536,7 +568,10 @@ gbt_var_picksplit(const GistEntryVector *entryvec, GIST_SPLITVEC *v,
 		}
 	}
 
-	/* Truncate (=compress) key */
+	/* Truncate (=compress) key
+	 *
+	 * 截断（=压缩）键
+	 */
 	if (tinfo->trnc)
 	{
 		int32		ll = gbt_var_node_cp_len((GBT_VARKEY *) DatumGetPointer(v->spl_ldatum), tinfo);
@@ -559,6 +594,8 @@ gbt_var_picksplit(const GistEntryVector *entryvec, GIST_SPLITVEC *v,
 
 /*
  * The GiST consistent method
+ *
+ * GiST一致方法
  */
 bool
 gbt_var_consistent(GBT_VARKEY_R *key,

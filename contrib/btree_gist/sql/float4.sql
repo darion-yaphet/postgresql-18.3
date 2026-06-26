@@ -1,4 +1,6 @@
 -- float4 check
+--
+-- float4 检查
 
 CREATE TABLE float4tmp (a float4);
 

@@ -52,8 +52,12 @@ typedef struct output_type
  * and approximate tuple_len on that basis. For the others, we count
  * the exact number of dead tuples etc.
  *
+ * 该函数采用一个已经打开的关系并扫描其页面，跳过那些设置了相应可见性映射位的页面。对于我们跳过的页面，我们从可用空间映射中找到可用空间，并在此基础上近似 tuple_len 。对于其他的，我们计算死亡元组的确切数量等。
+ *
  * This scan is loosely based on vacuumlazy.c:lazy_scan_heap(), but
  * we do not try to avoid skipping single pages.
+ *
+ * 此扫描松散地基于vacuumlazy.c:lazy_scan_heap()，但我们不会尝试避免跳过单个页面。
  */
 static void
 statapprox_heap(Relation rel, output_type *stat)
@@ -84,6 +88,8 @@ statapprox_heap(Relation rel, output_type *stat)
 		/*
 		 * If the page has only visible tuples, then we can find out the free
 		 * space from the FSM and move on.
+		 *
+		 * 如果页面只有可见元组，那么我们可以从 FSM 中找出可用空间并继续。
 		 */
 		if (VM_ALL_VISIBLE(rel, blkno, &vmbuffer))
 		{
@@ -102,7 +108,10 @@ statapprox_heap(Relation rel, output_type *stat)
 
 		stat->free_space += PageGetExactFreeSpace(page);
 
-		/* We may count the page as scanned even if it's new/empty */
+		/* We may count the page as scanned even if it's new/empty
+		 *
+		 * 即使页面是新的/空的，我们也可能将其视为已扫描的页面
+		 */
 		scanned++;
 
 		if (PageIsNew(page) || PageIsEmpty(page))
@@ -115,6 +124,8 @@ statapprox_heap(Relation rel, output_type *stat)
 		 * Look at each tuple on the page and decide whether it's live or
 		 * dead, then count it and its size. Unlike lazy_scan_heap, we can
 		 * afford to ignore problems and special cases.
+		 *
+		 * 查看页面上的每个元组并确定它是活的还是死的，然后计算它及其大小。与lazy_scan_heap不同，我们可以忽略问题和特殊情况。
 		 */
 		maxoff = PageGetMaxOffsetNumber(page);
 
@@ -146,6 +157,8 @@ statapprox_heap(Relation rel, output_type *stat)
 			 * as "dead" while DELETE_IN_PROGRESS tuples are "live".  We don't
 			 * bother distinguishing tuples inserted/deleted by our own
 			 * transaction.
+			 *
+			 * 我们遵循 VACUUM 的做法，将 INSERT_IN_PROGRESS 元组计为“死”元组，而将 DELETE_IN_PROGRESS 元组计为“活”元组。  我们不费心去区分我们自己的事务插入/删除的元组。
 			 */
 			switch (HeapTupleSatisfiesVacuum(&tuple, OldestXmin, buf))
 			{
@@ -178,15 +191,22 @@ statapprox_heap(Relation rel, output_type *stat)
 	 * just extrapolating linearly seems unsafe.)  There should be no dead
 	 * tuples in all-visible pages, so no correction is needed for that, and
 	 * we already accounted for the space in those pages, too.
+	 *
+	 * 我们不知道我们未扫描的页面中有多少元组，因此以与 VACUUM 相同的方式将活动元组计数推断到整个表。  （与 VACUUM 一样，我们不是随机采样，因此仅线性推断似乎不安全。）所有可见页面中不应该有死元组，因此不需要对此进行更正，并且我们也已经考虑了这些页面中的空间。
 	 */
 	stat->tuple_count = vac_estimate_reltuples(rel, nblocks, scanned,
 											   stat->tuple_count);
 
-	/* It's not clear if we could get -1 here, but be safe. */
+	/* It's not clear if we could get -1 here, but be safe.
+	 *
+	 * 目前尚不清楚我们是否可以在这里得到 -1，但要安全。
+	 */
 	stat->tuple_count = Max(stat->tuple_count, 0);
 
 	/*
 	 * Calculate percentages if the relation has one or more pages.
+	 *
+	 * 如果关系有一页或多页，则计算百分比。
 	 */
 	if (nblocks != 0)
 	{
@@ -206,9 +226,13 @@ statapprox_heap(Relation rel, output_type *stat)
 /*
  * Returns estimated live/dead tuple statistics for the given relid.
  *
+ * 返回给定 relid 的估计活/死元组统计信息。
+ *
  * The superuser() check here must be kept as the library might be upgraded
  * without the extension being upgraded, meaning that in pre-1.5 installations
  * these functions could be called by any user.
+ *
+ * 必须保留此处的 superuser() 检查，因为库可能会在扩展未升级的情况下升级，这意味着在 1.5 之前的安装中，任何用户都可以调用这些函数。
  */
 Datum
 pgstattuple_approx(PG_FUNCTION_ARGS)
@@ -228,7 +252,11 @@ pgstattuple_approx(PG_FUNCTION_ARGS)
  * is a superuser because we REVOKE EXECUTE on the SQL function from PUBLIC.
  * Users can then grant access to it based on their policies.
  *
+ * 从 pgstattuple 版本 1.5 开始，我们不再需要检查用户是否是超级用户，因为我们从 PUBLIC 中撤销了 SQL 函数上的 EXECUTE。然后，用户可以根据自己的策略授予对其的访问权限。
+ *
  * Otherwise identical to pgstattuple_approx (above).
+ *
+ * 否则与 pgstattuple_approx （上面）相同。
  */
 Datum
 pgstattuple_approx_v1_5(PG_FUNCTION_ARGS)
@@ -261,6 +289,8 @@ pgstattuple_approx_internal(Oid relid, FunctionCallInfo fcinfo)
 	 * Reject attempts to read non-local temporary relations; we would be
 	 * likely to get wrong data since we have no visibility into the owning
 	 * session's local buffers.
+	 *
+	 * 拒绝读取非本地临时关系的尝试；我们可能会得到错误的数据，因为我们看不到拥有会话的本地缓冲区。
 	 */
 	if (RELATION_IS_OTHER_TEMP(rel))
 		ereport(ERROR,
@@ -270,6 +300,8 @@ pgstattuple_approx_internal(Oid relid, FunctionCallInfo fcinfo)
 	/*
 	 * We support only relation kinds with a visibility map and a free space
 	 * map.
+	 *
+	 * 我们仅支持具有可见性图和自由空间图的关系类型。
 	 */
 	if (!(rel->rd_rel->relkind == RELKIND_RELATION ||
 		  rel->rd_rel->relkind == RELKIND_MATVIEW ||

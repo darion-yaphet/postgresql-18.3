@@ -9,8 +9,14 @@ use PostgreSQL::Test::Utils;
 use Test::More;
 
 # Runs the specified query and returns the emitted server log.
+#
+# 运行指定的查询并返回发出的服务器日志。
 # params is an optional hash mapping GUC names to values;
+#
+# params 是将 GUC 名称映射到值的可选哈希值；
 # any such settings are transmitted to the backend via PGOPTIONS.
+#
+# 任何此类设置都会通过 PGOPTIONS 传输到后端。
 sub query_log
 {
 	my ($node, $sql, $params) = @_;
@@ -36,6 +42,8 @@ $node->append_conf('postgresql.conf', "auto_explain.log_analyze = on");
 $node->start;
 
 # Simple query.
+#
+# 简单查询。
 my $log_contents = query_log($node, "SELECT * FROM pg_class;");
 
 like(
@@ -54,6 +62,8 @@ like(
 	"sequential scan logged, text mode");
 
 # Prepared query.
+#
+# 准备好的查询。
 $log_contents = query_log($node,
 	q{PREPARE get_proc(name) AS SELECT * FROM pg_proc WHERE proname = $1; EXECUTE get_proc('int4pl');}
 );
@@ -75,6 +85,8 @@ like(
 
 
 # Prepared query with truncated parameters.
+#
+# 已准备好带有截断参数的查询。
 $log_contents = query_log(
 	$node,
 	q{PREPARE get_type(name) AS SELECT * FROM pg_type WHERE typname = $1; EXECUTE get_type('float8');},
@@ -91,6 +103,8 @@ like(
 	"query parameters truncated, text mode");
 
 # Prepared query with parameter logging disabled.
+#
+# 已准备好的查询已禁用参数日志记录。
 $log_contents = query_log(
 	$node,
 	q{PREPARE get_type(name) AS SELECT * FROM pg_type WHERE typname = $1; EXECUTE get_type('float8');},
@@ -107,7 +121,11 @@ unlike(
 	"query parameters not logged when disabled, text mode");
 
 # Query Identifier.
+#
+# 查询标识符。
 # Logging enabled.
+#
+# 日志记录已启用。
 $log_contents = query_log(
 	$node,
 	"SELECT * FROM pg_class;",
@@ -122,6 +140,8 @@ like(
 	"query identifier logged with compute_query_id=on, text mode");
 
 # Logging disabled.
+#
+# 禁用日志记录。
 $log_contents = query_log(
 	$node,
 	"SELECT * FROM pg_class;",
@@ -136,6 +156,8 @@ unlike(
 	"query identifier not logged with compute_query_id=regress, text mode");
 
 # JSON format.
+#
+# JSON 格式。
 $log_contents = query_log(
 	$node,
 	"SELECT * FROM pg_class;",
@@ -157,6 +179,8 @@ like(
 	"sequential scan logged, json mode");
 
 # Prepared query in JSON format.
+#
+# 准备好的 JSON 格式的查询。
 $log_contents = query_log(
 	$node,
 	q{PREPARE get_class(name) AS SELECT * FROM pg_class WHERE relname = $1; EXECUTE get_class('pg_class');},
@@ -173,7 +197,11 @@ like(
 	"index scan logged, json mode");
 
 # Check that PGC_SUSET parameters can be set by non-superuser if granted,
+#
+# 检查 PGC_SUSET 参数是否可以由非超级用户设置（如果授予），
 # otherwise not
+#
+# 否则不
 
 $node->safe_psql(
 	"postgres", q{
@@ -213,7 +241,11 @@ DROP USER regress_user1;
 });
 
 # Test pg_get_loaded_modules() function.  This function is particularly
+#
+# 测试 pg_get_loaded_modules() 函数。  这个功能特别
 # useful for modules with no SQL presence, such as auto_explain.
+#
+# 对于不存在 SQL 的模块很有用，例如 auto_explain。
 
 my $res = $node->safe_psql(
 	"postgres", q{
