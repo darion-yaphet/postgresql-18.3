@@ -2,6 +2,7 @@
  *
  * pg_amcheck.c
  *		Detects corruption within database relations.
+ *		检测数据库关系文件中的损坏。
  *
  * Copyright (c) 2017-2025, PostgreSQL Global Development Group
  *
@@ -9,6 +10,30 @@
  *	  src/bin/pg_amcheck/pg_amcheck.c
  *
  *-------------------------------------------------------------------------
+ */
+
+/*
+ * pg_amcheck 核心流程与主要函数说明（中文说明）：
+ *
+ * 1. 核心流程：
+ *    - 这是一个命令行工具，在客户端运行，通过建立与数据库的并行连接来验证各关系（表和索引）的逻辑一致性。
+ *    - 解析命令行选项（如 -t/--table, -i/--index, -d/--database 选项）以建立需要验证和排除的关系白名单/黑名单。
+ *    - 建立与主维护数据库的连接，获取满足条件的目标数据库列表。
+ *    - 对每个待检查数据库执行查询：
+ *      a) 验证是否安装了 contrib/amcheck 插件，并获取其对应的模式（schema）空间位置与版本。
+ *      b) 执行大型 SQL 查询，根据用户提供的正则匹配过滤规则（如 include/exclude schema/table/index 等），
+ *         生成具体的待验证关系列表（并按大小降序排序以优化工作调度）。
+ *    - 建立并行工作通道槽（ParallelSlotsSetup），使用服务器端单连接独立后端异步执行 amcheck 命令：
+ *      - 对于堆表（Heap）：调用 verify_heapam() 函数，验证页面格式、结构，以及表与其 TOAST 关联表的一致性。
+ *      - 对于 B 树索引（B-tree）：调用 bt_index_check() 或 bt_index_parent_check() 函数。
+ *    - 实时收集行输出和服务器 ERROR，并将详细的逻辑页损坏信息归档报告给用户。
+ *
+ * 2. 核心函数：
+ *    - main(): 主入口点，解析参数并控制整个跨数据库、跨关系的 amcheck 调度和主事件循环。
+ *    - compile_database_list(): 根据提供的过滤模式查询满足条件的 checkable 数据库。
+ *    - compile_relation_list_one_db(): 核心元数据查询函数，构建当前数据库中的所有待检查关系项列表。
+ *    - prepare_heap_command() / prepare_btree_command(): 构建传递给数据库后端执行 amcheck 校验所需的 SQL 命令字符串。
+ *    - verify_heap_slot_handler() / verify_btree_slot_handler(): 异步并行槽回调处理函数，用于解析并输出检验得到的页损坏信息。
  */
 #include "postgres_fe.h"
 
@@ -33,16 +58,25 @@
 typedef struct PatternInfo
 {
 	const char *pattern;		/* Unaltered pattern from the command line */
+								/* 命令行中未更改的原始模式 */
 	char	   *db_regex;		/* Database regexp parsed from pattern, or
 								 * NULL */
+								/* 从模式中解析出的数据库正则表达式，或
+								 * NULL */
 	char	   *nsp_regex;		/* Schema regexp parsed from pattern, or NULL */
+								/* 从模式中解析出的命名空间（模式）正则表达式，或 NULL */
 	char	   *rel_regex;		/* Relation regexp parsed from pattern, or
+								 * NULL */
+								/* 从模式中解析出的关系正则表达式，或
 								 * NULL */
 	bool		heap_only;		/* true if rel_regex should only match heap
 								 * tables */
+								/* 如果 rel_regex 应该仅匹配堆表，则为 true */
 	bool		btree_only;		/* true if rel_regex should only match btree
 								 * indexes */
+								/* 如果 rel_regex 应该仅匹配 B 树索引，则为 true */
 	bool		matched;		/* true if the pattern matched in any database */
+								/* 如果该模式在任何数据库中匹配成功，则为 true */
 } PatternInfo;
 
 typedef struct PatternInfoArray
@@ -52,6 +86,7 @@ typedef struct PatternInfoArray
 } PatternInfoArray;
 
 /* pg_amcheck command line options controlled by user flags */
+/* 由用户标志控制的 pg_amcheck 命令行选项 */
 typedef struct AmcheckOptions
 {
 	bool		dbpattern;
@@ -66,10 +101,14 @@ typedef struct AmcheckOptions
 	 * Whether to install missing extensions, and optionally the name of the
 	 * schema in which to install the extension's objects.
 	 */
+	/*
+	 * 是否安装缺失的扩展，以及（可选的）要安装该扩展对象的 schema（模式）名称。
+	 */
 	bool		install_missing;
 	char	   *install_schema;
 
 	/* Objects to check or not to check, as lists of PatternInfo structs. */
+	/* 要检查或不检查的对象，作为 PatternInfo 结构体的列表。 */
 	PatternInfoArray include;
 	PatternInfoArray exclude;
 
@@ -80,6 +119,11 @@ typedef struct AmcheckOptions
 	 * always agree with what you'd conclude by grep'ing through the exclude
 	 * list.
 	 */
+	/*
+	 * 作为一种优化，如果排除列表中的任何模式适用于堆表，或者类似地适用于 B 树索引或
+	 * 命名空间，则这些变量将为 true，否则为 false。这些变量应始终与您在
+	 * 排除列表中搜索得出的结论一致。
+	 */
 	bool		excludetbl;
 	bool		excludeidx;
 	bool		excludensp;
@@ -89,9 +133,14 @@ typedef struct AmcheckOptions
 	 * matching relations rather than all relations, so this is true iff
 	 * include is empty.
 	 */
+	/*
+	 * 如果存在任何包含模式，则我们应该只检查匹配的关系，而不是所有关系，
+	 * 因此当且仅当 include 为空时，此变量为 true。
+	 */
 	bool		allrel;
 
 	/* heap table checking options */
+	/* 堆表检查选项 */
 	bool		no_toast_expansion;
 	bool		reconcile_toast;
 	bool		on_error_stop;
@@ -100,12 +149,14 @@ typedef struct AmcheckOptions
 	const char *skip;
 
 	/* btree index checking options */
+	/* B 树索引检查选项 */
 	bool		parent_check;
 	bool		rootdescend;
 	bool		heapallindexed;
 	bool		checkunique;
 
 	/* heap and btree hybrid option */
+	/* 堆和 B 树的混合选项 */
 	bool		no_btree_expansion;
 } AmcheckOptions;
 
@@ -141,9 +192,11 @@ static AmcheckOptions opts = {
 static const char *progname = NULL;
 
 /* Whether all relations have so far passed their corruption checks */
+/* 到目前为止，所有关系是否都通过了它们的损坏检查 */
 static bool all_checks_pass = true;
 
 /* Time last progress report was displayed */
+/* 上一次显示进度报告的时间 */
 static pg_time_t last_progress_report = 0;
 static bool progress_since_last_stderr = false;
 
@@ -157,18 +210,25 @@ typedef struct DatabaseInfo
 typedef struct RelationInfo
 {
 	const DatabaseInfo *datinfo;	/* shared by other relinfos */
+									/* 由其他关系信息共享 */
 	Oid			reloid;
 	bool		is_heap;		/* true if heap, false if btree */
+								/* 如果是堆表则为 true，如果是 B 树索引则为 false */
 	char	   *nspname;
 	char	   *relname;
 	int			relpages;
 	int			blocks_to_check;
 	char	   *sql;			/* set during query run, pg_free'd after */
+								/* 在查询运行期间设置，之后被 pg_free 释放 */
 } RelationInfo;
 
 /*
  * Query for determining if contrib's amcheck is installed.  If so, selects the
  * namespace name where amcheck's functions can be found.
+ */
+/*
+ * 用于确定是否已安装 contrib 的 amcheck 的查询。如果是，选择可以找到 amcheck 函数的
+ * 命名空间名称。
  */
 static const char *const amcheck_sql =
 "SELECT n.nspname, x.extversion FROM pg_catalog.pg_extension x"
@@ -296,6 +356,7 @@ main(int argc, char *argv[])
 	handle_help_version_opts(argc, argv, progname, help);
 
 	/* process command-line options */
+	/* 处理命令行选项 */
 	while ((c = getopt_long(argc, argv, "ad:D:eh:Hi:I:j:p:Pr:R:s:S:t:T:U:vwW",
 							long_options, &optindex)) != -1)
 	{
@@ -444,6 +505,7 @@ main(int argc, char *argv[])
 				break;
 			default:
 				/* getopt_long already emitted a complaint */
+				/* getopt_long 已经发出了投诉 */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
 				exit(1);
 		}
@@ -455,6 +517,9 @@ main(int argc, char *argv[])
 	/*
 	 * A single non-option arguments specifies a database name or connection
 	 * string.
+	 */
+	/*
+	 * 单个非选项参数指定数据库名称或连接字符串。
 	 */
 	if (optind < argc)
 	{
@@ -471,6 +536,7 @@ main(int argc, char *argv[])
 	}
 
 	/* fill cparams except for dbname, which is set below */
+	/* 填充 cparams，除了在下方设置的 dbname */
 	cparams.pghost = host;
 	cparams.pgport = port;
 	cparams.pguser = username;
@@ -481,6 +547,7 @@ main(int argc, char *argv[])
 	setup_cancel_handler(NULL);
 
 	/* choose the database for our initial connection */
+	/* 选择我们初始连接的数据库 */
 	if (opts.alldb)
 	{
 		if (db != NULL)
@@ -525,6 +592,9 @@ main(int argc, char *argv[])
 	/*
 	 * Compile a list of all relations spanning all databases to be checked.
 	 */
+	/*
+	 * 编译一个跨越所有要检查数据库的关系列表。
+	 */
 	for (cell = databases.head; cell; cell = cell->next)
 	{
 		PGresult   *result;
@@ -544,6 +614,9 @@ main(int argc, char *argv[])
 		 * Optionally install amcheck if not already installed in this
 		 * database.
 		 */
+		/*
+		 * 如果此数据库中尚未安装 amcheck，则选择性地安装它。
+		 */
 		if (opts.install_missing)
 		{
 			char	   *schema;
@@ -552,6 +625,9 @@ main(int argc, char *argv[])
 			/*
 			 * Must re-escape the schema name for each database, as the
 			 * escaping rules may change.
+			 */
+			/*
+			 * 必须为每个数据库重新转义模式（schema）名称，因为转义规则可能会改变。
 			 */
 			schema = PQescapeIdentifier(conn, opts.install_schema,
 										strlen(opts.install_schema));
@@ -570,10 +646,16 @@ main(int argc, char *argv[])
 		 * where not all of them have amcheck installed (for example,
 		 * 'template1').
 		 */
+		/*
+		 * 验证此下一个数据库是否已安装 amcheck。用户错误可能导致原本应该安装
+		 * amcheck 的数据库实际上没有安装，但我们也可能是在迭代多个数据库，
+		 * 其中并非所有数据库都安装了 amcheck（例如 'template1'）。
+		 */
 		result = executeQuery(conn, amcheck_sql, opts.echo);
 		if (PQresultStatus(result) != PGRES_TUPLES_OK)
 		{
 			/* Querying the catalog failed. */
+			/* 查询系统表失败。 */
 			pg_log_error("database \"%s\": %s",
 						 PQdb(conn), PQerrorMessage(conn));
 			pg_log_error_detail("Query was: %s", amcheck_sql);
@@ -585,6 +667,7 @@ main(int argc, char *argv[])
 		if (ntups == 0)
 		{
 			/* Querying the catalog succeeded, but amcheck is missing. */
+			/* 查询系统表成功，但缺少 amcheck。 */
 			pg_log_warning("skipping database \"%s\": amcheck is not installed",
 						   PQdb(conn));
 			PQclear(result);
@@ -604,12 +687,20 @@ main(int argc, char *argv[])
 		 * constraint check with warning if it is not yet supported by
 		 * amcheck.
 		 */
+		/*
+		 * 检查 amcheck 扩展的版本。如果 amcheck 尚不支持请求的唯一性约束检查，
+		 * 则跳过并发出警告。
+		 */
 		if (opts.checkunique == true)
 		{
 			/*
 			 * Now amcheck has only major and minor versions in the string but
 			 * we also support revision just in case. Now it is expected to be
 			 * zero.
+			 */
+			/*
+			 * 尽管当前 amcheck 的版本字符串中只有主版本号和次版本号，但我们也支持修订号以防万一。
+			 * 目前预计它为零。
 			 */
 			int			vmaj = 0,
 						vmin = 0,
@@ -620,6 +711,9 @@ main(int argc, char *argv[])
 
 			/*
 			 * checkunique option is supported in amcheck since version 1.4
+			 */
+			/*
+			 * 自 1.4 版本起，amcheck 支持 checkunique 选项
 			 */
 			if ((vmaj == 1 && vmin < 4) || vmaj == 0)
 			{
@@ -639,6 +733,9 @@ main(int argc, char *argv[])
 	/*
 	 * Check that all inclusion patterns matched at least one schema or
 	 * relation that we can check.
+	 */
+	/*
+	 * 检查所有包含模式是否至少匹配了一个我们可以检查的模式（schema）或关系。
 	 */
 	for (pattern_id = 0; pattern_id < opts.include.len; pattern_id++)
 	{
@@ -674,6 +771,9 @@ main(int argc, char *argv[])
 	 * Set parallel_workers to the lesser of opts.jobs and the number of
 	 * relations.
 	 */
+	/*
+	 * 将 parallel_workers 设置为 opts.jobs 和关系数量中较小的一个。
+	 */
 	parallel_workers = 0;
 	for (cell = relations.head; cell; cell = cell->next)
 	{
@@ -698,6 +798,12 @@ main(int argc, char *argv[])
 	 * relations in parallel.  The list of relations was computed in database
 	 * order, which minimizes the number of connects and disconnects as we
 	 * process the list.
+	 */
+	/*
+	 * 主事件循环。
+	 *
+	 * 我们使用服务器端并行机制并行检查多达 parallel_workers 个关系。关系列表是按
+	 * 数据库顺序计算的，这在我们处理列表时最小化了连接和断开连接的次数。
 	 */
 	latest_datname = NULL;
 	sa = ParallelSlotsSetup(parallel_workers, &cparams, progname, opts.echo,
@@ -728,6 +834,10 @@ main(int argc, char *argv[])
 		 * about to start checking this database.  Note that other slots may
 		 * still be working on relations from prior databases.
 		 */
+		/*
+		 * 关系列表是按数据库排序的。如果这下一个关系与上一个看到的关系处于不同的数据库，
+		 * 我们就要开始检查这个数据库了。请注意，其他插槽（slots）可能仍在处理先前数据库中的关系。
+		 */
 		latest_datname = rel->datinfo->datname;
 
 		progress_report(reltotal, relprogress, pagestotal, pageschecked,
@@ -742,6 +852,10 @@ main(int argc, char *argv[])
 		 * command fails, indicating that we should abort checking the
 		 * remaining objects.
 		 */
+		/*
+		 * 为下一个 amcheck 命令获取一个并行插槽，如果需要，阻塞直到有一个可用，
+		 * 或者直到先前发出的插槽命令失败，这表明我们应该中止检查剩余的对象。
+		 */
 		free_slot = ParallelSlotsGetIdle(sa, rel->datinfo->datname);
 		if (!free_slot)
 		{
@@ -749,6 +863,10 @@ main(int argc, char *argv[])
 			 * Something failed.  We don't need to know what it was, because
 			 * the handler should already have emitted the necessary error
 			 * messages.
+			 */
+			/*
+			 * 发生了故障。我们不需要知道具体是什么，因为处理程序（handler）
+			 * 应该已经发出了必要的错误信息。
 			 */
 			failed = true;
 			break;
@@ -762,6 +880,10 @@ main(int argc, char *argv[])
 		 * slot's database connection.  We do not wait for the command to
 		 * complete, nor do we perform any error checking, as that is done by
 		 * the parallel slots and our handler callback functions.
+		 */
+		/*
+		 * 使用我们插槽的数据库连接为该关系执行适当的 amcheck 命令。我们不等待命令
+		 * 完成，也不执行任何错误检查，因为这些工作由并行插槽和我们的回调处理函数完成。
 		 */
 		if (rel->is_heap)
 		{
@@ -805,6 +927,10 @@ main(int argc, char *argv[])
 		 * error occurred.  Like above, we rely on the handler emitting the
 		 * necessary error messages.
 		 */
+		/*
+		 * 等待所有插槽完成，或者等待其中一个指示发生错误。如上所述，我们依赖
+		 * 处理程序发出必要的错误信息。
+		 */
 		if (sa && !ParallelSlotsWaitCompletion(sa))
 			failed = true;
 
@@ -838,6 +964,19 @@ main(int argc, char *argv[])
  * sql: buffer into which the heap table checking command will be written
  * rel: relation information for the heap table to be checked
  * conn: the connection to be used, for string escaping purposes
+ */
+/*
+ * prepare_heap_command
+ *
+ * 创建一个用于在给定的堆表关系上运行 amcheck 检查的 SQL 命令。该命令以 SQL 查询的形式
+ * 表达，其列顺序和名称符合 verify_heap_slot_handler 的预期，该处理程序将接收并处理
+ * 从 verify_heapam() 函数返回的每一行。
+ *
+ * 构建的 SQL 命令将静默跳过临时表，因为检查它们会无谓地引发底层 amcheck 函数的错误。
+ *
+ * sql: 将写入堆表检查命令的缓冲区
+ * rel: 要检查的堆表的关系信息
+ * conn: 要使用的连接，用于字符串转义目的
  */
 static void
 prepare_heap_command(PQExpBuffer sql, RelationInfo *rel, PGconn *conn)
@@ -878,6 +1017,20 @@ prepare_heap_command(PQExpBuffer sql, RelationInfo *rel, PGconn *conn)
  * sql: buffer into which the heap table checking command will be written
  * rel: relation information for the index to be checked
  * conn: the connection to be used, for string escaping purposes
+ */
+/*
+ * prepare_btree_command
+ *
+ * 创建一个用于在给定的 B 树索引关系上运行 amcheck 检查的 SQL 命令。该命令不选择任何列，
+ * 因为 B 树检查函数不返回任何列，而是通过引发错误（ERROR）来返回损坏信息，
+ * verify_btree_slot_handler 正是期望如此。
+ *
+ * 构建的 SQL 命令将静默跳过临时索引，以及并发重建的索引（CONCURRENTLY），
+ * 因为检查它们会无谓地引发底层 amcheck 函数的错误。
+ *
+ * sql: 将写入堆表检查命令的缓冲区
+ * rel: 要检查的索引的关系信息
+ * conn: 要使用的连接，用于字符串转义目的
  */
 static void
 prepare_btree_command(PQExpBuffer sql, RelationInfo *rel, PGconn *conn)
@@ -928,6 +1081,17 @@ prepare_btree_command(PQExpBuffer sql, RelationInfo *rel, PGconn *conn)
  * slot: slot with connection to the server we should use for the command
  * sql: query to send
  */
+/*
+ * run_command
+ *
+ * 向服务器发送命令，而无需等待命令完成。如果无法发送命令则记录错误，
+ * 但除此之外，任何错误均应由 ParallelSlotHandler 处理。
+ *
+ * 如果需要重新连接数据库，可能会修改 cparams 参数。
+ *
+ * slot: 包含我们应用于该命令的服务器连接的插槽
+ * sql: 要发送的查询
+ */
 static void
 run_command(ParallelSlot *slot, const char *sql)
 {
@@ -960,6 +1124,18 @@ run_command(ParallelSlot *slot, const char *sql)
  *
  * res: result from an executed sql query
  */
+/*
+ * should_processing_continue
+ *
+ * 检查从查询中返回的查询结果（可能是通过插槽连接发出的），以确定并行插槽是否应继续
+ * 发出进一步的命令。
+ *
+ * 注意：堆表损坏是由 verify_heapam() 通过结果集报告的，而不是通过 ERROR 报告。但是，
+ * 由于缺少关系文件、坏校验和等，在损坏的堆表上运行 verify_heapam() 仍可能导致服务器返回错误。
+ * B 树损坏检查函数始终使用错误来传递损坏消息。我们不能仅仅因为收到普通的 ERROR 就中止处理。
+ *
+ * res: 执行的 sql 查询的结果
+ */
 static bool
 should_processing_continue(PGresult *res)
 {
@@ -968,16 +1144,19 @@ should_processing_continue(PGresult *res)
 	switch (PQresultStatus(res))
 	{
 			/* These are expected and ok */
+	/* 这些是符合预期的，没有问题 */
 		case PGRES_COMMAND_OK:
 		case PGRES_TUPLES_OK:
 		case PGRES_NONFATAL_ERROR:
 			break;
 
 			/* This is expected but requires closer scrutiny */
+	/* 这是符合预期的，但需要更仔细的审查 */
 		case PGRES_FATAL_ERROR:
 			severity = PQresultErrorField(res, PG_DIAG_SEVERITY_NONLOCALIZED);
 			if (severity == NULL)
 				return false;	/* libpq failure, probably lost connection */
+	/* libpq 失败，可能丢失了连接 */
 			if (strcmp(severity, "FATAL") == 0)
 				return false;
 			if (strcmp(severity, "PANIC") == 0)
@@ -1003,6 +1182,11 @@ should_processing_continue(PGresult *res)
  * Returns a copy of the argument string with all lines indented four spaces.
  *
  * The caller should pg_free the result when finished with it.
+ */
+/*
+ * 返回参数字符串的副本，其中所有行均缩进四个空格。
+ *
+ * 调用者在使用完毕后应 pg_free 释放结果。
  */
 static char *
 indent_lines(const char *str)
@@ -1035,6 +1219,16 @@ indent_lines(const char *str)
  * conn: connection on which the sql query was executed
  * context: the sql query being handled, as a cstring
  */
+/*
+ * verify_heap_slot_handler
+ *
+ * 并行插槽处理程序，它接收由 prepare_heap_command 创建的堆表检查命令返回的结果，
+ * 并向用户输出这些结果。
+ *
+ * res: 执行的 sql 查询的结果
+ * conn: 执行 sql 查询所在的连接
+ * context: 正在处理的 sql 查询，作为 cstring
+ */
 static bool
 verify_heap_slot_handler(PGresult *res, PGconn *conn, void *context)
 {
@@ -1053,6 +1247,7 @@ verify_heap_slot_handler(PGresult *res, PGconn *conn, void *context)
 			const char *msg;
 
 			/* The message string should never be null, but check */
+	/* 消息字符串永远不应为空，但仍做检查 */
 			if (PQgetisnull(res, i, 3))
 				msg = "NO MESSAGE";
 			else
@@ -1116,6 +1311,17 @@ verify_heap_slot_handler(PGresult *res, PGconn *conn, void *context)
  * conn: connection on which the sql query was executed
  * context: unused
  */
+/*
+ * verify_btree_slot_handler
+ *
+ * 并行插槽处理程序，接收由 prepare_btree_command 创建的 B 树检查命令的结果，
+ * 并将其输出给用户。B 树检查命令的常规返回结果应为空，但当结果是一个错误代码时，
+ * 有关损坏的有用信息应包含在连接的错误消息中。
+ *
+ * res: 执行的 sql 查询的结果
+ * conn: 执行 sql 查询所在的连接
+ * context: 未使用
+ */
 static bool
 verify_btree_slot_handler(PGresult *res, PGconn *conn, void *context)
 {
@@ -1140,6 +1346,15 @@ verify_btree_slot_handler(PGresult *res, PGconn *conn, void *context)
 			 * newline, so we print one.  If we were multithreaded, we'd have
 			 * to avoid splitting this across multiple calls, but we're in an
 			 * event loop, so it doesn't matter.
+			 */
+			/*
+			 * 我们希望每个 B 树检查函数都返回一个空行（void row），或者在由于对象处于错误状态
+			 * 而跳过检查时返回零行，因此如果得到更多数据，我们应该输出某种警告，
+			 * 这不是因为它表示数据损坏，而是因为它暗示 amcheck 和 pg_amcheck 版本不匹配。
+			 *
+			 * 结合使用 --progress 选项，如果不额外换行，此时写入 stderr 的任何内容都会给用户带来
+			 * 奇怪的展现，所以我们打印一个换行。如果是多线程的，我们将不得不避免跨多次调用拆分此打印，
+			 * 但我们处于事件循环中，所以没关系。
 			 */
 			if (opts.show_progress && progress_since_last_stderr)
 				fprintf(stderr, "\n");
@@ -1178,6 +1393,13 @@ verify_btree_slot_handler(PGresult *res, PGconn *conn, void *context)
  * Prints help page for the program
  *
  * progname: the name of the executed program, such as "pg_amcheck"
+ */
+/*
+ * help
+ *
+ * 打印程序的帮助页面
+ *
+ * progname: 执行的程序名称，例如 "pg_amcheck"
  */
 static void
 help(const char *progname)
@@ -1240,6 +1462,13 @@ help(const char *progname)
  * If finished is set to true, this is the last progress report. The cursor
  * is moved to the next line.
  */
+/*
+ * 根据全局变量打印进度报告。
+ *
+ * 进度报告最多每秒写入一次，除非将 force 参数设置为 true。
+ *
+ * 如果 finished 设置为 true，这是最后一次进度报告。光标将移动到下一行。
+ */
 static void
 progress_report(uint64 relations_total, uint64 relations_checked,
 				uint64 relpages_total, uint64 relpages_checked,
@@ -1280,6 +1509,9 @@ progress_report(uint64 relations_total, uint64 relations_checked,
 			 * No datname given, so clear the status line (used for first and
 			 * last call)
 			 */
+			/*
+			 * 未给出 datname，因此清除状态行（用于第一次和最后一次调用）
+			 */
 			fprintf(stderr,
 					_("%*s/%s relations (%d%%), %*s/%s pages (%d%%) %*s"),
 					(int) strlen(total_rel),
@@ -1298,10 +1530,12 @@ progress_report(uint64 relations_total, uint64 relations_checked,
 					(int) strlen(total_pages),
 					checked_pages, total_pages, percent_pages,
 			/* Prefix with "..." if we do leading truncation */
+			/* 如果我们进行前导截断，则前缀为 "..." */
 					truncate ? "..." : "",
 					truncate ? VERBOSE_DATNAME_LENGTH - 3 : VERBOSE_DATNAME_LENGTH,
 					truncate ? VERBOSE_DATNAME_LENGTH - 3 : VERBOSE_DATNAME_LENGTH,
 			/* Truncate datname at beginning if it's too long */
+			/* 如果太长，则在开始处截断 datname */
 					truncate ? datname + strlen(datname) - VERBOSE_DATNAME_LENGTH + 3 : datname);
 		}
 	}
@@ -1317,6 +1551,9 @@ progress_report(uint64 relations_total, uint64 relations_checked,
 	 * Stay on the same line if reporting to a terminal and we're not done
 	 * yet.
 	 */
+	/*
+	 * 如果向终端报告并且尚未完成，则保持在同一行。
+	 */
 	if (!finished && isatty(fileno(stderr)))
 	{
 		fputc('\r', stderr);
@@ -1331,6 +1568,11 @@ progress_report(uint64 relations_total, uint64 relations_checked,
  * info entry.
  *
  * Returns a pointer to the new entry.
+ */
+/*
+ * 扩展模式信息数组以容纳另外一个已初始化的模式信息条目。
+ *
+ * 返回指向新条目的指针。
  */
 static PatternInfo *
 extend_pattern_info_array(PatternInfoArray *pia)
@@ -1353,6 +1595,15 @@ extend_pattern_info_array(PatternInfoArray *pia)
  * pia: the pattern info array to be appended
  * pattern: the database name pattern
  * encoding: client encoding for parsing the pattern
+ */
+/*
+ * append_database_pattern
+ *
+ * 添加给定模式，解析为数据库名称模式。
+ *
+ * pia: 要追加的模式信息数组
+ * pattern: 数据库名称模式
+ * encoding: 用于解析模式的客户端编码
  */
 static void
 append_database_pattern(PatternInfoArray *pia, const char *pattern, int encoding)
@@ -1383,6 +1634,15 @@ append_database_pattern(PatternInfoArray *pia, const char *pattern, int encoding
  * pia: the pattern info array to be appended
  * pattern: the schema name pattern
  * encoding: client encoding for parsing the pattern
+ */
+/*
+ * append_schema_pattern
+ *
+ * 添加给定模式，解析为模式（schema）名称模式。
+ *
+ * pia: 要追加的模式信息数组
+ * pattern: 模式（schema）名称模式
+ * encoding: 用于解析模式的客户端编码
  */
 static void
 append_schema_pattern(PatternInfoArray *pia, const char *pattern, int encoding)
@@ -1425,6 +1685,17 @@ append_schema_pattern(PatternInfoArray *pia, const char *pattern, int encoding)
  * encoding: client encoding for parsing the pattern
  * heap_only: whether the pattern should only be matched against heap tables
  * btree_only: whether the pattern should only be matched against btree indexes
+ */
+/*
+ * append_relation_pattern_helper
+ *
+ * 将给定模式（解析为关系模式）添加到列表中。
+ *
+ * pia: 要追加的模式信息数组
+ * pattern: 关系名称模式
+ * encoding: 用于解析模式的客户端编码
+ * heap_only: 该模式是否应该仅匹配堆表
+ * btree_only: 该模式是否应该仅匹配 B 树索引
  */
 static void
 append_relation_pattern_helper(PatternInfoArray *pia, const char *pattern,
@@ -1476,6 +1747,15 @@ append_relation_pattern_helper(PatternInfoArray *pia, const char *pattern,
  * pattern: the relation name pattern
  * encoding: client encoding for parsing the pattern
  */
+/*
+ * append_relation_pattern
+ *
+ * 添加给定的关系模式，用于与堆表和 B 树索引进行匹配。
+ *
+ * pia: 要追加的模式信息数组
+ * pattern: 关系名称模式
+ * encoding: 用于解析模式的客户端编码
+ */
 static void
 append_relation_pattern(PatternInfoArray *pia, const char *pattern, int encoding)
 {
@@ -1492,6 +1772,15 @@ append_relation_pattern(PatternInfoArray *pia, const char *pattern, int encoding
  * pattern: the relation name pattern
  * encoding: client encoding for parsing the pattern
  */
+/*
+ * append_heap_pattern
+ *
+ * 添加给定的关系模式，仅与堆表进行匹配。
+ *
+ * pia: 要追加的模式信息数组
+ * pattern: 关系名称模式
+ * encoding: 用于解析模式的客户端编码
+ */
 static void
 append_heap_pattern(PatternInfoArray *pia, const char *pattern, int encoding)
 {
@@ -1507,6 +1796,15 @@ append_heap_pattern(PatternInfoArray *pia, const char *pattern, int encoding)
  * pia: the pattern info array to be appended
  * pattern: the relation name pattern
  * encoding: client encoding for parsing the pattern
+ */
+/*
+ * append_btree_pattern
+ *
+ * 添加给定的关系模式，仅与 B 树索引进行匹配。
+ *
+ * pia: 要追加的模式信息数组
+ * pattern: 关系名称模式
+ * encoding: 用于解析模式的客户端编码
  */
 static void
 append_btree_pattern(PatternInfoArray *pia, const char *pattern, int encoding)
@@ -1534,6 +1832,24 @@ append_btree_pattern(PatternInfoArray *pia, const char *pattern, int encoding)
  * inclusive: whether to include patterns with schema and/or relation parts
  *
  * Returns whether any database patterns were appended.
+ */
+/*
+ * append_db_pattern_cte
+ *
+ * 向缓冲区追加公共表表达式（CTE）的主体，该表达式包含从模式列表中过滤的数据库部分，
+ * 表达为两列：
+ *
+ *     pattern_id: 此模式在 pia->data[] 中的索引
+ *     rgx: 从模式中解析出的数据库正则表达式
+ *
+ * 跳过没有数据库部分的模式。根据参数 'inclusive'，具有多于仅数据库部分的模式可能会被跳过。
+ *
+ * buf: 要追加的缓冲区
+ * pia: 要插入 CTE 的模式数组
+ * conn: 数据库连接
+ * inclusive: 是否包含带有 schema 和/或 relation 部分的模式
+ *
+ * 返回是否追加了任何数据库模式。
  */
 static bool
 append_db_pattern_cte(PQExpBuffer buf, const PatternInfoArray *pia,
@@ -1581,6 +1897,17 @@ append_db_pattern_cte(PQExpBuffer buf, const PatternInfoArray *pia,
  * databases: the list onto which databases should be appended
  * initial_dbname: an optional extra database name to include in the list
  */
+/*
+ * compile_database_list
+ *
+ * 如果存在任何数据库模式，或者如果给出了 --all 选项，则通过基于该模式以及字面初始数据库名称
+ * （如果给定）的 SQL 查询，编译一个要去检查的非重复数据库列表。如果不存在数据库模式且没有
+ * 给出 --all，则不需要执行此查询，并且仅将初始数据库名称（如果有）添加到列表中。
+ *
+ * conn: 到初始数据库的连接
+ * databases: 数据库应追加到的目标列表
+ * initial_dbname: 要包含在列表中的可选附加数据库名称
+ */
 static void
 compile_database_list(PGconn *conn, SimplePtrList *databases,
 					  const char *initial_dbname)
@@ -1596,6 +1923,7 @@ compile_database_list(PGconn *conn, SimplePtrList *databases,
 		DatabaseInfo *dat = (DatabaseInfo *) pg_malloc0(sizeof(DatabaseInfo));
 
 		/* This database is included.  Add to list */
+	/* 此数据库已被包含。添加到列表中 */
 		if (opts.verbose)
 			pg_log_info("including database \"%s\"", initial_dbname);
 
@@ -1606,6 +1934,7 @@ compile_database_list(PGconn *conn, SimplePtrList *databases,
 	initPQExpBuffer(&sql);
 
 	/* Append the include patterns CTE. */
+	/* 追加包含模式的公共表表达式（include patterns CTE）。 */
 	appendPQExpBufferStr(&sql, "WITH include_raw (pattern_id, rgx) AS (");
 	if (!append_db_pattern_cte(&sql, &opts.include, conn, true) &&
 		!opts.alldb)
@@ -1618,11 +1947,17 @@ compile_database_list(PGconn *conn, SimplePtrList *databases,
 		 * Since we're also not operating under --all, we don't need to query
 		 * the exhaustive list of connectable databases, either.
 		 */
+		/*
+		 * 包含模式（如果有）中均不包含数据库部分，因此无需查询数据库来解析数据库模式。
+		 *
+		 * 另外由于我们不在 --all 选项下运行，我们也不需要查询可连接数据库的详尽列表。
+		 */
 		termPQExpBuffer(&sql);
 		return;
 	}
 
 	/* Append the exclude patterns CTE. */
+	/* 追加排除模式的公共表表达式（exclude patterns CTE）。 */
 	appendPQExpBufferStr(&sql, "),\nexclude_raw (pattern_id, rgx) AS (");
 	append_db_pattern_cte(&sql, &opts.exclude, conn, false);
 	appendPQExpBufferStr(&sql, "),");
@@ -1631,6 +1966,10 @@ compile_database_list(PGconn *conn, SimplePtrList *databases,
 	 * Append the database CTE, which includes whether each database is
 	 * connectable and also joins against exclude_raw to determine whether
 	 * each database is excluded.
+	 */
+	/*
+	 * 追加数据库公共表表达式（database CTE），该表达式包括每个数据库是否可连接，
+	 * 并且还与 exclude_raw 进行连接（join）以确定是否排除每个数据库。
 	 */
 	appendPQExpBufferStr(&sql,
 						 "\ndatabase (datname) AS ("
@@ -1647,6 +1986,10 @@ compile_database_list(PGconn *conn, SimplePtrList *databases,
 	 * databases CTE to determine if all the inclusion patterns had matches,
 	 * and whether each matched pattern had the misfortune of only matching
 	 * excluded or unconnectable databases.
+	 */
+	/*
+	 * 追加 include_pat 公共表表达式，它将 include_raw 与 databases 进行连接，
+	 * 以确定所有包含模式是否有匹配，以及每个匹配模式是否不幸地仅匹配了排除的或不可连接的数据库。
 	 */
 						 "\ninclude_pat (pattern_id, checkable) AS ("
 						 "\nSELECT i.pattern_id, "
@@ -1666,6 +2009,11 @@ compile_database_list(PGconn *conn, SimplePtrList *databases,
 	 * include_pat CTE already did above, but here we want only databases, and
 	 * there we wanted patterns.
 	 */
+	/*
+	 * 追加 filtered_databases 公共表表达式，它从 database 中进行选择，
+	 * （可选地与 include_raw 关联）以仅选择与包含模式相匹配的数据库。这似乎与上面
+	 * include_pat 的操作重复，但在这里我们只需要数据库，而那里我们需要模式。
+	 */
 						 "\nfiltered_databases (datname) AS ("
 						 "\nSELECT DISTINCT d.datname "
 						 "FROM database d");
@@ -1678,6 +2026,9 @@ compile_database_list(PGconn *conn, SimplePtrList *databases,
 
 	/*
 	 * Select the checkable databases and the unmatched inclusion patterns.
+	 */
+	/*
+	 * 选择可检查的数据库和未匹配的包含模式。
 	 */
 						 "\nSELECT pattern_id, datname FROM ("
 						 "\nSELECT pattern_id, NULL::TEXT AS datname "
@@ -1716,6 +2067,9 @@ compile_database_list(PGconn *conn, SimplePtrList *databases,
 			 * Current record pertains to an inclusion pattern that matched no
 			 * checkable databases.
 			 */
+			/*
+			 * 当前记录属于未匹配到任何可检查数据库的包含模式。
+			 */
 			fatal = opts.strict_names;
 			if (pattern_id >= opts.include.len)
 				pg_fatal("internal error: received unexpected database pattern_id %d",
@@ -1728,13 +2082,17 @@ compile_database_list(PGconn *conn, SimplePtrList *databases,
 			DatabaseInfo *dat;
 
 			/* Current record pertains to a database */
+			/* 当前记录属于一个数据库 */
 			Assert(datname != NULL);
 
 			/* Avoid entering a duplicate entry matching the initial_dbname */
+			/* 避免插入与 initial_dbname 重复的条目 */
 			if (initial_dbname != NULL && strcmp(initial_dbname, datname) == 0)
 				continue;
 
 			/* This database is included.  Add to list */
+			/* 该数据库已被包含。添加到列表中 */
+	/* 此数据库已被包含。添加到列表中 */
 			if (opts.verbose)
 				pg_log_info("including database \"%s\"", datname);
 
@@ -1772,6 +2130,22 @@ compile_database_list(PGconn *conn, SimplePtrList *databases,
  * buf: the buffer to be appended
  * patterns: the array of patterns to be inserted into the CTE
  * conn: the database connection
+ */
+/*
+ * append_rel_pattern_raw_cte
+ *
+ * 向缓冲区追加公共表表达式（CTE）的主体，其中包含给定模式，表示为六列：
+ *
+ *     pattern_id: 此模式在 pia->data[] 中的索引
+ *     db_regex: 从模式中解析出的数据库正则表达式，如果该模式没有数据库部分，则为 NULL
+ *     nsp_regex: 从模式中解析出的命名空间（schema）正则表达式，如果该模式没有命名空间部分，则为 NULL
+ *     rel_regex: 从模式中解析出的关系（relname）正则表达式，如果该模式没有关系名部分，则为 NULL
+ *     heap_only: 如果该模式仅适用于堆表（而非索引），则为 true
+ *     btree_only: 如果该模式仅适用于 B 树索引（而非表），则为 true
+ *
+ * buf: 要追加的缓冲区
+ * patterns: 要插入 CTE 的模式数组
+ * conn: 数据库连接
  */
 static void
 append_rel_pattern_raw_cte(PQExpBuffer buf, const PatternInfoArray *pia,
@@ -1842,6 +2216,20 @@ append_rel_pattern_raw_cte(PQExpBuffer buf, const PatternInfoArray *pia,
  * filtered: the name of the CTE to create
  * conn: the database connection
  */
+/*
+ * append_rel_pattern_filtered_cte
+ *
+ * 向缓冲区追加公共表表达式（CTE），该表达式从指定的原始 CTE 中选择所有模式，并按数据库进行过滤。
+ * 选择所有没有数据库部分、或者数据库部分与我们的连接数据库名称相匹配的模式，排除其他模式。
+ *
+ * 这里的基本思想是，如果我们连接到数据库 "foo"，且有模式 "foo.bar.baz"、"alpha.beta" 和
+ * "one.two.three"，在我们处理该数据库中的关系时，我们只想使用前两个，因为第三个无关。
+ *
+ * buf: 要追加的缓冲区
+ * raw: 要从中选择的原始 CTE 的名称
+ * filtered: 要创建的过滤后 CTE 的名称
+ * conn: 数据库连接
+ */
 static void
 append_rel_pattern_filtered_cte(PQExpBuffer buf, const char *raw,
 								const char *filtered, PGconn *conn)
@@ -1881,6 +2269,21 @@ append_rel_pattern_filtered_cte(PQExpBuffer buf, const char *raw,
  * pagecount: gets incremented by the number of blocks to check in all
  * relations added
  */
+/*
+ * compile_relation_list_one_db
+ *
+ * 根据用户提供的选项，在当前连接的数据库中编译要检查的关系列表（按大小降序排序），
+ * 并将它们追加到给定的关系列表中。
+ *
+ * 构建的列表单元包含连接到数据库和检查对象所需的所有关系信息，包括连接到哪个数据库、
+ * 在哪里安装了 contrib/amcheck，以及对象的 Oid 和类型（堆表与 B 树索引）。
+ * 关系结构体使用对调用者提供的同一个数据库对象的引用，而不是为每个关系复制数据库细节。
+ *
+ * conn: 到这下一个数据库的连接，应该与 'dat' 中的相同
+ * relations: 关系信息应追加到的目标列表
+ * dat: 供每个关系使用的数据库信息结构体
+ * pagecount: 加上所有添加的关系中要检查的数据库块数
+ */
 static void
 compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 							 const DatabaseInfo *dat,
@@ -1895,6 +2298,7 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 	appendPQExpBufferStr(&sql, "WITH");
 
 	/* Append CTEs for the relation inclusion patterns, if any */
+	/* 追加关系包含模式的公共表表达式（如有） */
 	if (!opts.allrel)
 	{
 		appendPQExpBufferStr(&sql,
@@ -1905,6 +2309,7 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 	}
 
 	/* Append CTEs for the relation exclusion patterns, if any */
+	/* 追加关系排除模式的公共表表达式（如有） */
 	if (opts.excludetbl || opts.excludeidx || opts.excludensp)
 	{
 		appendPQExpBufferStr(&sql,
@@ -1915,6 +2320,7 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 	}
 
 	/* Append the relation CTE. */
+	/* 追加关系公共表表达式（relation CTE）。 */
 	appendPQExpBufferStr(&sql,
 						 " relation (pattern_id, oid, nspname, relname, reltoastrelid, relpages, is_heap, is_btree) AS ("
 						 "\nSELECT DISTINCT ON (c.oid");
@@ -1954,6 +2360,11 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 	 * until firing off the amcheck command, as the state of an index may
 	 * change by then.
 	 */
+	/*
+	 * 排除临时表和临时索引，因为它们必定属于其他会话。（我们自己不创建任何临时对象。）
+	 * 我们最终必须排除被标记为无效（invalid）或尚未就绪（not ready）的索引，
+	 * 但我们会将这一决定延迟到触发 amcheck 命令时，因为届时索引的状态可能会发生改变。
+	 */
 	appendPQExpBufferStr(&sql, "\nWHERE c.relpersistence != "
 						 CppAsString2(RELPERSISTENCE_TEMP));
 	if (opts.excludetbl || opts.excludeidx || opts.excludensp)
@@ -1971,6 +2382,15 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 	 * tables, toast tables, or indexes that match the patterns.  But if no
 	 * inclusion patterns were given, and we're simply matching all relations,
 	 * then we only want to match the primary tables here.
+	 */
+	/*
+	 * 我们必须小心，不要破坏 --no-dependent-toast 和 --no-dependent-indexes 选项。
+	 * 默认情况下，与主要堆表关联的 B 树索引、TOAST 表和 TOAST 表的 B 树索引都会被包含在内，
+	 * 并使用下面它们自己的公共表表达式。我们通过不创建这些 CTE 来实现 --exclude-* 选项，
+	 * 但如果我们已经在这里选择了 TOAST 和索引，那就没有用了。另一方面，我们希望匹配索引或
+	 * TOAST 表的包含模式得到遵守。因此，如果给出了包含模式，我们希望选择所有与该模式匹配的表、
+	 * TOAST 表或索引。但是如果未给出包含模式，而我们只是简单地匹配所有关系，
+	 * 那么在此处我们只想匹配主表。
 	 */
 	if (opts.allrel)
 		appendPQExpBuffer(&sql,
@@ -2011,6 +2431,10 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 		 * selected above, filtering by exclusion patterns (if any) that match
 		 * toast table names.
 		 */
+		/*
+		 * 包含一个针对与上方选定主堆表关联的 TOAST 表的公共表表达式，
+		 * 并通过匹配 TOAST 表名称的排除模式（如有）进行过滤。
+		 */
 		appendPQExpBufferStr(&sql,
 							 ", toast (oid, nspname, relname, relpages) AS ("
 							 "\nSELECT t.oid, 'pg_toast', t.relname, t.relpages"
@@ -2034,6 +2458,10 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 		 * Include a CTE for btree indexes associated with primary heap tables
 		 * selected above, filtering by exclusion patterns (if any) that match
 		 * btree index names.
+		 */
+		/*
+		 * 包含一个针对与上方选定主堆表关联的 B 树索引的公共表表达式，
+		 * 并通过匹配 B 树索引名称的排除模式（如有）进行过滤。
 		 */
 		appendPQExpBufferStr(&sql,
 							 ", index (oid, nspname, relname, relpages) AS ("
@@ -2074,6 +2502,10 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 		 * primary heap tables selected above, filtering by exclusion patterns
 		 * (if any) that match the toast index names.
 		 */
+		/*
+		 * 包含一个针对与上方选定主堆表的 TOAST 表关联的 B 树索引的公共表表达式，
+		 * 并通过匹配 TOAST 索引名称的排除模式（如有）进行过滤。
+		 */
 		appendPQExpBufferStr(&sql,
 							 ", toast_index (oid, nspname, relname, relpages) AS ("
 							 "\nSELECT c.oid, 'pg_toast', c.relname, c.relpages "
@@ -2107,11 +2539,18 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 	 * matched in their own right, so we rely on UNION to deduplicate the
 	 * list.
 	 */
+	/*
+	 * 汇总来自各公共表表达式的非重复行。
+	 *
+	 * 匹配多个模式的关系在列表中可能会出现多次，且主要关系的索引和 TOAST 也可能因其自身的
+	 * 权利而匹配，因此我们依赖 UNION 对列表进行去重。
+	 */
 	appendPQExpBufferStr(&sql,
 						 "\nSELECT pattern_id, is_heap, is_btree, oid, nspname, relname, relpages "
 						 "FROM (");
 	appendPQExpBufferStr(&sql,
 	/* Inclusion patterns that failed to match */
+	/* 未能匹配成功的包含模式 */
 						 "\nSELECT pattern_id, is_heap, is_btree, "
 						 "NULL::OID AS oid, "
 						 "NULL::TEXT AS nspname, "
@@ -2128,6 +2567,7 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 		appendPQExpBufferStr(&sql,
 							 " UNION"
 		/* Toast tables for primary relations */
+	/* 主要关系的 TOAST 表 */
 							 "\nSELECT NULL::INTEGER AS pattern_id, TRUE AS is_heap, "
 							 "FALSE AS is_btree, oid, nspname, relname, relpages "
 							 "FROM toast");
@@ -2135,6 +2575,7 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 		appendPQExpBufferStr(&sql,
 							 " UNION"
 		/* Indexes for primary relations */
+	/* 主要关系的索引 */
 							 "\nSELECT NULL::INTEGER AS pattern_id, FALSE AS is_heap, "
 							 "TRUE AS is_btree, oid, nspname, relname, relpages "
 							 "FROM index");
@@ -2142,6 +2583,7 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 		appendPQExpBufferStr(&sql,
 							 " UNION"
 		/* Indexes for toast relations */
+	/* TOAST 关系的索引 */
 							 "\nSELECT NULL::INTEGER AS pattern_id, FALSE AS is_heap, "
 							 "TRUE AS is_btree, oid, nspname, relname, relpages "
 							 "FROM toast_index");
@@ -2191,6 +2633,9 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 			 * Current record pertains to an inclusion pattern.  Record that
 			 * it matched.
 			 */
+			/*
+			 * 当前记录属于一个包含模式。记录其匹配成功。
+			 */
 
 			if (pattern_id >= opts.include.len)
 				pg_fatal("internal error: received unexpected relation pattern_id %d",
@@ -2201,6 +2646,7 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 		else
 		{
 			/* Current record pertains to a relation */
+		/* 当前记录属于一个关系 */
 
 			RelationInfo *rel = (RelationInfo *) pg_malloc0(sizeof(RelationInfo));
 
@@ -2220,6 +2666,10 @@ compile_relation_list_one_db(PGconn *conn, SimplePtrList *relations,
 				 * We apply --startblock and --endblock to heap tables, but
 				 * not btree indexes, and for progress purposes we need to
 				 * track how many blocks we expect to check.
+				 */
+				/*
+				 * 我们将 --startblock 和 --endblock 应用于堆表，但不应用于 B 树索引，
+				 * 且为了进度的目的，我们需要跟踪预计要检查的块数。
 				 */
 				if (opts.endblock >= 0 && rel->blocks_to_check > opts.endblock)
 					rel->blocks_to_check = opts.endblock + 1;

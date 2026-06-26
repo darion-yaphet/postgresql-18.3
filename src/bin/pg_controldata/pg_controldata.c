@@ -13,6 +13,9 @@
  * We have to use postgres.h not postgres_fe.h here, because there's so much
  * backend-only stuff in the XLOG include files we need.  But we need a
  * frontend-ish environment otherwise.  Hence this ugly hack.
+ *
+ * 我们在这里必须使用 postgres.h 而不是 postgres_fe.h，因为我们需要 XLOG 头文件中的
+ * 许多仅后端使用的内容。但是除此之外我们又需要一个偏向前端的环境。因此有了这个丑陋的 hack。
  */
 #define FRONTEND 1
 
@@ -29,6 +32,9 @@
 #include "getopt_long.h"
 #include "pg_getopt.h"
 
+/*
+ * usage --- 打印程序用法与帮助信息
+ */
 static void
 usage(const char *progname)
 {
@@ -46,6 +52,9 @@ usage(const char *progname)
 }
 
 
+/*
+ * dbState --- 返回数据库系统状态的可读翻译字符串描述
+ */
 static const char *
 dbState(DBState state)
 {
@@ -69,6 +78,9 @@ dbState(DBState state)
 	return _("unrecognized status code");
 }
 
+/*
+ * wal_level_str --- 返回 wal_level 的配置名称字符串描述
+ */
 static const char *
 wal_level_str(WalLevel wal_level)
 {
@@ -85,6 +97,9 @@ wal_level_str(WalLevel wal_level)
 }
 
 
+/*
+ * main --- 主函数入口点
+ */
 int
 main(int argc, char *argv[])
 {
@@ -136,6 +151,7 @@ main(int argc, char *argv[])
 
 			default:
 				/* getopt_long already emitted a complaint */
+				/* getopt_long 已经发出了投诉/报错 */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
 				exit(1);
 		}
@@ -150,6 +166,7 @@ main(int argc, char *argv[])
 	}
 
 	/* Complain if any arguments remain */
+	/* 如果仍有剩余参数，则报错 */
 	if (optind < argc)
 	{
 		pg_log_error("too many command-line arguments (first is \"%s\")",
@@ -166,6 +183,7 @@ main(int argc, char *argv[])
 	}
 
 	/* get a copy of the control file */
+	/* 获取控制文件的副本 */
 	ControlFile = get_controlfile(DataDir, &crc_ok);
 	if (!crc_ok)
 	{
@@ -175,6 +193,7 @@ main(int argc, char *argv[])
 	}
 
 	/* set wal segment size */
+	/* 设置 wal 段大小 */
 	WalSegSz = ControlFile->xlog_seg_size;
 
 	if (!IsValidWalSegSize(WalSegSz))
@@ -195,6 +214,11 @@ main(int argc, char *argv[])
 	 *
 	 * Use variable for format to suppress overly-anal-retentive gcc warning
 	 * about %c
+	 *
+	 * 只要控制文件时间戳在 time_t 范围内，这种稍微有些简陋的编码就能够正常工作；
+	 * 在所有可以预见的情况下都应该是这样，所以我们不麻烦将后端的时区库导入到 pg_controldata 中。
+	 *
+	 * 使用变量格式化以抑制 gcc 过于吹毛求疵的关于 %c 的警告。
 	 */
 	time_tmp = (time_t) ControlFile->time;
 	tm_tmp = localtime(&time_tmp);
@@ -219,6 +243,10 @@ main(int argc, char *argv[])
 	 * A corrupted control file could report a WAL segment size of 0 or
 	 * negative value, and to guard against division by zero, we need to treat
 	 * that specially.
+	 *
+	 * 计算包含最新检查点 REDO 起始点的 WAL 文件的名称。
+	 *
+	 * 损坏的控制文件可能会报告 WAL 段大小为 0 或负值，为了防范除以零，我们需要对其进行特殊处理。
 	 */
 	if (WalSegSz > 0)
 	{
@@ -313,6 +341,7 @@ main(int argc, char *argv[])
 	printf(_("Maximum data alignment:               %u\n"),
 		   ControlFile->maxAlign);
 	/* we don't print floatFormat since can't say much useful about it */
+	/* 我们不打印 floatFormat，因为对此说不出什么有用信息 */
 	printf(_("Database block size:                  %u\n"),
 		   ControlFile->blcksz);
 	printf(_("Blocks per segment of large relation: %u\n"),
@@ -330,6 +359,7 @@ main(int argc, char *argv[])
 	printf(_("Size of a large-object chunk:         %u\n"),
 		   ControlFile->loblksize);
 	/* This is no longer configurable, but users may still expect to see it: */
+	/* 这已不再可配置，但用户可能仍希望看到它： */
 	printf(_("Date/time type storage:               %s\n"),
 		   _("64-bit integers"));
 	printf(_("Float8 argument passing:              %s\n"),

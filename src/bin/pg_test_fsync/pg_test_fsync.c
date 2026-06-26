@@ -2,6 +2,8 @@
  *
  * pg_test_fsync --- tests all supported fsync() methods
  *
+ * pg_test_fsync --- 测试所有支持的 fsync() 方法
+ *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  *
  * src/bin/pg_test_fsync/pg_test_fsync.c
@@ -26,6 +28,8 @@
 /*
  * put the temp files in the local directory
  * unless the user specifies otherwise
+ *
+ * 除非用户另有指定，否则将临时文件放在本地目录中
  */
 #define FSYNC_FILENAME	"./pg_test_fsync.out"
 
@@ -34,10 +38,12 @@
 #define LABEL_FORMAT		"        %-30s"
 #define NA_FORMAT			"%21s\n"
 /* translator: maintain alignment with NA_FORMAT */
+/* 翻译器：保持与 NA_FORMAT 的对齐 */
 #define OPS_FORMAT			gettext_noop("%13.3f ops/sec  %6.0f usecs/op\n")
 #define USECS_SEC			1000000
 
 /* These are macros to avoid timing the function call overhead. */
+/* 这些是用于避免计算函数调用开销时间的宏。 */
 #ifndef WIN32
 #define START_TIMER \
 do { \
@@ -47,6 +53,7 @@ do { \
 } while (0)
 #else
 /* WIN32 doesn't support alarm, so we create a thread and sleep there */
+/* WIN32 不支持 alarm，所以我们创建一个线程并在那里睡眠 */
 #define START_TIMER \
 do { \
 	alarm_triggered = false; \
@@ -100,6 +107,12 @@ static void print_elapse(struct timeval start_t, struct timeval stop_t, int ops)
 #define die(msg) pg_fatal("%s: %m", _(msg))
 
 
+/*
+ * main --- 主函数入口点
+ * 核心流程：初始化日志与区域设置，解析命令行参数，设置信号和闹钟清理程序，
+ * 随后执行各项 I/O 与 fsync 测试（包含单块、双块写入测试，不同大小的 open_sync 写入，
+ * 文件描述符共享同步性测试以及无同步写入测试），最终删除临时文件并退出。
+ */
 int
 main(int argc, char *argv[])
 {
@@ -110,10 +123,12 @@ main(int argc, char *argv[])
 	handle_args(argc, argv);
 
 	/* Prevent leaving behind the test file */
+	/* 防止留下测试文件 */
 	pqsignal(SIGINT, signal_cleanup);
 	pqsignal(SIGTERM, signal_cleanup);
 
 	/* the following are not valid on Windows */
+	/* 以下在 Windows 上无效 */
 #ifndef WIN32
 	pqsignal(SIGALRM, process_alarm);
 	pqsignal(SIGHUP, signal_cleanup);
@@ -126,9 +141,11 @@ main(int argc, char *argv[])
 	test_open();
 
 	/* Test using 1 XLOG_BLCKSZ write */
+	/* 使用 1 个 XLOG_BLCKSZ 写入进行测试 */
 	test_sync(1);
 
 	/* Test using 2 XLOG_BLCKSZ writes */
+	/* 使用 2 个 XLOG_BLCKSZ 写入进行测试 */
 	test_sync(2);
 
 	test_open_syncs();
@@ -142,6 +159,10 @@ main(int argc, char *argv[])
 	return 0;
 }
 
+/*
+ * handle_args --- 处理并解析命令行参数
+ * 支持设置测试文件名 (-f) 以及每个测试的持续时间 (-s)。
+ */
 static void
 handle_args(int argc, char *argv[])
 {
@@ -199,6 +220,7 @@ handle_args(int argc, char *argv[])
 
 			default:
 				/* getopt_long already emitted a complaint */
+				/* getopt_long 已经发出了投诉/报错 */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
 				exit(1);
 		}
@@ -225,18 +247,27 @@ handle_args(int argc, char *argv[])
 #endif
 }
 
+/*
+ * prepare_buf --- 准备测试缓冲区
+ * 使用随机数据填充缓冲区，并使指针按 XLOG_BLCKSZ 字节对齐，以模拟 WAL 缓冲区。
+ */
 static void
 prepare_buf(void)
 {
 	int			ops;
 
 	/* write random data into buffer */
+	/* 将随机数据写入缓冲区 */
 	for (ops = 0; ops < DEFAULT_XLOG_SEG_SIZE; ops++)
 		full_buf[ops] = (char) pg_prng_int32(&pg_global_prng_state);
 
 	buf = (char *) TYPEALIGN(XLOG_BLCKSZ, full_buf);
 }
 
+/*
+ * test_open --- 测试是否可成功创建和写入目标文件
+ * 并发出一次初始的 fsync 清理脏数据，以避免干扰后续的计时测试。
+ */
 static void
 test_open(void)
 {
@@ -244,6 +275,8 @@ test_open(void)
 
 	/*
 	 * test if we can open the target file
+	 *
+	 * 测试我们是否可以打开目标文件
 	 */
 	if ((tmpfile = open(filename, O_RDWR | O_CREAT | PG_BINARY, S_IRUSR | S_IWUSR)) == -1)
 		die("could not open output file");
@@ -253,6 +286,7 @@ test_open(void)
 		die("write failed");
 
 	/* fsync now so that dirty buffers don't skew later tests */
+	/* 现在进行 fsync，以免脏缓冲区影响后面的测试 */
 	if (fsync(tmpfile) != 0)
 		die("fsync failed");
 
@@ -284,6 +318,10 @@ open_direct(const char *path, int flags, mode_t mode)
 	return fd;
 }
 
+/*
+ * test_sync --- 对比各种支持的 WAL 同步方法 (wal_sync_method)
+ * 测试包括 open_datasync、fdatasync、fsync、fsync_writethrough 以及 open_sync。
+ */
 static void
 test_sync(int writes_per_op)
 {
@@ -300,6 +338,8 @@ test_sync(int writes_per_op)
 
 	/*
 	 * Test open_datasync if available
+	 *
+	 * 如果可用，测试 open_datasync
 	 */
 	printf(LABEL_FORMAT, "open_datasync");
 	fflush(stdout);
@@ -331,6 +371,8 @@ test_sync(int writes_per_op)
 
 /*
  * Test fdatasync if available
+ *
+ * 如果可用，测试 fdatasync
  */
 	printf(LABEL_FORMAT, "fdatasync");
 	fflush(stdout);
@@ -353,6 +395,8 @@ test_sync(int writes_per_op)
 
 /*
  * Test fsync
+ *
+ * 测试 fsync
  */
 	printf(LABEL_FORMAT, "fsync");
 	fflush(stdout);
@@ -376,6 +420,8 @@ test_sync(int writes_per_op)
 
 /*
  * If fsync_writethrough is available, test as well
+ *
+ * 如果 fsync_writethrough 可用，也对其进行测试
  */
 	printf(LABEL_FORMAT, "fsync_writethrough");
 	fflush(stdout);
@@ -403,6 +449,8 @@ test_sync(int writes_per_op)
 
 /*
  * Test open_sync if available
+ *
+ * 如果可用，测试 open_sync
  */
 	printf(LABEL_FORMAT, "open_sync");
 	fflush(stdout);
@@ -429,6 +477,9 @@ test_sync(int writes_per_op)
 					 * a large block size, e.g. 4k, and there is no support
 					 * for O_DIRECT writes smaller than the file system block
 					 * size, e.g. XFS.
+					 *
+					 * 如果文件系统的块大小较大（例如 4k），并且不支持小于文件系统块
+					 * 大小（例如 XFS）的 O_DIRECT 写入，这可能会产生写入失败。
 					 */
 					die("write failed");
 		}
@@ -446,6 +497,10 @@ test_sync(int writes_per_op)
 	}
 }
 
+/*
+ * test_open_syncs --- 比较不同写入大小下 open_sync 的成本
+ * 会循环调用 test_open_sync 分别以 16kB, 8kB, 4kB, 2kB, 1kB 大小执行写入。
+ */
 static void
 test_open_syncs(void)
 {
@@ -462,6 +517,11 @@ test_open_syncs(void)
 
 /*
  * Test open_sync with different size files
+ *
+ * 测试不同大小文件的 open_sync
+ */
+/*
+ * test_open_sync --- 在指定写入块大小下测试 open_sync I/O 吞吐
  */
 static void
 test_open_sync(const char *msg, int writes_size)
@@ -499,6 +559,10 @@ test_open_sync(const char *msg, int writes_size)
 #endif
 }
 
+/*
+ * test_file_descriptor_sync --- 测试在只读或非写入的文件描述符上调用 fsync 是否有效
+ * 这模拟了多个进程向同一个文件写入数据，并相互对彼此的写入执行 fsync 同步的情况。
+ */
 static void
 test_file_descriptor_sync(void)
 {
@@ -510,6 +574,10 @@ test_file_descriptor_sync(void)
 	 * the same file.  This checks the efficiency of multi-process fsyncs
 	 * against the same file. Possibly this should be done with writethrough
 	 * on platforms which support it.
+	 *
+	 * 测试 fsync 是否可以同步在同一文件的不同描述符上写入的数据。
+	 * 这将检查针对同一文件的多进程 fsync 的效率。在支持的平台上，
+	 * 这可能应该通过 writethrough 来完成。
 	 */
 	printf(_("\nTest if fsync on non-write file descriptor is honored:\n"));
 	printf(_("(If the times are similar, fsync() can sync data written on a different\n"
@@ -518,6 +586,8 @@ test_file_descriptor_sync(void)
 	/*
 	 * first write, fsync and close, which is the normal behavior without
 	 * multiple descriptors
+	 *
+	 * 首先写入、fsync 并关闭，这是没有多个描述符时的正常行为
 	 */
 	printf(LABEL_FORMAT, "write, fsync, close");
 	fflush(stdout);
@@ -536,6 +606,8 @@ test_file_descriptor_sync(void)
 		/*
 		 * open and close the file again to be consistent with the following
 		 * test
+		 *
+		 * 再次打开并关闭文件以与以下测试保持一致
 		 */
 		if ((tmpfile = open(filename, O_RDWR | PG_BINARY, 0)) == -1)
 			die("could not open output file");
@@ -546,6 +618,8 @@ test_file_descriptor_sync(void)
 	/*
 	 * Now open, write, close, open again and fsync This simulates processes
 	 * fsyncing each other's writes.
+	 *
+	 * 现在打开、写入、关闭、再次打开并 fsync。这模拟了进程相互 fsync 对方写入的内容。
 	 */
 	printf(LABEL_FORMAT, "write, close, fsync");
 	fflush(stdout);
@@ -559,6 +633,7 @@ test_file_descriptor_sync(void)
 			die("write failed");
 		close(tmpfile);
 		/* reopen file */
+		/* 重新打开文件 */
 		if ((tmpfile = open(filename, O_RDWR | PG_BINARY, 0)) == -1)
 			die("could not open output file");
 		if (fsync(tmpfile) != 0)
@@ -568,6 +643,9 @@ test_file_descriptor_sync(void)
 	STOP_TIMER;
 }
 
+/*
+ * test_non_sync --- 测试无同步/无 fsync 情况下的纯写入吞吐
+ */
 static void
 test_non_sync(void)
 {
@@ -576,6 +654,8 @@ test_non_sync(void)
 
 	/*
 	 * Test a simple write without fsync
+	 *
+	 * 测试没有 fsync 的简单写入
 	 */
 	printf(_("\nNon-sync'ed %dkB writes:\n"), XLOG_BLCKSZ_K);
 	printf(LABEL_FORMAT, "write");
@@ -593,15 +673,21 @@ test_non_sync(void)
 	close(tmpfile);
 }
 
+/*
+ * signal_cleanup --- 信号处理清理程序
+ * 当进程接收到 SIGINT/SIGTERM 等中断信号时被调用，负责清理测试产生的临时文件并安全退出。
+ */
 static void
 signal_cleanup(SIGNAL_ARGS)
 {
 	int			rc;
 
 	/* Delete the file if it exists. Ignore errors */
+	/* 如果文件存在则删除。忽略错误 */
 	if (needs_unlink)
 		unlink(filename);
 	/* Finish incomplete line on stdout */
+	/* 在 stdout 上完成未完成的行 */
 	rc = write(STDOUT_FILENO, "\n", 1);
 	(void) rc;					/* silence compiler warnings */
 	_exit(1);
@@ -623,6 +709,11 @@ pg_fsync_writethrough(int fd)
 
 /*
  * print out the writes per second for tests
+ *
+ * 打印出测试中每秒的写入次数
+ */
+/*
+ * print_elapse --- 计算并打印每次操作的平均耗时与每秒操作次数
  */
 static void
 print_elapse(struct timeval start_t, struct timeval stop_t, int ops)
@@ -636,16 +727,25 @@ print_elapse(struct timeval start_t, struct timeval stop_t, int ops)
 }
 
 #ifndef WIN32
+/*
+ * process_alarm --- 闹钟信号处理函数 (UNIX/Linux)
+ * 设置 alarm_triggered = true 以终止当前测试。
+ */
 static void
 process_alarm(SIGNAL_ARGS)
 {
 	alarm_triggered = true;
 }
 #else
+/*
+ * process_alarm --- 闹钟线程入口函数 (WIN32)
+ * 睡眠指定秒数后设置 alarm_triggered = true 以终止当前测试。
+ */
 static DWORD WINAPI
 process_alarm(LPVOID param)
 {
-	/* WIN32 doesn't support alarm, so we create a thread and sleep here */
+	/* WIN32 doesn't support alarm, so we create a thread and sleep there */
+	/* WIN32 不支持 alarm，所以我们创建一个线程并在那里睡眠 */
 	Sleep(secs_per_test * 1000);
 	alarm_triggered = true;
 	ExitThread(0);

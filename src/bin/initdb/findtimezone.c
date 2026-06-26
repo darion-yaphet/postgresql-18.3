@@ -10,6 +10,27 @@
  *
  *-------------------------------------------------------------------------
  */
+
+/*
+ * findtimezone.c 核心流程与主要函数说明（中文）：
+ *
+ * 1. 核心流程：
+ *    - 目标是为新初始化的数据库集群探测并推荐一个最佳的默认时区设置。
+ *    - 首先检查环境变量 TZ；如果存在且可以成功被 PostgreSQL 内部的时区加载引擎识别且“可接受”，则使用该时区。
+ *    - 如果 TZ 未设置或不可用，在类 Unix 系统上，会尝试探测系统特定的符号链接（如 /etc/localtime），并比对其与 PostgreSQL 时区库的行为是否一致。
+ *    - 如果仍未成功，则进行暴力行为探测：生成过去 100 年的多个测试时间点，比对系统 C 库的 localtime() 返回值与 PostgreSQL 时区定义在此时间点下的行为。
+ *      得分最高的时区（行为最相似的时区）将被选为最佳匹配。
+ *    - 如果在时区数据库中完全找不到匹配，或者是在 Windows 上（Windows 的时区名称和 IANA 并不兼容），
+ *      会尝试通过特殊的注册表名和内置的 win32_tzmap 映射表进行转换；
+ *      若所有方法都失败，则回退到 GMT 等标准时区。
+ *
+ * 2. 核心函数：
+ *    - select_default_timezone(): 最上层的外部接口函数，执行整体的 TZ 检查、系统符号链接探测及暴力扫描。
+ *    - identify_system_timezone(): Unix 系统上的核心匹配调度函数，生成测试时间序列并扫描可用时区。
+ *    - score_timezone(): 为给定的时区评分，比对在各个测试时间点上 pg_localtime 和系统 localtime 的一致性。
+ *    - check_system_link_file(): 探测并解析符号链接（如 /etc/localtime）指向的 IANA 时区名称。
+ *    - scan_available_timezones(): 递归扫描我们的 TZ 时区目录，计算每个可用时区的得分。
+ */
 #include "postgres_fe.h"
 
 #include <fcntl.h>
@@ -32,6 +53,11 @@ static char tzdirpath[MAXPGPATH];
  * Return full pathname of timezone data directory
  *
  * In this file, tzdirpath is assumed to be set up by select_default_timezone.
+ */
+/*
+ * 返回时区数据目录的完整路径名
+ *
+ * 在此文件中，假定 tzdirpath 由 select_default_timezone 设置。
  */
 static const char *
 pg_TZDIR(void)
@@ -61,6 +87,18 @@ pg_TZDIR(void)
  * given name is stored there (the buffer must be > TZ_STRLEN_MAX bytes!).
  * This is redundant but kept for compatibility with the backend code.
  */
+/*
+ * 给定一个时区名称，打开（open()）该时区数据文件。如果成功，返回文件描述符，
+ * 否则返回 -1。
+ *
+ * 这比同名的后端函数要简单，因为我们假设输入字符串已经具有正确的大小写，
+ * 因此无需进行大小写折叠。（如果我们最初是从文件系统获取文件名，这显然是成立的。
+ * 它唯一可能来自的其他地方是环境变量 TZ，似乎没有必要在其中允许大小写变化；
+ * 其他程序也不太可能这样做。）
+ *
+ * 如果 "canonname" 不为 NULL，则在成功时，给定名称的规范拼写会被存储在其中
+ * （缓冲区必须大于 TZ_STRLEN_MAX 字节！）。这是多余的，但为了与后端代码保持兼容而保留。
+ */
 int
 pg_open_tzfile(const char *name, char *canonname)
 {
@@ -86,6 +124,12 @@ pg_open_tzfile(const char *name, char *canonname)
  *
  * This corresponds to the backend's pg_tzset(), except that we only support
  * one loaded timezone at a time.
+ */
+/*
+ * 加载时区定义。
+ * 不验证时区是否可接受！
+ *
+ * 这对应于后端的 pg_tzset()，除了我们一次只支持加载一个时区。
  */
 static pg_tz *
 pg_load_tz(const char *name)
@@ -146,6 +190,23 @@ pg_load_tz(const char *name)
  * to be of any use. But there is just a limited number of timezones
  * available, so we can rely on a handmade mapping table instead.
  */
+/*
+ * 以下代码块尝试确定我们的时区数据库中哪个时区与当前系统时区最匹配。
+ *
+ * 在大多数系统上，我们依赖于尝试匹配 C 库中 localtime() 函数的显式行为。
+ * 与过去匹配时间最长的数据库时区就是应该使用的时区。通常会有多个具有相同排名的时区
+ * （因为 IANA 数据库为许多时区分配了多个名称）。我们通过首先检查“首选”名称（例如 "UTC"），
+ * 然后任意地通过选择较短的，然后按字母顺序较早的时区名称来打破平局。
+ * （如果我们没有显式首选 "UTC"，我们将因为字母顺序而获得别名 "UCT"。）
+ *
+ * 许多现代系统使用 IANA 数据库，因此如果我们能够确定系统所使用的时区，
+ * 并且其行为与我们同名的时区匹配，我们就可以跳过对数据库中所有时区的昂贵搜索。
+ * 这种捷径也确保了我们拼写时区名称的方式与系统设置的方式相同，即使在同一时区存在
+ * 多个别名的情况下也是如此。
+ *
+ * Win32 原生对时区的了解似乎太不完整，并且与 IANA 数据库相差太大，
+ * 无法使用上述匹配策略。但是可用的时区数量有限，因此我们可以依赖手工制作的映射表。
+ */
 
 #ifndef WIN32
 
@@ -171,6 +232,9 @@ static void scan_available_timezones(char *tzdir, char *tzdirsub,
 /*
  * Get GMT offset from a system struct tm
  */
+/*
+ * 从系统 struct tm 获取 GMT 偏移量
+ */
 static int
 get_timezone_offset(struct tm *tm)
 {
@@ -185,6 +249,9 @@ get_timezone_offset(struct tm *tm)
 
 /*
  * Convenience subroutine to convert y/m/d to time_t (NOT pg_time_t)
+ */
+/*
+ * 方便子程序将 y/m/d 转换为 time_t (不是 pg_time_t)
  */
 static time_t
 build_time_t(int year, int month, int day)
@@ -202,6 +269,9 @@ build_time_t(int year, int month, int day)
 
 /*
  * Does a system tm value match one we computed ourselves?
+ */
+/*
+ * 系统的 tm 值是否与我们自己计算的相匹配？
  */
 static bool
 compare_tm(struct tm *s, struct pg_tm *p)
@@ -229,6 +299,14 @@ compare_tm(struct tm *s, struct pg_tm *p)
  * We return -1 for a completely unusable setting; this is worse than the
  * score of zero for a setting that works but matches not even the first
  * test time.
+ */
+/*
+ * 查看特定的时区设置与系统行为的匹配程度
+ *
+ * 我们根据它匹配的测试时间的数量来对时区设置进行评分。（测试时间按从晚到早的顺序排列，
+ * 但此程序实际上并不知道这一点；它只是扫描直到遇到第一个不匹配项。）
+ *
+ * 对于完全不可用的设置，我们返回 -1；这比工作正常但甚至不匹配第一个测试时间的设置的 0 分还要糟糕。
  */
 static int
 score_timezone(const char *tzname, struct tztry *tt)
@@ -316,6 +394,9 @@ score_timezone(const char *tzname, struct tztry *tt)
 /*
  * Test whether given zone name is a perfect match to localtime() behavior
  */
+/*
+ * 测试给定的时区名称是否与 localtime() 行为完全匹配
+ */
 static bool
 perfect_timezone_match(const char *tzname, struct tztry *tt)
 {
@@ -326,6 +407,9 @@ perfect_timezone_match(const char *tzname, struct tztry *tt)
 /*
  * Try to identify a timezone name (in our terminology) that best matches the
  * observed behavior of the system localtime() function.
+ */
+/*
+ * 尝试确定一个（用我们的术语表示的）时区名称，它与系统的 localtime() 函数的显式行为最匹配。
  */
 static const char *
 identify_system_timezone(void)
@@ -540,6 +624,22 @@ identify_system_timezone(void)
  * return true; else return false.  bestzonename must be a buffer of length
  * TZ_STRLEN_MAX + 1.
  */
+/*
+ * 检查系统提供的符号链接（symlink）文件，看它是否能告诉我们时区。
+ *
+ * 不幸的是，在没有 TZ 环境设置的情况下，如何确定系统默认时区几乎没有标准化。
+ * 但一个常见的策略是在一个众所周知的地方创建一个符号链接。如果 "linkname" 标识了一个
+ * 可读的符号链接，且其内容的尾部与我们已知的时区名称匹配，并且 localtime() 的实际行为
+ * 与我们对该时区含义的理解一致，那么我们就可以使用该时区名称。
+ *
+ * 我们坚持行为上的完全匹配，如果系统的 IANA 数据库版本与我们的不同，这可能不会发生；
+ * 但在这种情况下，最好回退到暴力搜索。
+ *
+ * linkname 是要探测的符号链接文件位置。
+ * tt 说明了我们需要匹配的系统时区行为。
+ * 如果我们成功识别出时区名称，将其存储在 *bestzonename 并返回 true；否则返回 false。
+ * bestzonename 必须是长度为 TZ_STRLEN_MAX + 1 的缓冲区。
+ */
 static bool
 check_system_link_file(const char *linkname, struct tztry *tt,
 					   char *bestzonename)
@@ -611,6 +711,10 @@ check_system_link_file(const char *linkname, struct tztry *tt,
  * names which are equally good matches. The output is arbitrary but we will
  * use 0 for "neutral" default preference; larger values are more preferred.
  */
+/*
+ * 给定一个时区名称，确定它是否应该比其他同样匹配良好的名称更优先使用。
+ * 输出是任意的，但我们将使用 0 作为“中性”的默认偏好；数值越大越被优先选择。
+ */
 static int
 zone_name_pref(const char *zonename)
 {
@@ -652,6 +756,17 @@ zone_name_pref(const char *zonename)
  * *bestscore and *bestzonename on entry hold the best score found so far
  * and the name of the best zone.  We overwrite them if we find a better
  * score.  bestzonename must be a buffer of length TZ_STRLEN_MAX + 1.
+ */
+/*
+ * 递归扫描时区数据库，寻找与系统时区行为最佳的匹配。
+ *
+ * tzdir 指向大小为 MAXPGPATH 的缓冲区。进入时，它包含包含 TZ 文件的目录的路径名。
+ * 我们在内部修改它以保存子目录和文件的路径名，但在退出前必须将其恢复为原始内容。
+ *
+ * tzdirsub 指向 tzdir 中代表子文件名（即 tzdir + 原始目录名长度，加上第一个添加的 '/'）的部分。
+ * tt 说明了我们需要匹配的系统时区行为。
+ * *bestscore 和 *bestzonename 在进入时持有目前发现的最佳得分和最佳时区的名称。
+ * 如果我们找到更好的得分，我们会覆盖它们。bestzonename 必须是长度为 TZ_STRLEN_MAX + 1 的缓冲区。
  */
 static void
 scan_available_timezones(char *tzdir, char *tzdirsub, struct tztry *tt,
@@ -1601,6 +1716,10 @@ identify_system_timezone(void)
 	 * Scan the registry to find the English name, and then try matching
 	 * against our table again.
 	 */
+	/*
+	 * 本地化的 Windows 版本会返回时区的本地化名称。
+	 * 扫描注册表以查找英文名称，然后再次尝试与我们的表进行匹配。
+	 */
 	memset(localtzname, 0, sizeof(localtzname));
 	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
 					 "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Time Zones",
@@ -1724,6 +1843,9 @@ identify_system_timezone(void)
 /*
  * Return true if the given zone name is valid and is an "acceptable" zone.
  */
+/*
+ * 如果给定的时区名称有效且是“可接受的”时区，则返回 true。
+ */
 static bool
 validate_zone(const char *tzname)
 {
@@ -1752,6 +1874,15 @@ validate_zone(const char *tzname)
  * recognized by our own code, we see if we can identify the timezone
  * from the behavior of the system timezone library.  When all else fails,
  * return NULL, indicating that we should default to GMT.
+ */
+/*
+ * 根据环境确定合适的默认时区设置。
+ *
+ * 必须传入安装的 share_path，因为这是时区数据库目录的默认位置。
+ *
+ * 我们首先查找 TZ 环境变量。如果没有找到或者我们的代码无法识别，
+ * 我们就看是否能从系统时区库的行为中识别出时区。当所有其他方法都失败时，
+ * 返回 NULL，表示我们应该默认使用 GMT。
  */
 const char *
 select_default_timezone(const char *share_path)

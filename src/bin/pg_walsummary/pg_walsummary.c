@@ -10,6 +10,18 @@
  *
  *-------------------------------------------------------------------------
  */
+/*-------------------------------------------------------------------------
+ *
+ * pg_walsummary.c
+ *		打印 WAL 汇总文件的内容。
+ *
+ * Copyright (c) 2017-2025, PostgreSQL Global Development Group
+ *
+ * IDENTIFICATION
+ *	  src/bin/pg_walsummary/pg_walsummary.c
+ *
+ *-------------------------------------------------------------------------
+ */
 #include "postgres_fe.h"
 
 #include <fcntl.h>
@@ -35,6 +47,7 @@ typedef struct ws_file_info
 
 static BlockNumber *block_buffer = NULL;
 static unsigned block_buffer_size = 512;	/* Initial size. */
+											/* 初始大小。 */
 
 static void dump_one_relation(ws_options *opt, RelFileLocator *rlocator,
 							  ForkNumber forknum, BlockNumber limit_block,
@@ -47,6 +60,8 @@ static void walsummary_error_callback(void *callback_arg, char *fmt,...) pg_attr
 
 /*
  * Main program.
+ *
+ * main --- 主函数入口点
  */
 int
 main(int argc, char *argv[])
@@ -70,6 +85,7 @@ main(int argc, char *argv[])
 	handle_help_version_opts(argc, argv, progname, help);
 
 	/* process command-line options */
+	/* 处理命令行选项 */
 	while ((c = getopt_long(argc, argv, "iq",
 							long_options, &optindex)) != -1)
 	{
@@ -83,6 +99,7 @@ main(int argc, char *argv[])
 				break;
 			default:
 				/* getopt_long already emitted a complaint */
+				/* getopt_long 已经发出了投诉/报错 */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
 				exit(1);
 		}
@@ -123,6 +140,8 @@ main(int argc, char *argv[])
 
 /*
  * Dump details for one relation.
+ *
+ * dump_one_relation --- 打印单个关系的块引用详情
  */
 static void
 dump_one_relation(ws_options *opt, RelFileLocator *rlocator,
@@ -135,42 +154,50 @@ dump_one_relation(ws_options *opt, RelFileLocator *rlocator,
 	BlockNumber endblock = InvalidBlockNumber;
 
 	/* Dump limit block, if any. */
+	/* 打印限制块（如果存在）。 */
 	if (limit_block != InvalidBlockNumber)
 		printf("TS %u, DB %u, REL %u, FORK %s: limit %u\n",
 			   rlocator->spcOid, rlocator->dbOid, rlocator->relNumber,
 			   forkNames[forknum], limit_block);
 
 	/* If we haven't allocated a block buffer yet, do that now. */
+	/* 如果我们尚未分配块缓冲区，请现在分配。 */
 	if (block_buffer == NULL)
 		block_buffer = palloc_array(BlockNumber, block_buffer_size);
 
 	/* Try to fill the block buffer. */
+	/* 尝试填充块缓冲区。 */
 	nblocks = BlockRefTableReaderGetBlocks(reader,
 										   block_buffer,
 										   block_buffer_size);
 
 	/* If we filled the block buffer completely, we must enlarge it. */
+	/* 如果我们完全填满了块缓冲区，我们必须扩大它。 */
 	while (nblocks >= block_buffer_size)
 	{
 		unsigned	new_size;
 
 		/* Double the size, being careful about overflow. */
+		/* 双倍扩容，注意防范溢出。 */
 		new_size = block_buffer_size * 2;
 		if (new_size < block_buffer_size)
 			new_size = PG_UINT32_MAX;
 		block_buffer = repalloc_array(block_buffer, BlockNumber, new_size);
 
 		/* Try to fill the newly-allocated space. */
+		/* 尝试填充新分配的空间。 */
 		nblocks +=
 			BlockRefTableReaderGetBlocks(reader,
 										 block_buffer + block_buffer_size,
 										 new_size - block_buffer_size);
 
 		/* Save the new size for later calls. */
+		/* 保存新大小以备后用。 */
 		block_buffer_size = new_size;
 	}
 
 	/* If we don't need to produce any output, skip the rest of this. */
+	/* 如果我们不需要产生任何输出，请跳过其余部分。 */
 	if (opt->quiet)
 		return;
 
@@ -179,15 +206,23 @@ dump_one_relation(ws_options *opt, RelFileLocator *rlocator,
 	 * the bitmap representation for a given chunk, the block numbers in that
 	 * chunk will already be sorted, but when the array-of-offsets
 	 * representation is used, we can receive block numbers here out of order.
+	 *
+	 * 对返回的块号进行排序。如果对于给定的块（chunk）块引用表使用的是位图表示， 
+	 * 该块中的块号将已经是有序的，但当使用偏移数组表示时，我们在此处接收到的 
+	 * 块号可能是无序的。
 	 */
 	qsort(block_buffer, nblocks, sizeof(BlockNumber), compare_block_numbers);
 
 	/* Dump block references. */
+	/* 打印块引用。 */
 	while (i < nblocks)
 	{
 		/*
 		 * Find the next range of blocks to print, but if --individual was
 		 * specified, then consider each block a separate range.
+		 *
+		 * 寻找要打印的下一个块范围，但如果指定了 --individual， 
+		 * 则将每个块视为一个单独的范围。
 		 */
 		startblock = endblock = block_buffer[i++];
 		if (!opt->individual)
@@ -200,6 +235,7 @@ dump_one_relation(ws_options *opt, RelFileLocator *rlocator,
 		}
 
 		/* Format this range of block numbers as a string. */
+		/* 将此范围的块号格式化为字符串。 */
 		if (startblock == endblock)
 			printf("TS %u, DB %u, REL %u, FORK %s: block %u\n",
 				   rlocator->spcOid, rlocator->dbOid, rlocator->relNumber,
@@ -213,6 +249,8 @@ dump_one_relation(ws_options *opt, RelFileLocator *rlocator,
 
 /*
  * Quicksort comparator for block numbers.
+ *
+ * compare_block_numbers --- 块号快速排序比较器
  */
 static int
 compare_block_numbers(const void *a, const void *b)
@@ -225,6 +263,8 @@ compare_block_numbers(const void *a, const void *b)
 
 /*
  * Error callback.
+ *
+ * walsummary_error_callback --- 错误回调函数
  */
 void
 walsummary_error_callback(void *callback_arg, char *fmt,...)
@@ -240,6 +280,8 @@ walsummary_error_callback(void *callback_arg, char *fmt,...)
 
 /*
  * Read callback.
+ *
+ * walsummary_read_callback --- 读取数据回调函数
  */
 int
 walsummary_read_callback(void *callback_arg, void *data, int length)
@@ -259,6 +301,8 @@ walsummary_read_callback(void *callback_arg, void *data, int length)
  * Prints help page for the program
  *
  * progname: the name of the executed program, such as "pg_walsummary"
+ *
+ * help --- 打印程序帮助页面
  */
 static void
 help(const char *progname)

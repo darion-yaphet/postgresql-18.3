@@ -2,6 +2,9 @@
  *	pg_test_timing.c
  *		tests overhead of timing calls and their monotonicity:	that
  *		they always move forward
+ *
+ *	pg_test_timing.c
+ *		测试计时调用的开销及其单调性：确保它们总是向前移动
  */
 
 #include "postgres_fe.h"
@@ -20,8 +23,12 @@ static uint64 test_timing(unsigned int duration);
 static void output(uint64 loop_count);
 
 /* record duration in powers of 2 microseconds */
+/* 以 2 的幂次方微秒记录持续时间 */
 static long long int histogram[32];
 
+/*
+ * main --- 主函数入口点
+ */
 int
 main(int argc, char *argv[])
 {
@@ -39,6 +46,9 @@ main(int argc, char *argv[])
 	return 0;
 }
 
+/*
+ * handle_args --- 解析命令行参数
+ */
 static void
 handle_args(int argc, char *argv[])
 {
@@ -118,6 +128,9 @@ handle_args(int argc, char *argv[])
 		   test_duration);
 }
 
+/*
+ * test_timing --- 测试时钟源单调性与延迟开销的主测试循环
+ */
 static uint64
 test_timing(unsigned int duration)
 {
@@ -146,6 +159,7 @@ test_timing(unsigned int duration)
 		diff = cur - prev;
 
 		/* Did time go backwards? */
+		/* 时间是否倒退了？ */
 		if (diff < 0)
 		{
 			fprintf(stderr, _("Detected clock going backwards in time.\n"));
@@ -154,6 +168,7 @@ test_timing(unsigned int duration)
 		}
 
 		/* What is the highest bit in the time diff? */
+		/* 时间差值中的最高有效位是什么？ */
 		while (diff)
 		{
 			diff >>= 1;
@@ -161,6 +176,7 @@ test_timing(unsigned int duration)
 		}
 
 		/* Update appropriate duration bucket */
+		/* 更新相应的持续时间存储桶（直方图） */
 		histogram[bits]++;
 
 		loop_count++;
@@ -178,6 +194,9 @@ test_timing(unsigned int duration)
 	return loop_count;
 }
 
+/*
+ * output --- 输出测试后的延迟直方图统计表格
+ */
 static void
 output(uint64 loop_count)
 {
@@ -191,6 +210,7 @@ output(uint64 loop_count)
 	int			len3 = strlen(header3);
 
 	/* find highest bit value */
+	/* 寻找最高有效位 */
 	while (max_bit > 0 && histogram[max_bit] == 0)
 		max_bit--;
 

@@ -7,6 +7,13 @@
  * src/bin/pg_ctl/pg_ctl.c
  *
  *-------------------------------------------------------------------------
+ * pg_ctl --- start/stops/restarts the PostgreSQL server
+ * pg_ctl --- 启动/停止/重启 PostgreSQL 服务器
+ *
+ * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
+ * 部分版权所有 (c) 1996-2025, PostgreSQL 全球开发组
+ *
+ * src/bin/pg_ctl/pg_ctl.c
  */
 
 #include "postgres_fe.h"
@@ -29,7 +36,7 @@
 #include "getopt_long.h"
 #include "utils/pidfile.h"
 
-#ifdef WIN32					/* on Unix, we don't need libpq */
+#ifdef WIN32					/* on Unix, we don't need libpq - 在 Unix 上，我们不需要 libpq */
 #include "pqexpbuffer.h"
 #endif
 
@@ -70,14 +77,14 @@ typedef enum
 
 #define USEC_PER_SEC	1000000
 
-#define WAITS_PER_SEC	10		/* should divide USEC_PER_SEC evenly */
+#define WAITS_PER_SEC	10		/* should divide USEC_PER_SEC evenly - 应该整除 USEC_PER_SEC */
 
 static bool do_wait = true;
 static int	wait_seconds = DEFAULT_WAIT;
 static bool wait_seconds_arg = false;
 static bool silent_mode = false;
 static ShutdownMode shutdown_mode = FAST_MODE;
-static int	sig = SIGINT;		/* default */
+static int	sig = SIGINT;		/* default - 默认值 */
 static CtlCommand ctl_command = NO_COMMAND;
 static char *pg_data = NULL;
 static char *pg_config = NULL;
@@ -87,7 +94,7 @@ static const char *progname;
 static char *log_file = NULL;
 static char *exec_path = NULL;
 static char *event_source = NULL;
-static char *register_servicename = "PostgreSQL";	/* FIXME: + version ID? */
+static char *register_servicename = "PostgreSQL";	/* FIXME: + version ID? - FIXME: 是否加上版本 ID？ */
 static char *register_username = NULL;
 static char *register_password = NULL;
 static char *argv0 = NULL;
@@ -185,7 +192,7 @@ write_eventlog(int level, const char *line)
 	ReportEvent(evtHandle,
 				level,
 				0,
-				0,				/* All events are Id 0 */
+				0,				/* All events are Id 0 - 所有事件都是 Id 0 */
 				NULL,
 				1,
 				0,
@@ -197,6 +204,12 @@ write_eventlog(int level, const char *line)
 /*
  * Write errors to stderr (or by equal means when stderr is
  * not available).
+ * Write errors to stderr (or by equal means when stderr is not available).
+ * 将错误写入 stderr（或者在 stderr 不可用时通过同等方式写入）。
+ */
+/*
+ * write_stderr --- Output error messages.
+ * 函数作用：输出错误信息。如果是 Unix 平台，直接 fprintf 到 stderr；如果是 Windows 并且作为服务运行，则写入 Windows 事件日志。
  */
 static void
 write_stderr(const char *fmt,...)
@@ -205,24 +218,26 @@ write_stderr(const char *fmt,...)
 
 	va_start(ap, fmt);
 #ifndef WIN32
-	/* On Unix, we just fprintf to stderr */
+	/* On Unix, we just fprintf to stderr - 在 Unix 上，我们直接 fprintf 到 stderr */
 	vfprintf(stderr, fmt, ap);
 #else
 
 	/*
 	 * On Win32, we print to stderr if running on a console, or write to
 	 * eventlog if running as a service
+	 * On Win32, we print to stderr if running on a console, or write to eventlog if running as a service
+	 * 在 Win32 上，如果是控制台运行则打印到 stderr，如果是作为服务运行则写入 eventlog
 	 */
-	if (pgwin32_is_service())	/* Running as a service */
+	if (pgwin32_is_service())	/* Running as a service - 作为服务运行 */
 	{
-		char		errbuf[2048];	/* Arbitrary size? */
+		char		errbuf[2048];	/* Arbitrary size? - 任意大小？ */
 
 		vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
 
 		write_eventlog(EVENTLOG_ERROR_TYPE, errbuf);
 	}
 	else
-		/* Not running as service, write to stderr */
+		/* Not running as service, write to stderr - 不是作为服务运行，写入 stderr */
 		vfprintf(stderr, fmt, ap);
 #endif
 	va_end(ap);
@@ -231,6 +246,12 @@ write_stderr(const char *fmt,...)
 /*
  * Given an already-localized string, print it to stdout unless the
  * user has specified that no messages should be printed.
+ * Given an already-localized string, print it to stdout unless the user has specified that no messages should be printed.
+ * 给定一个已经本地化的字符串，将其打印到 stdout，除非用户指定不打印任何消息。
+ */
+/*
+ * print_msg --- Print informational messages.
+ * 函数作用：如果不是静默模式，打印提示信息到 stdout，并刷新缓冲区。
  */
 static void
 print_msg(const char *msg)
@@ -242,6 +263,10 @@ print_msg(const char *msg)
 	}
 }
 
+/*
+ * get_pgpid --- Retrieve postmaster PID from locking file.
+ * 函数作用：读取 postmaster.pid 文件并获取其中的 PID 值。做一些基础校验，比如验证数据目录是否存在。
+ */
 static pid_t
 get_pgpid(bool is_status_request)
 {
@@ -262,6 +287,10 @@ get_pgpid(bool is_status_request)
 		 * The Linux Standard Base Core Specification 3.1 says this should
 		 * return '4, program or service status is unknown'
 		 * https://refspecs.linuxbase.org/LSB_3.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
+		 * The Linux Standard Base Core Specification 3.1 says this should return '4, program or service status is unknown'
+		 * https://refspecs.linuxbase.org/LSB_3.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
+		 * Linux Standard Base Core Specification 3.1 指出这应该返回 '4，程序或服务状态未知'
+		 * https://refspecs.linuxbase.org/LSB_3.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
 		 */
 		exit(is_status_request ? 4 : 1);
 	}
@@ -276,7 +305,7 @@ get_pgpid(bool is_status_request)
 	pidf = fopen(pid_file, "r");
 	if (pidf == NULL)
 	{
-		/* No pid file, not an error on startup */
+		/* No pid file, not an error on startup - 没有 pid 文件，在启动时不是错误 */
 		if (errno == ENOENT)
 			return 0;
 		else
@@ -288,7 +317,7 @@ get_pgpid(bool is_status_request)
 	}
 	if (fscanf(pidf, "%d", &pid) != 1)
 	{
-		/* Is the file empty? */
+		/* Is the file empty? - 文件是否为空？ */
 		if (ftell(pidf) == 0 && feof(pidf))
 			write_stderr(_("%s: the PID file \"%s\" is empty\n"),
 						 progname, pid_file);
@@ -309,6 +338,19 @@ get_pgpid(bool is_status_request)
  *
  * *numlines is set to the number of line pointers returned; there is
  * also an additional NULL pointer after the last real line.
+ * get the lines from a text file - return NULL if file can't be opened
+ * 从文本文件中获取行 - 如果无法打开文件则返回 NULL
+ *
+ * Trailing newlines are deleted from the lines (this is a change from pre-v10)
+ * 从行中删除尾随换行符（这是相比 v10 之前的更改）
+ *
+ * *numlines is set to the number of line pointers returned; there is
+ * also an additional NULL pointer after the last real line.
+ * *numlines 设置为返回的行指针数；在最后一行真实行之后还有一个额外的 NULL 指针。
+ */
+/*
+ * readfile --- Read entire file by lines.
+ * 函数作用：将指定文件的内容全部读入内存，并切分为以行组成的字符串数组，末尾附加 NULL 指针。
  */
 static char **
 readfile(const char *path, int *numlines)
@@ -323,7 +365,7 @@ readfile(const char *path, int *numlines)
 	int			len;
 	struct stat statbuf;
 
-	*numlines = 0;				/* in case of failure or empty file */
+	*numlines = 0;				/* in case of failure or empty file - 空文件 */
 
 	/*
 	 * Slurp the file into memory.
@@ -332,6 +374,15 @@ readfile(const char *path, int *numlines)
 	 * with a single read() call. That's not guaranteed to get an atomic
 	 * snapshot, but in practice, for a small file, it's close enough for the
 	 * current use.
+	 * Slurp the file into memory.
+	 *
+	 * The file can change concurrently, so we read the whole file into memory
+	 * with a single read() call. That's not guaranteed to get an atomic
+	 * snapshot, but in practice, for a small file, it's close enough for the
+	 * current use.
+	 * 将文件吞入内存。
+	 * 文件可能会并发更改，因此我们通过单个 read() 调用将整个文件读入内存。
+	 * 这不能保证获得原子快照，但实际上，对于一个小文件，它对于当前用途来说已经足够接近了。
 	 */
 	fd = open(path, O_RDONLY | PG_BINARY, 0);
 	if (fd < 0)
@@ -343,7 +394,7 @@ readfile(const char *path, int *numlines)
 	}
 	if (statbuf.st_size == 0)
 	{
-		/* empty file */
+		/* empty file - 空文件 */
 		close(fd);
 		result = (char **) pg_malloc(sizeof(char *));
 		*result = NULL;
@@ -355,7 +406,7 @@ readfile(const char *path, int *numlines)
 	close(fd);
 	if (len != statbuf.st_size)
 	{
-		/* oops, the file size changed between fstat and read */
+		/* oops, the file size changed between fstat and read - 糟糕，文件大小在 fstat 和 read 之间发生了变化 */
 		free(buffer);
 		return NULL;
 	}
@@ -364,6 +415,11 @@ readfile(const char *path, int *numlines)
 	 * Count newlines. We expect there to be a newline after each full line,
 	 * including one at the end of file. If there isn't a newline at the end,
 	 * any characters after the last newline will be ignored.
+	 * Count newlines. We expect there to be a newline after each full line,
+	 * including one at the end of file. If there isn't a newline at the end,
+	 * any characters after the last newline will be ignored.
+	 * 计算换行符。我们希望在每行完整行之后都有一个换行符，包括文件末尾的一个。
+	 * 如果末尾没有换行符，则最后一个换行符之后的任何字符都将被忽略。
 	 */
 	nlines = 0;
 	for (i = 0; i < len; i++)
@@ -372,11 +428,11 @@ readfile(const char *path, int *numlines)
 			nlines++;
 	}
 
-	/* set up the result buffer */
+	/* set up the result buffer - 设置结果缓冲区 */
 	result = (char **) pg_malloc((nlines + 1) * sizeof(char *));
 	*numlines = nlines;
 
-	/* now split the buffer into lines */
+	/* now split the buffer into lines - 现在将缓冲区拆分为行 */
 	linebegin = buffer;
 	n = 0;
 	for (i = 0; i < len; i++)
@@ -387,7 +443,7 @@ readfile(const char *path, int *numlines)
 			char	   *linebuf = pg_malloc(slen + 1);
 
 			memcpy(linebuf, linebegin, slen);
-			/* we already dropped the \n, but get rid of any \r too */
+			/* we already dropped the \n, but get rid of any \r too - 我们已经去掉了 \n，但也要去掉所有的 \r */
 			if (slen > 0 && linebuf[slen - 1] == '\r')
 				slen--;
 			linebuf[slen] = '\0';
@@ -405,6 +461,11 @@ readfile(const char *path, int *numlines)
 
 /*
  * Free memory allocated for optlines through readfile()
+ * 释放通过 readfile() 为 optlines 分配的内存
+ */
+/*
+ * free_readfile --- Free lines buffer memory.
+ * 函数作用：释放由 readfile() 申请的每行和行指针数组的内存。
  */
 static void
 free_readfile(char **optlines)
@@ -423,6 +484,7 @@ free_readfile(char **optlines)
 
 /*
  * start/test/stop routines
+ * 启动/测试/停止例程
  */
 
 /*
@@ -435,6 +497,24 @@ free_readfile(char **optlines)
  *
  * On Windows, we also save aside a handle to the shell process in
  * "postmasterProcess", which the caller should close when done with it.
+ * Start the postmaster and return its PID.
+ *
+ * Currently, on Windows what we return is the PID of the shell process
+ * that launched the postmaster (and, we trust, is waiting for it to exit).
+ * So the PID is usable for "is the postmaster still running" checks,
+ * but cannot be compared directly to postmaster.pid.
+ * 目前，在 Windows 上，我们返回的是启动 postmaster 的 shell 进程的 PID
+ * （我们相信它正在等待它退出）。因此，该 PID 可用于“postmaster 是否仍在运行”的检查，
+ * 但不能直接与 postmaster.pid 进行比较。
+ *
+ * On Windows, we also save aside a handle to the shell process in
+ * "postmasterProcess", which the caller should close when done with it.
+ * 在 Windows 上，我们还在 "postmasterProcess" 中保存了 shell 进程 of 句柄，
+ * 调用者在使用完毕后应该关闭它。
+ */
+/*
+ * start_postmaster --- Fork/Spawn postmaster process.
+ * 函数作用：在 Unix 上执行 fork 并 execl 运行 shell 执行启动命令；在 Windows 上通过 CreateRestrictedProcess 启动进程。
  */
 static pid_t
 start_postmaster(void)
@@ -444,7 +524,7 @@ start_postmaster(void)
 #ifndef WIN32
 	pid_t		pm_pid;
 
-	/* Flush stdio channels just before fork, to avoid double-output problems */
+	/* Flush stdio channels just before fork, to avoid double-output problems - 在 fork 之前刷新 stdio 通道，以避免双重输出问题 */
 	fflush(NULL);
 
 #ifdef EXEC_BACKEND
@@ -454,23 +534,28 @@ start_postmaster(void)
 	pm_pid = fork();
 	if (pm_pid < 0)
 	{
-		/* fork failed */
+		/* fork failed - fork 失败 */
 		write_stderr(_("%s: could not start server: %m\n"),
 					 progname);
 		exit(1);
 	}
 	if (pm_pid > 0)
 	{
-		/* fork succeeded, in parent */
+		/* fork succeeded, in parent - fork 成功，在父进程中 */
 		return pm_pid;
 	}
 
-	/* fork succeeded, in child */
+	/* fork succeeded, in child - fork 成功，在子进程中 */
 
 	/*
 	 * If possible, detach the postmaster process from the launching process
 	 * group and make it a group leader, so that it doesn't get signaled along
 	 * with the current group that launched it.
+	 * If possible, detach the postmaster process from the launching process
+	 * group and make it a group leader, so that it doesn't get signaled along
+	 * with the current group that launched it.
+	 * 如果可能，将 postmaster 进程与启动进程组分离，并使其成为组长，
+	 * 这样它就不会与启动它的当前组一起收到信号。
 	 */
 #ifdef HAVE_SETSID
 	if (setsid() < 0)
@@ -485,6 +570,11 @@ start_postmaster(void)
 	 * Since there might be quotes to handle here, it is easier simply to pass
 	 * everything to a shell to process them.  Use exec so that the postmaster
 	 * has the same PID as the current child process.
+	 * Since there might be quotes to handle here, it is easier simply to pass
+	 * everything to a shell to process them.  Use exec so that the postmaster
+	 * has the same PID as the current child process.
+	 * 由于这里可能需要处理引号，因此将所有内容传递给 shell 来处理会更容易。
+	 * 使用 exec 以便 postmaster 具有与当前子进程相同的 PID。
 	 */
 	if (log_file != NULL)
 		cmd = psprintf("exec \"%s\" %s%s < \"%s\" >> \"%s\" 2>&1",
@@ -496,24 +586,29 @@ start_postmaster(void)
 
 	(void) execl("/bin/sh", "/bin/sh", "-c", cmd, (char *) NULL);
 
-	/* exec failed */
+	/* exec failed - exec 失败 */
 	write_stderr(_("%s: could not start server: %m\n"),
 				 progname);
 	exit(1);
 
-	return 0;					/* keep dumb compilers quiet */
+	return 0;					/* keep dumb compilers quiet - 让哑编译器保持安静 */
 
-#else							/* WIN32 */
+#else							/* WIN32 - WIN32 平台 */
 
 	/*
 	 * As with the Unix case, it's easiest to use the shell (CMD.EXE) to
 	 * handle redirection etc.  Unfortunately CMD.EXE lacks any equivalent of
 	 * "exec", so we don't get to find out the postmaster's PID immediately.
+	 * As with the Unix case, it's easiest to use the shell (CMD.EXE) to
+	 * handle redirection etc.  Unfortunately CMD.EXE lacks any equivalent of
+	 * "exec", so we don't get to find out the postmaster's PID immediately.
+	 * 与 Unix 情况一样，最简单的方法是使用 shell (CMD.EXE) 来处理重定向等。
+	 * 不幸的是，CMD.EXE 没有任何等同于 "exec" 的功能，因此我们无法立即找出 postmaster 的 PID。
 	 */
 	PROCESS_INFORMATION pi;
 	const char *comspec;
 
-	/* Find CMD.EXE location using COMSPEC, if it's set */
+	/* Find CMD.EXE location using COMSPEC, if it's set - 如果设置了 COMSPEC，使用其查找 CMD.EXE 的位置 */
 	comspec = getenv("COMSPEC");
 	if (comspec == NULL)
 		comspec = "CMD";
@@ -533,6 +628,24 @@ start_postmaster(void)
 		 * were launched with higher privileges than the restricted process
 		 * will have, the log file might end up with permissions settings that
 		 * prevent the postmaster from writing on it.
+		 * First, open the log file if it exists.  The idea is that if the
+		 * file is still locked by a previous postmaster run, we'll wait until
+		 * it comes free, instead of failing with ERROR_SHARING_VIOLATION.
+		 * (It'd be better to open the file in a sharing-friendly mode, but we
+		 * can't use CMD.EXE to do that, so work around it.  Note that the
+		 * previous postmaster will still have the file open for a short time
+		 * after removing postmaster.pid.)
+		 * 首先，如果日志文件存在，打开它。这样如果文件仍被前一次 postmaster 运行锁定，
+		 * 我们将等待它释放，而不是由于 ERROR_SHARING_VIOLATION 而失败。
+		 * （更好的办法是在共享友好模式下打开文件，但我们不能使用 CMD.EXE 来做这件事，所以要绕过它。
+		 * 请注意，前一个 postmaster 在删除 postmaster.pid 之后仍会在短时间内打开该文件。）
+		 *
+		 * If the log file doesn't exist, we *must not* create it here.  If we
+		 * were launched with higher privileges than the restricted process
+		 * will have, the log file might end up with permissions settings that
+		 * prevent the postmaster from writing on it.
+		 * 如果日志文件不存在，我们 *绝对不能* 在这里创建它。如果我们的启动权限高于受限进程的权限，
+		 * 则日志文件最终的权限设置可能会阻止 postmaster 写入。
 		 */
 		int			fd = open(log_file, O_RDWR, 0);
 
@@ -542,6 +655,11 @@ start_postmaster(void)
 			 * ENOENT is expectable since we didn't use O_CREAT.  Otherwise
 			 * complain.  We could just fall through and let CMD.EXE report
 			 * the problem, but its error reporting is pretty miserable.
+			 * ENOENT is expectable since we didn't use O_CREAT.  Otherwise
+			 * complain.  We could just fall through and let CMD.EXE report
+			 * the problem, but its error reporting is pretty miserable.
+			 * 因为我们没有使用 O_CREAT，所以 ENOENT 是可以预期的。否则需要抱怨。
+			 * 我们本可以落入下一层并让 CMD.EXE 报告问题，但它的错误报告相当糟糕。
 			 */
 			if (errno != ENOENT)
 			{
@@ -566,11 +684,11 @@ start_postmaster(void)
 					 progname, (unsigned long) GetLastError());
 		exit(1);
 	}
-	/* Don't close command process handle here; caller must do so */
+	/* Don't close command process handle here; caller must do so - 不要在这里关闭命令进程句柄；调用者必须这样做 */
 	postmasterProcess = pi.hProcess;
 	CloseHandle(pi.hThread);
-	return pi.dwProcessId;		/* Shell's PID, not postmaster's! */
-#endif							/* WIN32 */
+	return pi.dwProcessId;		/* Shell's PID, not postmaster's! - Shell 的 PID，不是 postmaster 的！ */
+#endif							/* WIN32 - WIN32 平台 */
 }
 
 
@@ -588,6 +706,27 @@ start_postmaster(void)
  *
  * Note that the checkpoint parameter enables a Windows service control
  * manager checkpoint, it's got nothing to do with database checkpoints!!
+ * Wait for the postmaster to become ready.
+ *
+ * On Unix, pm_pid is the PID of the just-launched postmaster.  On Windows,
+ * it may be the PID of an ancestor shell process, so we can't check the
+ * contents of postmaster.pid quite as carefully.
+ * 在 Unix 上，pm_pid 是刚启动 postmaster 的 PID。在 Windows 上，
+ * 它可能是祖先 shell 进程的 PID，因此我们无法非常仔细地检查 postmaster.pid 的内容。
+ *
+ * On Windows, the static variable postmasterProcess is an implicit argument
+ * to this routine; it contains a handle to the postmaster process or an
+ * ancestor shell process thereof.
+ * 在 Windows 上，静态变量 postmasterProcess 是该例程的隐式参数；
+ * 它包含指向 postmaster 进程或其祖先 shell 进程的句柄。
+ *
+ * Note that the checkpoint parameter enables a Windows service control
+ * manager checkpoint, it's got nothing to do with database checkpoints!!
+ * 请注意，checkpoint 参数启用 Windows 服务控制管理器检查点，这与数据库检查点完全没有关系！
+ */
+/*
+ * wait_for_postmaster_start --- Wait until postmaster ready.
+ * 函数作用：轮询读取 pid 文件，等待状态变成 READY 或者 STANDBY，若超时或子进程异常退出则返回对应状态。
  */
 static WaitPMResult
 wait_for_postmaster_start(pid_t pm_pid, bool do_checkpoint)
@@ -602,11 +741,14 @@ wait_for_postmaster_start(pid_t pm_pid, bool do_checkpoint)
 		/*
 		 * Try to read the postmaster.pid file.  If it's not valid, or if the
 		 * status line isn't there yet, just keep waiting.
+		 * Try to read the postmaster.pid file.  If it's not valid, or if the
+		 * status line isn't there yet, just keep waiting.
+		 * 尝试读取 postmaster.pid 文件。如果它无效，或者状态行还没有，就继续等待。
 		 */
 		if ((optlines = readfile(pid_file, &numlines)) != NULL &&
 			numlines >= LOCK_FILE_LINE_PM_STATUS)
 		{
-			/* File is complete enough for us, parse it */
+			/* File is complete enough for us, parse it - 文件对我们来说已经足够完整，解析它 */
 			pid_t		pmpid;
 			time_t		pmstart;
 
@@ -616,6 +758,14 @@ wait_for_postmaster_start(pid_t pm_pid, bool do_checkpoint)
 			 * at the wrong data directory, or this is a pre-existing pidfile
 			 * that hasn't (yet?) been overwritten by our child postmaster.
 			 * Allow 2 seconds slop for possible cross-process clock skew.
+			 * Make sanity checks.  If it's for the wrong PID, or the recorded
+			 * start time is before pg_ctl started, then either we are looking
+			 * at the wrong data directory, or this is a pre-existing pidfile
+			 * that hasn't (yet?) been overwritten by our child postmaster.
+			 * Allow 2 seconds slop for possible cross-process clock skew.
+			 * 进行安全检查。如果是错误的 PID，或者记录的启动时间在 pg_ctl 启动之前，
+			 * 那么要么我们正在查看错误的数据目录，要么这是一个预先存在的 pid 文件，
+			 * 尚未被我们的子 postmaster 覆盖。允许 2 秒的偏差以应对可能的跨进程时钟偏差。
 			 */
 			pmpid = atol(optlines[LOCK_FILE_LINE_PID - 1]);
 			pmstart = atoll(optlines[LOCK_FILE_LINE_START_TIME - 1]);
@@ -623,7 +773,7 @@ wait_for_postmaster_start(pid_t pm_pid, bool do_checkpoint)
 #ifndef WIN32
 				pmpid == pm_pid
 #else
-			/* Windows can only reject standalone-backend PIDs */
+			/* Windows can only reject standalone-backend PIDs - Windows 只能拒绝单用户（standalone-backend）的 PID */
 				pmpid > 0
 #endif
 				)
@@ -631,13 +781,16 @@ wait_for_postmaster_start(pid_t pm_pid, bool do_checkpoint)
 				/*
 				 * OK, seems to be a valid pidfile from our child.  Check the
 				 * status line (this assumes a v10 or later server).
+				 * OK, seems to be a valid pidfile from our child.  Check the
+				 * status line (this assumes a v10 or later server).
+				 * 好的，似乎是来自我们子进程的有效 pid 文件。检查状态行（这假设是 v10 或更高版本的服务器）。
 				 */
 				char	   *pmstatus = optlines[LOCK_FILE_LINE_PM_STATUS - 1];
 
 				if (strcmp(pmstatus, PM_STATUS_READY) == 0 ||
 					strcmp(pmstatus, PM_STATUS_STANDBY) == 0)
 				{
-					/* postmaster is done starting up */
+					/* postmaster is done starting up - postmaster 启动完成 */
 					free_readfile(optlines);
 					return POSTMASTER_READY;
 				}
@@ -648,6 +801,10 @@ wait_for_postmaster_start(pid_t pm_pid, bool do_checkpoint)
 		 * Free the results of readfile.
 		 *
 		 * This is safe to call even if optlines is NULL.
+		 * Free the results of readfile.
+		 *
+		 * This is safe to call even if optlines is NULL.
+		 * 释放 readfile 的结果。即使 optlines 为 NULL，调用它也是安全的。
 		 */
 		free_readfile(optlines);
 
@@ -657,6 +814,13 @@ wait_for_postmaster_start(pid_t pm_pid, bool do_checkpoint)
 		 *
 		 * On Windows, we may be checking the postmaster's parent shell, but
 		 * that's fine for this purpose.
+		 * Check whether the child postmaster process is still alive.  This
+		 * lets us exit early if the postmaster fails during startup.
+		 *
+		 * On Windows, we may be checking the postmaster's parent shell, but
+		 * that's fine for this purpose.
+		 * 检查子 postmaster 进程是否仍然存活。这使我们能够在 postmaster 在启动期间失败时提前退出。
+		 * 在 Windows 上，我们可能是在检查 postmaster 的父 shell，但出于这个目的，这没有问题。
 		 */
 		{
 			bool		pm_died;
@@ -669,7 +833,7 @@ wait_for_postmaster_start(pid_t pm_pid, bool do_checkpoint)
 #endif
 			if (pm_died)
 			{
-				/* See if postmaster terminated intentionally */
+				/* See if postmaster terminated intentionally - 查看 postmaster 是否是故意终止的 */
 				if (get_control_dbstate() == DB_SHUTDOWNED_IN_RECOVERY)
 					return POSTMASTER_SHUTDOWN_IN_RECOVERY;
 				else
@@ -677,7 +841,7 @@ wait_for_postmaster_start(pid_t pm_pid, bool do_checkpoint)
 			}
 		}
 
-		/* Startup still in process; wait, printing a dot once per second */
+		/* Startup still in process; wait, printing a dot once per second - 启动仍在进行中；等待，每秒打印一个点 */
 		if (i % WAITS_PER_SEC == 0)
 		{
 #ifdef WIN32
@@ -689,6 +853,13 @@ wait_for_postmaster_start(pid_t pm_pid, bool do_checkpoint)
 				 * startup time is changing, otherwise it'll usually send a
 				 * stop signal after 20 seconds, despite incrementing the
 				 * checkpoint counter.
+				 * Increment the wait hint by 6 secs (connection timeout +
+				 * sleep).  We must do this to indicate to the SCM that our
+				 * startup time is changing, otherwise it'll usually send a
+				 * stop signal after 20 seconds, despite incrementing the
+				 * checkpoint counter.
+				 * 将等待提示增加 6 秒（连接超时 + 休眠）。我们必须这样做以向 SCM 指示我们的
+				 * 启动时间正在改变，否则即使增加了检查点计数器，它通常也会在 20 秒后发送停止信号。
 				 */
 				status.dwWaitHint += 6000;
 				status.dwCheckPoint++;
@@ -702,7 +873,7 @@ wait_for_postmaster_start(pid_t pm_pid, bool do_checkpoint)
 		pg_usleep(USEC_PER_SEC / WAITS_PER_SEC);
 	}
 
-	/* out of patience; report that postmaster is still starting up */
+	/* out of patience; report that postmaster is still starting up - 失去耐心；报告 postmaster 仍在启动中 */
 	return POSTMASTER_STILL_STARTING;
 }
 
@@ -712,6 +883,16 @@ wait_for_postmaster_start(pid_t pm_pid, bool do_checkpoint)
  *
  * Returns true if the postmaster stopped cleanly (i.e., removed its pidfile).
  * Returns false if the postmaster dies uncleanly, or if we time out.
+ * Wait for the postmaster to stop.
+ *
+ * Returns true if the postmaster stopped cleanly (i.e., removed its pidfile).
+ * 如果 postmaster 干净地停止（即删除了其 pid 文件）则返回 true。
+ * Returns false if the postmaster dies uncleanly, or if we time out.
+ * 如果 postmaster 不干净地死亡或超时，则返回 false。
+ */
+/*
+ * wait_for_postmaster_stop --- Wait until postmaster completely exits.
+ * 函数作用：循环检查 get_pgpid 是否返回 0 或者检测该 pid 是否已经被终止，若是则说明停止完成。
  */
 static bool
 wait_for_postmaster_stop(void)
@@ -723,24 +904,27 @@ wait_for_postmaster_stop(void)
 		pid_t		pid;
 
 		if ((pid = get_pgpid(false)) == 0)
-			return true;		/* pid file is gone */
+			return true;		/* pid file is gone - pid 文件已消失 */
 
 		if (kill(pid, 0) != 0)
 		{
 			/*
 			 * Postmaster seems to have died.  Check the pid file once more to
 			 * avoid a race condition, but give up waiting.
+			 * Postmaster seems to have died.  Check the pid file once more to
+			 * avoid a race condition, but give up waiting.
+			 * Postmaster 似乎已经死掉了。再次检查 pid 文件以避免竞争条件，但放弃等待。
 			 */
 			if (get_pgpid(false) == 0)
-				return true;	/* pid file is gone */
-			return false;		/* postmaster died untimely */
+				return true;	/* pid file is gone - pid 文件已消失 */
+			return false;		/* postmaster died untimely - postmaster 异常死亡 */
 		}
 
 		if (cnt % WAITS_PER_SEC == 0)
 			print_msg(".");
 		pg_usleep(USEC_PER_SEC / WAITS_PER_SEC);
 	}
-	return false;				/* timeout reached */
+	return false;				/* timeout reached - 达到超时时间 */
 }
 
 
@@ -749,6 +933,16 @@ wait_for_postmaster_stop(void)
  *
  * Returns true on success, else false.
  * To avoid waiting uselessly, we check for postmaster death here too.
+ * Wait for the postmaster to promote.
+ *
+ * Returns true on success, else false.
+ * 成功时返回 true，否则返回 false。
+ * To avoid waiting uselessly, we check for postmaster death here too.
+ * 为了避免无谓的等待，我们这里也检查 postmaster 是否死亡。
+ */
+/*
+ * wait_for_postmaster_promote --- Wait until standby server promotes.
+ * 函数作用：循环检查控制文件的 DBState 是否已变为 DB_IN_PRODUCTION（主库就绪状态）。
  */
 static bool
 wait_for_postmaster_promote(void)
@@ -761,19 +955,19 @@ wait_for_postmaster_promote(void)
 		DBState		state;
 
 		if ((pid = get_pgpid(false)) == 0)
-			return false;		/* pid file is gone */
+			return false;		/* pid file is gone - pid 文件已消失 */
 		if (kill(pid, 0) != 0)
-			return false;		/* postmaster died */
+			return false;		/* postmaster died - postmaster 已死亡 */
 
 		state = get_control_dbstate();
 		if (state == DB_IN_PRODUCTION)
-			return true;		/* successful promotion */
+			return true;		/* successful promotion - 成功晋升 */
 
 		if (cnt % WAITS_PER_SEC == 0)
 			print_msg(".");
 		pg_usleep(USEC_PER_SEC / WAITS_PER_SEC);
 	}
-	return false;				/* timeout reached */
+	return false;				/* timeout reached - 达到超时时间 */
 }
 
 
@@ -798,12 +992,16 @@ unlimit_core_size(void)
 }
 #endif
 
+/*
+ * read_post_opts --- Read postmaster start options.
+ * 函数作用：在执行 restart 时，从旧 of postmaster.opts 中读取原启动参数以重新传递给新启动的进程。
+ */
 static void
 read_post_opts(void)
 {
 	if (post_opts == NULL)
 	{
-		post_opts = "";			/* default */
+		post_opts = "";			/* default - 默认值 */
 		if (ctl_command == RESTART_COMMAND)
 		{
 			char	  **optlines;
@@ -831,17 +1029,18 @@ read_post_opts(void)
 				/*
 				 * Are we at the first option, as defined by space and
 				 * double-quote?
+				 * 我们是否处于由空格和双引号定义的第一个选项？
 				 */
 				if ((arg1 = strstr(optline, " \"")) != NULL)
 				{
-					*arg1 = '\0';	/* terminate so we get only program name */
-					post_opts = pg_strdup(arg1 + 1);	/* point past whitespace */
+					*arg1 = '\0';	/* terminate so we get only program name - 终止以仅获取程序名 */
+					post_opts = pg_strdup(arg1 + 1);	/* point past whitespace - 指向空白字符之后 */
 				}
 				if (exec_path == NULL)
 					exec_path = pg_strdup(optline);
 			}
 
-			/* Free the results of readfile. */
+			/* Free the results of readfile. - 释放 readfile 的结果。 */
 			free_readfile(optlines);
 		}
 	}
@@ -852,6 +1051,13 @@ read_post_opts(void)
  * Forwards the SIGINT to the postmaster process, asking it to shut down,
  * before terminating pg_ctl itself. This way, if the user hits CTRL-C while
  * waiting for the server to start up, the server launch is aborted.
+ * SIGINT signal handler used while waiting for postmaster to start up.
+ * Forwards the SIGINT to the postmaster process, asking it to shut down,
+ * before terminating pg_ctl itself. This way, if the user hits CTRL-C while
+ * waiting for the server to start up, the server launch is aborted.
+ * 在等待 postmaster 启动时使用的 SIGINT 信号处理程序。
+ * 在终止 pg_ctl 自身之前，将 SIGINT 转发给 postmaster 进程，请求其关闭。
+ * 这样，如果用户在等待服务器启动时按下 CTRL-C，服务器的启动将被终止。
  */
 static void
 trap_sigint_during_startup(SIGNAL_ARGS)
@@ -866,6 +1072,9 @@ trap_sigint_during_startup(SIGNAL_ARGS)
 	/*
 	 * Clear the signal handler, and send the signal again, to terminate the
 	 * process as normal.
+	 * Clear the signal handler, and send the signal again, to terminate the
+	 * process as normal.
+	 * 清除信号处理程序，并再次发送信号，以正常终止进程。
 	 */
 	pqsignal(postgres_signal_arg, SIG_DFL);
 	raise(postgres_signal_arg);
@@ -898,6 +1107,10 @@ find_other_exec_or_die(const char *argv0, const char *target, const char *versio
 	return found_path;
 }
 
+/*
+ * do_init --- Run database system initialization.
+ * 函数作用：调用 initdb 进行数据库初始化。
+ */
 static void
 do_init(void)
 {
@@ -927,6 +1140,10 @@ do_init(void)
 	}
 }
 
+/*
+ * do_start --- Start PostgreSQL server.
+ * 函数作用：检查是否运行，调用 start_postmaster，并可选地等待启动就绪。
+ */
 static void
 do_start(void)
 {
@@ -944,7 +1161,7 @@ do_start(void)
 
 	read_post_opts();
 
-	/* No -D or -D already added during server start */
+	/* No -D or -D already added during server start - 没有 -D 或在服务器启动期间已添加 -D */
 	if (ctl_command == RESTART_COMMAND || pgdata_opt == NULL)
 		pgdata_opt = "";
 
@@ -960,6 +1177,11 @@ do_start(void)
 	 * If possible, tell the postmaster our parent shell's PID (see the
 	 * comments in CreateLockFile() for motivation).  Windows hasn't got
 	 * getppid() unfortunately.
+	 * If possible, tell the postmaster our parent shell's PID (see the
+	 * comments in CreateLockFile() for motivation).  Windows hasn't got
+	 * getppid() unfortunately.
+	 * 如果可能的话，告诉 postmaster 我们父 shell 的 PID（有关动机请参见 CreateLockFile() 中的注释）。
+	 * 不幸的是，Windows 没有 getppid()。
 	 */
 #ifndef WIN32
 	{
@@ -981,6 +1203,16 @@ do_start(void)
 		 *
 		 * (We don't bother to reset the signal handler after the launch, as
 		 * we're about to exit, anyway.)
+		 * If the user interrupts the startup (e.g. with CTRL-C), we'd like to
+		 * abort the server launch.  Install a signal handler that will
+		 * forward SIGINT to the postmaster process, while we wait.
+		 *
+		 * (We don't bother to reset the signal handler after the launch, as
+		 * we're about to exit, anyway.)
+		 * 如果用户中断了启动（例如通过 CTRL-C），我们希望中止服务器启动。
+		 * 安装一个信号处理程序，在我们等待时将 SIGINT 转发给 postmaster 进程。
+		 *
+		 * （我们不用麻烦地在启动后重置信号处理程序，因为我们反正即将退出。）
 		 */
 		postmasterPID = pm_pid;
 		pqsignal(SIGINT, trap_sigint_during_startup);
@@ -1016,13 +1248,17 @@ do_start(void)
 		print_msg(_("server starting\n"));
 
 #ifdef WIN32
-	/* Now we don't need the handle to the shell process anymore */
+	/* Now we don't need the handle to the shell process anymore - 现在我们不再需要 shell 进程的句柄了 */
 	CloseHandle(postmasterProcess);
 	postmasterProcess = INVALID_HANDLE_VALUE;
 #endif
 }
 
 
+/*
+ * do_stop --- Stop PostgreSQL server.
+ * 函数作用：读取 pid，发送停止信号（如 SIGINT / SIGTERM / SIGQUIT），并等待进程退出。
+ */
 static void
 do_stop(void)
 {
@@ -1030,13 +1266,13 @@ do_stop(void)
 
 	pid = get_pgpid(false);
 
-	if (pid == 0)				/* no pid file */
+	if (pid == 0)				/* no pid file - 没有 pid 文件 */
 	{
 		write_stderr(_("%s: PID file \"%s\" does not exist\n"), progname, pid_file);
 		write_stderr(_("Is server running?\n"));
 		exit(1);
 	}
-	else if (pid < 0)			/* standalone backend, not postmaster */
+	else if (pid < 0)			/* standalone backend, not postmaster - 单用户后端，而非 postmaster */
 	{
 		pid = -pid;
 		write_stderr(_("%s: cannot stop server; "
@@ -1079,8 +1315,13 @@ do_stop(void)
 
 /*
  *	restart/reload routines
+ * 重启/重新加载例程
  */
 
+/*
+ * do_restart --- Restart PostgreSQL server.
+ * 函数作用：先发送信号停止当前运行的 server，确认退出后，再调用 do_start 启动新实例。
+ */
 static void
 do_restart(void)
 {
@@ -1088,7 +1329,7 @@ do_restart(void)
 
 	pid = get_pgpid(false);
 
-	if (pid == 0)				/* no pid file */
+	if (pid == 0)				/* no pid file - 没有 pid 文件 */
 	{
 		write_stderr(_("%s: PID file \"%s\" does not exist\n"),
 					 progname, pid_file);
@@ -1097,7 +1338,7 @@ do_restart(void)
 		do_start();
 		return;
 	}
-	else if (pid < 0)			/* standalone backend, not postmaster */
+	else if (pid < 0)			/* standalone backend, not postmaster - 单用户后端，而非 postmaster */
 	{
 		pid = -pid;
 		if (postmaster_is_alive(pid))
@@ -1120,7 +1361,7 @@ do_restart(void)
 
 		print_msg(_("waiting for server to shut down..."));
 
-		/* always wait for restart */
+		/* always wait for restart - 重启时总是进行等待 */
 		if (!wait_for_postmaster_stop())
 		{
 			print_msg(_(" failed\n"));
@@ -1145,19 +1386,23 @@ do_restart(void)
 	do_start();
 }
 
+/*
+ * do_reload --- Reload configuration.
+ * 函数作用：向 postmaster 进程发送 SIGHUP 信号以促使其重新加载配置文件。
+ */
 static void
 do_reload(void)
 {
 	pid_t		pid;
 
 	pid = get_pgpid(false);
-	if (pid == 0)				/* no pid file */
+	if (pid == 0)				/* no pid file - 没有 pid 文件 */
 	{
 		write_stderr(_("%s: PID file \"%s\" does not exist\n"), progname, pid_file);
 		write_stderr(_("Is server running?\n"));
 		exit(1);
 	}
-	else if (pid < 0)			/* standalone backend, not postmaster */
+	else if (pid < 0)			/* standalone backend, not postmaster - 单用户后端，而非 postmaster */
 	{
 		pid = -pid;
 		write_stderr(_("%s: cannot reload server; "
@@ -1180,8 +1425,13 @@ do_reload(void)
 
 /*
  * promote
+ * 晋升（主备切换）
  */
 
+/*
+ * do_promote --- Promote standby to primary.
+ * 函数作用：写入 promote 信号文件并向 postmaster 发送 SIGUSR1 信号，促其切换为主库运行。
+ */
 static void
 do_promote(void)
 {
@@ -1190,13 +1440,13 @@ do_promote(void)
 
 	pid = get_pgpid(false);
 
-	if (pid == 0)				/* no pid file */
+	if (pid == 0)				/* no pid file - 没有 pid 文件 */
 	{
 		write_stderr(_("%s: PID file \"%s\" does not exist\n"), progname, pid_file);
 		write_stderr(_("Is server running?\n"));
 		exit(1);
 	}
-	else if (pid < 0)			/* standalone backend, not postmaster */
+	else if (pid < 0)			/* standalone backend, not postmaster - 单用户后端，而非 postmaster */
 	{
 		pid = -pid;
 		write_stderr(_("%s: cannot promote server; "
@@ -1261,8 +1511,13 @@ do_promote(void)
 
 /*
  * log rotate
+ * 日志轮转
  */
 
+/*
+ * do_logrotate --- Rotate log files.
+ * 函数作用：写入 logrotate 信号文件并向 postmaster 发送 SIGUSR1 信号通知其做日志轮转。
+ */
 static void
 do_logrotate(void)
 {
@@ -1271,13 +1526,13 @@ do_logrotate(void)
 
 	pid = get_pgpid(false);
 
-	if (pid == 0)				/* no pid file */
+	if (pid == 0)				/* no pid file - 没有 pid 文件 */
 	{
 		write_stderr(_("%s: PID file \"%s\" does not exist\n"), progname, pid_file);
 		write_stderr(_("Is server running?\n"));
 		exit(1);
 	}
-	else if (pid < 0)			/* standalone backend, not postmaster */
+	else if (pid < 0)			/* standalone backend, not postmaster - 单用户后端，而非 postmaster */
 	{
 		pid = -pid;
 		write_stderr(_("%s: cannot rotate log file; "
@@ -1318,6 +1573,7 @@ do_logrotate(void)
 
 /*
  *	utility routines
+ * 工具函数例程
  */
 
 static bool
@@ -1332,6 +1588,19 @@ postmaster_is_alive(pid_t pid)
 	 *
 	 * Don't believe that our own PID or parent shell's PID is the postmaster,
 	 * either.  (Windows hasn't got getppid(), though.)
+	 * Test to see if the process is still there.  Note that we do not
+	 * consider an EPERM failure to mean that the process is still there;
+	 * EPERM must mean that the given PID belongs to some other userid, and
+	 * considering the permissions on $PGDATA, that means it's not the
+	 * postmaster we are after.
+	 *
+	 * Don't believe that our own PID or parent shell's PID is the postmaster,
+	 * either.  (Windows hasn't got getppid(), though.)
+	 * 测试进程是否仍然存在。请注意，我们不认为 EPERM 失败意味着进程仍在；
+	 * EPERM 必定意味着给定的 PID 属于其他某个用户，考虑到 $PGDATA 的权限，
+	 * 这意味着它不是我们所寻找的 postmaster。
+	 *
+	 * 也不要相信我们自己的 PID 或父 shell 的 PID 是 postmaster。（虽然 Windows 没有 getppid()。）
 	 */
 	if (pid == getpid())
 		return false;
@@ -1344,16 +1613,20 @@ postmaster_is_alive(pid_t pid)
 	return false;
 }
 
+/*
+ * do_status --- Show running status of PostgreSQL server.
+ * 函数作用：检查 pid 和对应的进程是否存在，并打印服务器运行状态及 PID 等信息。
+ */
 static void
 do_status(void)
 {
 	pid_t		pid;
 
 	pid = get_pgpid(true);
-	/* Is there a pid file? */
+	/* Is there a pid file? - 是否存在 pid 文件？ */
 	if (pid != 0)
 	{
-		/* standalone backend? */
+		/* standalone backend? - 是否为单用户后端？ */
 		if (pid < 0)
 		{
 			pid = -pid;
@@ -1365,7 +1638,7 @@ do_status(void)
 			}
 		}
 		else
-			/* must be a postmaster */
+			/* must be a postmaster - 必定是 postmaster */
 		{
 			if (postmaster_is_alive(pid))
 			{
@@ -1382,7 +1655,7 @@ do_status(void)
 					for (curr_line = optlines; *curr_line != NULL; curr_line++)
 						puts(*curr_line);
 
-					/* Free the results of readfile */
+					/* Free the results of readfile - 释放 readfile 的结果 */
 					free_readfile(optlines);
 				}
 				return;
@@ -1395,12 +1668,22 @@ do_status(void)
 	 * The Linux Standard Base Core Specification 3.1 says this should return
 	 * '3, program is not running'
 	 * https://refspecs.linuxbase.org/LSB_3.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
+	 * The Linux Standard Base Core Specification 3.1 says this should return
+	 * '3, program is not running'
+	 * https://refspecs.linuxbase.org/LSB_3.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
+	 * Linux Standard Base Core Specification 3.1 指出这应该返回
+	 * '3，程序未运行'
+	 * https://refspecs.linuxbase.org/LSB_3.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
 	 */
 	exit(3);
 }
 
 
 
+/*
+ * do_kill --- Send custom signal to process.
+ * 函数作用：向特定进程发送用户指定的信号。
+ */
 static void
 do_kill(pid_t pid)
 {
@@ -1452,19 +1735,19 @@ pgwin32_CommandLine(bool registration)
 		}
 	}
 
-	/* if path does not end in .exe, append it */
+	/* if path does not end in .exe, append it - 如果路径不以 .exe 结尾，则追加它 */
 	if (strlen(cmdPath) < 4 ||
 		pg_strcasecmp(cmdPath + strlen(cmdPath) - 4, ".exe") != 0)
 		snprintf(cmdPath + strlen(cmdPath), sizeof(cmdPath) - strlen(cmdPath),
 				 ".exe");
 
-	/* use backslashes in path to avoid problems with some third-party tools */
+	/* use backslashes in path to avoid problems with some third-party tools - 在路径中使用反斜杠以避免一些第三方工具的问题 */
 	make_native_path(cmdPath);
 
-	/* be sure to double-quote the executable's name in the command */
+	/* be sure to double-quote the executable's name in the command - 务必在命令中对可执行文件名使用双引号 */
 	appendPQExpBuffer(cmdLine, "\"%s\"", cmdPath);
 
-	/* append assorted switches to the command line, as needed */
+	/* append assorted switches to the command line, as needed - 根据需要将各种开关追加到命令行 */
 
 	if (registration)
 		appendPQExpBuffer(cmdLine, " runservice -N \"%s\"",
@@ -1472,12 +1755,12 @@ pgwin32_CommandLine(bool registration)
 
 	if (pg_config)
 	{
-		/* We need the -D path to be absolute */
+		/* We need the -D path to be absolute - 我们需要 -D 路径为绝对路径 */
 		char	   *dataDir;
 
 		if ((dataDir = make_absolute_path(pg_config)) == NULL)
 		{
-			/* make_absolute_path already reported the error */
+			/* make_absolute_path already reported the error - make_absolute_path 已经报告了错误 */
 			exit(1);
 		}
 		make_native_path(dataDir);
@@ -1491,7 +1774,7 @@ pgwin32_CommandLine(bool registration)
 	if (registration && do_wait)
 		appendPQExpBufferStr(cmdLine, " -w");
 
-	/* Don't propagate a value from an environment variable. */
+	/* Don't propagate a value from an environment variable. - 不要从环境变量中传递该值。 */
 	if (registration && wait_seconds_arg && wait_seconds != DEFAULT_WAIT)
 		appendPQExpBuffer(cmdLine, " -t %d", wait_seconds);
 
@@ -1601,6 +1884,11 @@ pgwin32_ServiceHandler(DWORD request)
 			 * We only need a short wait hint here as it just needs to wait
 			 * for the next checkpoint. They occur every 5 seconds during
 			 * shutdown
+			 * We only need a short wait hint here as it just needs to wait
+			 * for the next checkpoint. They occur every 5 seconds during
+			 * shutdown
+			 * 我们这里只需要一个简短的等待提示，因为它只需要等待下一个检查点。
+			 * 在关机期间，它们每 5 秒发生一次
 			 */
 			status.dwWaitHint = 10000;
 			pgwin32_SetServiceStatus(SERVICE_STOP_PENDING);
@@ -1608,12 +1896,12 @@ pgwin32_ServiceHandler(DWORD request)
 			return;
 
 		case SERVICE_CONTROL_PAUSE:
-			/* Win32 config reloading */
+			/* Win32 config reloading - Win32 配置重新加载 */
 			status.dwWaitHint = 5000;
 			kill(postmasterPID, SIGHUP);
 			return;
 
-			/* FIXME: These could be used to replace other signals etc */
+			/* FIXME: These could be used to replace other signals etc - FIXME: 这些可以用来替换其他信号等 */
 		case SERVICE_CONTROL_CONTINUE:
 		case SERVICE_CONTROL_INTERROGATE:
 		default:
@@ -1627,7 +1915,7 @@ pgwin32_ServiceMain(DWORD argc, LPTSTR *argv)
 	PROCESS_INFORMATION pi;
 	DWORD		ret;
 
-	/* Initialize variables */
+	/* Initialize variables - 初始化变量 */
 	status.dwWin32ExitCode = S_OK;
 	status.dwCheckPoint = 0;
 	status.dwWaitHint = 60000;
@@ -1640,14 +1928,14 @@ pgwin32_ServiceMain(DWORD argc, LPTSTR *argv)
 
 	read_post_opts();
 
-	/* Register the control request handler */
+	/* Register the control request handler - 注册控制请求处理程序 */
 	if ((hStatus = RegisterServiceCtrlHandler(register_servicename, pgwin32_ServiceHandler)) == (SERVICE_STATUS_HANDLE) 0)
 		return;
 
 	if ((shutdownEvent = CreateEvent(NULL, true, false, NULL)) == NULL)
 		return;
 
-	/* Start the postmaster */
+	/* Start the postmaster - 启动 postmaster */
 	pgwin32_SetServiceStatus(SERVICE_START_PENDING);
 	if (!CreateRestrictedProcess(pgwin32_CommandLine(false), &pi, true))
 	{
@@ -1672,17 +1960,20 @@ pgwin32_ServiceMain(DWORD argc, LPTSTR *argv)
 
 	pgwin32_SetServiceStatus(SERVICE_RUNNING);
 
-	/* Wait for quit... */
+	/* Wait for quit... - 等待退出... */
 	ret = WaitForMultipleObjects(2, shutdownHandles, FALSE, INFINITE);
 
 	pgwin32_SetServiceStatus(SERVICE_STOP_PENDING);
 	switch (ret)
 	{
-		case WAIT_OBJECT_0:		/* shutdown event */
+		case WAIT_OBJECT_0:		/* shutdown event - 关闭事件 */
 			{
 				/*
 				 * status.dwCheckPoint can be incremented by
 				 * wait_for_postmaster_start(), so it might not start from 0.
+				 * status.dwCheckPoint can be incremented by
+				 * wait_for_postmaster_start(), so it might not start from 0.
+				 * status.dwCheckPoint 可由 wait_for_postmaster_start() 递增，因此它可能不从 0 开始。
 				 */
 				int			maxShutdownCheckPoint = status.dwCheckPoint + 12;
 
@@ -1691,6 +1982,9 @@ pgwin32_ServiceMain(DWORD argc, LPTSTR *argv)
 				/*
 				 * Increment the checkpoint and try again. Abort after 12
 				 * checkpoints as the postmaster has probably hung.
+				 * Increment the checkpoint and try again. Abort after 12
+				 * checkpoints as the postmaster has probably hung.
+				 * 递增检查点并重试。在 12 个检查点后中止，因为 postmaster 可能已经挂起。
 				 */
 				while (WaitForSingleObject(postmasterProcess, 5000) == WAIT_TIMEOUT && status.dwCheckPoint < maxShutdownCheckPoint)
 				{
@@ -1700,11 +1994,11 @@ pgwin32_ServiceMain(DWORD argc, LPTSTR *argv)
 				break;
 			}
 
-		case (WAIT_OBJECT_0 + 1):	/* postmaster went down */
+		case (WAIT_OBJECT_0 + 1):	/* postmaster went down - postmaster 下线了 */
 			break;
 
 		default:
-			/* shouldn't get here? */
+			/* shouldn't get here? - 不应该到达这里？ */
 			break;
 	}
 
@@ -1739,6 +2033,19 @@ pgwin32_doRunAsService(void)
  * can pass down INVALID_HANDLE_VALUE - which makes GetStdHandle() in the new
  * process (and its child processes!) return INVALID_HANDLE_VALUE. Which
  * achieves the goal of postmaster running in a similar environment as pg_ctl.
+ * Set up STARTUPINFO for the new process to inherit this process' handles.
+ *
+ * Process started as services appear to have "empty" handles (GetStdHandle()
+ * returns NULL) rather than invalid ones. But passing down NULL ourselves
+ * doesn't work, it's interpreted as STARTUPINFO->hStd* not being set. But we
+ * can pass down INVALID_HANDLE_VALUE - which makes GetStdHandle() in the new
+ * process (and its child processes!) return INVALID_HANDLE_VALUE. Which
+ * achieves the goal of postmaster running in a similar environment as pg_ctl.
+ * 为新进程设置 STARTUPINFO，以便继承此进程的句柄。
+ * 作为服务启动的进程似乎具有“空”句柄（GetStdHandle() 返回 NULL）而不是无效句柄。
+ * 但我们自己传递 NULL 是行不通的，它会被解释为 STARTUPINFO->hStd* 未设置。
+ * 但我们可以传递 INVALID_HANDLE_VALUE - 这使得新进程（及其子进程！）中的
+ * GetStdHandle() 返回 INVALID_HANDLE_VALUE。这达到了在类似于 pg_ctl 的环境中运行 postmaster 的目标。
  */
 static void
 InheritStdHandles(STARTUPINFO *si)
@@ -1763,6 +2070,16 @@ InheritStdHandles(STARTUPINFO *si)
  *
  * NOTE! Job object will only work when running as a service, because it's
  * automatically destroyed when pg_ctl exits.
+ * Create a restricted token, a job object sandbox, and execute the specified
+ * process with it.
+ *
+ * Returns 0 on success, non-zero on failure, same as CreateProcess().
+ *
+ * NOTE! Job object will only work when running as a service, because it's
+ * automatically destroyed when pg_ctl exits.
+ * 创建受限令牌、作业对象沙箱，并使用它执行指定的进程。
+ * 成功时返回 0，失败时返回非零值，与 CreateProcess() 相同。
+ * 注意！作业对象仅在作为服务运行时有效，因为它在 pg_ctl 退出时会自动销毁。
  */
 static int
 CreateRestrictedProcess(char *cmd, PROCESS_INFORMATION *processInfo, bool as_service)
@@ -1785,22 +2102,26 @@ CreateRestrictedProcess(char *cmd, PROCESS_INFORMATION *processInfo, bool as_ser
 	 * That allows postmaster and the processes it starts to perform
 	 * additional checks to see if running in a service (otherwise they get
 	 * the default console handles - which point to "somewhere").
+	 * 默认值
 	 */
 	InheritStdHandles(&si);
 
-	/* Open the current token to use as a base for the restricted one */
+	/* Open the current token to use as a base for the restricted one - 打开当前令牌以用作受限令牌的基础 */
 	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, &origToken))
 	{
 		/*
 		 * Most Windows targets make DWORD a 32-bit unsigned long, but in case
 		 * it doesn't cast DWORD before printing.
+		 * Most Windows targets make DWORD a 32-bit unsigned long, but in case
+		 * it doesn't cast DWORD before printing.
+		 * 大多数 Windows 目标将 DWORD 设为 32 位无符号长整型，但以防万一在打印前强制转换它。
 		 */
 		write_stderr(_("%s: could not open process token: error code %lu\n"),
 					 progname, (unsigned long) GetLastError());
 		return 0;
 	}
 
-	/* Allocate list of SIDs to remove */
+	/* Allocate list of SIDs to remove - 分配要移除的 SID 列表 */
 	ZeroMemory(&dropSids, sizeof(dropSids));
 	if (!AllocateAndInitializeSid(&NtAuthority, 2,
 								  SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0,
@@ -1814,10 +2135,10 @@ CreateRestrictedProcess(char *cmd, PROCESS_INFORMATION *processInfo, bool as_ser
 		return 0;
 	}
 
-	/* Get list of privileges to remove */
+	/* Get list of privileges to remove - 获取要移除的特权列表 */
 	delPrivs = GetPrivilegesToDelete(origToken);
 	if (delPrivs == NULL)
-		/* Error message already printed */
+		/* Error message already printed - 错误消息已打印 */
 		return 0;
 
 	b = CreateRestrictedToken(origToken,
@@ -1851,6 +2172,10 @@ CreateRestrictedProcess(char *cmd, PROCESS_INFORMATION *processInfo, bool as_ser
 			 * Job objects are working, and the new process isn't in one, so
 			 * we can create one safely. If any problems show up when setting
 			 * it, we're going to ignore them.
+			 * Job objects are working, and the new process isn't in one, so
+			 * we can create one safely. If any problems show up when setting
+			 * it, we're going to ignore them.
+			 * 作业对象可用，并且新进程不在其中，因此我们可以安全地创建一个。如果在设置它时出现任何问题，我们将忽略它们。
 			 */
 			HANDLE		job;
 			char		jobname[128];
@@ -1895,6 +2220,9 @@ CreateRestrictedProcess(char *cmd, PROCESS_INFORMATION *processInfo, bool as_ser
 	/*
 	 * We intentionally don't close the job object handle, because we want the
 	 * object to live on until pg_ctl shuts down.
+	 * We intentionally don't close the job object handle, because we want the
+	 * object to live on until pg_ctl shuts down.
+	 * 我们故意不关闭作业对象句柄，因为我们希望该对象一直存活到 pg_ctl 关闭。
 	 */
 	return r;
 }
@@ -1903,6 +2231,7 @@ CreateRestrictedProcess(char *cmd, PROCESS_INFORMATION *processInfo, bool as_ser
  * Get a list of privileges to delete from the access token. We delete all privileges
  * except SeLockMemoryPrivilege which is needed to use large pages, and
  * SeChangeNotifyPrivilege which is enabled by default in DISABLE_MAX_PRIVILEGE.
+ * 默认值
  */
 static PTOKEN_PRIVILEGES
 GetPrivilegesToDelete(HANDLE hToken)
@@ -1959,7 +2288,7 @@ GetPrivilegesToDelete(HANDLE hToken)
 
 	return tokenPrivs;
 }
-#endif							/* WIN32 */
+#endif							/* WIN32 - WIN32 平台 */
 
 static void
 do_advice(void)
@@ -2120,6 +2449,14 @@ set_starttype(char *starttypeopt)
  * adjust_data_dir
  *
  * If a configuration-only directory was specified, find the real data dir.
+ * adjust_data_dir
+ *
+ * If a configuration-only directory was specified, find the real data dir.
+ * 调整数据目录。如果指定了仅配置目录，找到真实的数据目录。
+ */
+/*
+ * adjust_data_dir --- Find real data directory if config-only dir specified.
+ * 函数作用：检查是否为仅配置目录，若是则调用 postgres -C data_directory 命令获取真实 PGDATA。
  */
 static void
 adjust_data_dir(void)
@@ -2129,17 +2466,17 @@ adjust_data_dir(void)
 			   *cmd;
 	FILE	   *fd;
 
-	/* do nothing if we're working without knowledge of data dir */
+	/* do nothing if we're working without knowledge of data dir - 如果是在不知道数据目录的情况下工作，则什么都不做 */
 	if (pg_config == NULL)
 		return;
 
-	/* If there is no postgresql.conf, it can't be a config-only dir */
+	/* If there is no postgresql.conf, it can't be a config-only dir - 如果没有 postgresql.conf，则它不可能是仅配置目录 */
 	snprintf(filename, sizeof(filename), "%s/postgresql.conf", pg_config);
 	if ((fd = fopen(filename, "r")) == NULL)
 		return;
 	fclose(fd);
 
-	/* If PG_VERSION exists, it can't be a config-only dir */
+	/* If PG_VERSION exists, it can't be a config-only dir - 如果 PG_VERSION 存在，则它不可能是仅配置目录 */
 	snprintf(filename, sizeof(filename), "%s/PG_VERSION", pg_config);
 	if ((fd = fopen(filename, "r")) != NULL)
 	{
@@ -2147,15 +2484,15 @@ adjust_data_dir(void)
 		return;
 	}
 
-	/* Must be a configuration directory, so find the data directory */
+	/* Must be a configuration directory, so find the data directory - 必定是配置目录，因此查找数据目录 */
 
-	/* we use a private my_exec_path to avoid interfering with later uses */
+	/* we use a private my_exec_path to avoid interfering with later uses - 我们使用私有的 my_exec_path 以避免干扰以后的使用 */
 	if (exec_path == NULL)
 		my_exec_path = find_other_exec_or_die(argv0, "postgres", PG_BACKEND_VERSIONSTR);
 	else
 		my_exec_path = pg_strdup(exec_path);
 
-	/* it's important for -C to be the first option, see main.c */
+	/* it's important for -C to be the first option, see main.c - -C 作为第一个选项非常重要，参见 main.c */
 	cmd = psprintf("\"%s\" -C data_directory %s%s",
 				   my_exec_path,
 				   pgdata_opt ? pgdata_opt : "",
@@ -2170,7 +2507,7 @@ adjust_data_dir(void)
 	}
 	free(my_exec_path);
 
-	/* strip trailing newline and carriage return */
+	/* strip trailing newline and carriage return - 去除尾随的换行符和回车符 */
 	(void) pg_strip_crlf(filename);
 
 	free(pg_data);
@@ -2179,6 +2516,10 @@ adjust_data_dir(void)
 }
 
 
+/*
+ * get_control_dbstate --- Read DB state from global pg_control file.
+ * 函数作用：从 pg_control 提取底层数据库运行状态，例如是否处于归档恢复中（DB_IN_ARCHIVE_RECOVERY）。
+ */
 static DBState
 get_control_dbstate(void)
 {
@@ -2198,6 +2539,15 @@ get_control_dbstate(void)
 }
 
 
+/*
+ * main --- Core entry point.
+ * 核心流程解释：
+ * 1. 初始化日志、语言环境和启动时间；
+ * 2. 检查并阻止 root 运行（Unix 下）；
+ * 3. 循环解析命令行参数，设置对应操作变量（init, start, stop, restart, reload, status 等）以及选项（PGDATA 等）；
+ * 4. 调整并解析出真实的数据库物理路径 PGDATA (adjust_data_dir)；
+ * 5. 进入 switch 分发逻辑，跳转执行具体的动作函数。
+ */
 int
 main(int argc, char **argv)
 {
@@ -2229,13 +2579,17 @@ main(int argc, char **argv)
 	/*
 	 * save argv[0] so do_start() can look for the postmaster if necessary. we
 	 * don't look for postmaster here because in many cases we won't need it.
+	 * save argv[0] so do_start() can look for the postmaster if necessary. we
+	 * don't look for postmaster here because in many cases we won't need it.
+	 * 保存 argv[0] 以便 do_start() 在必要时可以寻找 postmaster。我们不在这里寻找
+	 * postmaster，因为在很多情况下我们并不需要它。
 	 */
 	argv0 = argv[0];
 
-	/* Set restrictive mode mask until PGDATA permissions are checked */
+	/* Set restrictive mode mask until PGDATA permissions are checked - 在检查 PGDATA 权限之前，设置限制性模式掩码 */
 	umask(PG_MODE_MASK_OWNER);
 
-	/* support --help and --version even if invoked as root */
+	/* support --help and --version even if invoked as root - 即使以 root 身份调用，也支持 --help 和 --version */
 	if (argc > 1)
 	{
 		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0)
@@ -2252,6 +2606,8 @@ main(int argc, char **argv)
 
 	/*
 	 * Disallow running as root, to forestall any possible security holes.
+	 * Disallow running as root, to forestall any possible security holes.
+	 * 不允许以 root 身份运行，以防止任何可能的安全漏洞。
 	 */
 #ifndef WIN32
 	if (geteuid() == 0)
@@ -2269,7 +2625,7 @@ main(int argc, char **argv)
 	if (env_wait != NULL)
 		wait_seconds = atoi(env_wait);
 
-	/* process command-line options */
+	/* process command-line options - 处理命令行选项 */
 	while ((c = getopt_long(argc, argv, "cD:e:l:m:N:o:p:P:sS:t:U:wW",
 							long_options, &option_index)) != -1)
 	{
@@ -2286,6 +2642,10 @@ main(int argc, char **argv)
 					/*
 					 * We could pass PGDATA just in an environment variable
 					 * but we do -D too for clearer postmaster 'ps' display
+					 * We could pass PGDATA just in an environment variable
+					 * but we do -D too for clearer postmaster 'ps' display
+					 * 我们本可以仅在环境变量中传递 PGDATA，但我们也传递了 -D 选项，
+					 * 以使 postmaster 'ps' 显示更清晰。
 					 */
 					pgdata_opt = psprintf("-D \"%s\" ", pgdata_D);
 					free(pgdata_D);
@@ -2304,7 +2664,7 @@ main(int argc, char **argv)
 				register_servicename = pg_strdup(optarg);
 				break;
 			case 'o':
-				/* append option? */
+				/* append option? - 追加选项？ */
 				if (!post_opts)
 					post_opts = pg_strdup(optarg);
 				else
@@ -2341,7 +2701,7 @@ main(int argc, char **argv)
 				if (strchr(optarg, '\\'))
 					register_username = pg_strdup(optarg);
 				else
-					/* Prepend .\ for local accounts */
+					/* Prepend .\ for local accounts - 为本地账户前置 .\ */
 					register_username = psprintf(".\\%s", optarg);
 				break;
 			case 'w':
@@ -2354,13 +2714,13 @@ main(int argc, char **argv)
 				allow_core_files = true;
 				break;
 			default:
-				/* getopt_long already issued a suitable error message */
+				/* getopt_long already issued a suitable error message - getopt_long 已经发出了相应的错误消息 */
 				do_advice();
 				exit(1);
 		}
 	}
 
-	/* Process an action */
+	/* Process an action - 处理操作 */
 	if (optind < argc)
 	{
 		if (strcmp(argv[optind], "init") == 0
@@ -2423,7 +2783,7 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	/* Note we put any -D switch into the env var above */
+	/* Note we put any -D switch into the env var above - 注意，我们在上面将所有 -D 开关放入了环境变量中 */
 	pg_config = getenv("PGDATA");
 	if (pg_config)
 	{
@@ -2432,10 +2792,10 @@ main(int argc, char **argv)
 		pg_data = pg_strdup(pg_config);
 	}
 
-	/* -D might point at config-only directory; if so find the real PGDATA */
+	/* -D might point at config-only directory; if so find the real PGDATA - -D 可能指向仅配置目录；如果是这样，寻找真实的 PGDATA */
 	adjust_data_dir();
 
-	/* Complain if -D needed and not provided */
+	/* Complain if -D needed and not provided - 如果需要 -D 且未提供则报错 */
 	if (pg_config == NULL &&
 		ctl_command != KILL_COMMAND && ctl_command != UNREGISTER_COMMAND)
 	{
@@ -2463,6 +2823,14 @@ main(int argc, char **argv)
 		 * Don't error here if the data directory cannot be stat'd. This is
 		 * handled differently based on the command and we don't want to
 		 * interfere with that logic.
+		 * Set mask based on PGDATA permissions,
+		 *
+		 * Don't error here if the data directory cannot be stat'd. This is
+		 * handled differently based on the command and we don't want to
+		 * interfere with that logic.
+		 * 根据 PGDATA 权限设置掩码。
+		 * 如果无法对数据目录执行 stat，不要在此处报错。这会根据命令不同进行不同处理，
+		 * 我们不想干预该逻辑。
 		 */
 		if (GetDataDirectoryCreatePerm(pg_data))
 			umask(pg_mode_mask);
