@@ -119,6 +119,22 @@ int			WalWriterFlushAfter = DEFAULT_WAL_WRITER_FLUSH_AFTER;
  *
  * 此函数从 AuxiliaryProcessMain（辅助进程主程序）调用，
  * 后者已经创建了基本执行环境，但尚未启用信号。
+ *
+ * Function purpose: Main loop of the WAL Writer process.
+ * 函数作用：WAL 写入（WAL Writer）进程的主循环函数。
+ *
+ * Core workflow:
+ * 核心流程：
+ * 1. Initialize process type as B_WAL_WRITER and call AuxiliaryProcessMainCommon().
+ *    将进程类型初始化为 B_WAL_WRITER 并调用 AuxiliaryProcessMainCommon()。
+ * 2. Setup signal handlers (SIGHUP, SIGINT, SIGTERM, etc.) and unblock signals.
+ *    设置信号处理例程（SIGHUP, SIGINT, SIGTERM 等）并解除信号屏蔽。
+ * 3. Create a dedicated memory context (Wal Writer) and set up error recovery via sigsetjmp.
+ *    创建专用的内存上下文，并使用 sigsetjmp 建立错误恢复机制。
+ * 4. Enter infinite loop, calling XLogBackgroundFlush() to flush WAL buffers.
+ *    进入无限循环，调用 XLogBackgroundFlush() 刷新 WAL 缓冲区。
+ * 5. Periodically sleep using WaitLatch, and handle configuration reload or shutdown request.
+ *    使用 WaitLatch 进行休眠，并响应配置重装或退出请求。
  */
 void
 WalWriterMain(const void *startup_data, size_t startup_data_len)
@@ -201,7 +217,7 @@ WalWriterMain(const void *startup_data, size_t startup_data_len)
 	 * 始终保持激活，我们至少有一定机会从错误恢复过程中的错误里恢复过来。
 	 * （如果因此陷入无限循环，它很快就会因 elog.c 内部状态栈溢出而停止。）
 	 *
-	 * 注意我们使用了 sigsetjmp(..., 1)，以便在 longjmp 到此处时恢复
+	 * 注意：我们使用了 sigsetjmp(..., 1)，以便在 longjmp 到此处时恢复
 	 * 当时的信号掩码（即 BlockSig）。这样，除了 SIGQUIT 以外的信号
 	 * 都将被阻塞，直到我们完成错误恢复。虽然这项政策看起来像是让 
 	 * HOLD_INTERRUPTS() 的调用变得多余，但事实并非如此，因为 
@@ -210,12 +226,15 @@ WalWriterMain(const void *startup_data, size_t startup_data_len)
 	if (sigsetjmp(local_sigjmp_buf, 1) != 0)
 	{
 		/* Since not using PG_TRY, must reset error stack by hand */
+		/* 由于没有使用 PG_TRY，必须手动重置错误栈 */
 		error_context_stack = NULL;
 
 		/* Prevent interrupts while cleaning up */
+		/* 在清理期间阻止中断 */
 		HOLD_INTERRUPTS();
 
 		/* Report the error to the server log */
+		/* 将错误报告给服务器日志 */
 		EmitErrorReport();
 
 		/*
@@ -248,9 +267,11 @@ WalWriterMain(const void *startup_data, size_t startup_data_len)
 		FlushErrorState();
 
 		/* Flush any leaked data in the top-level context */
+		/* 刷新顶级上下文中的任何泄漏数据 */
 		MemoryContextReset(walwriter_context);
 
 		/* Now we can allow interrupts again */
+		/* 现在我们可以再次允许中断 */
 		RESUME_INTERRUPTS();
 
 		/*
@@ -265,6 +286,7 @@ WalWriterMain(const void *startup_data, size_t startup_data_len)
 	}
 
 	/* We can now handle ereport(ERROR) */
+	/* 我们现在可以处理 ereport(ERROR) */
 	PG_exception_stack = &local_sigjmp_buf;
 
 	/*

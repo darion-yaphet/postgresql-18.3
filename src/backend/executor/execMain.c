@@ -2,8 +2,10 @@
  *
  * execMain.c
  *	  top level executor interface routines
+ *    顶级执行器接口例程
  *
  * INTERFACE ROUTINES
+ * 接口例程
  *	ExecutorStart()
  *	ExecutorRun()
  *	ExecutorFinish()
@@ -11,24 +13,42 @@
  *
  *	These four procedures are the external interface to the executor.
  *	In each case, the query descriptor is required as an argument.
+ *	这四个过程是执行器的外部接口。在每种情况下，都需要查询描述符作为参数。
  *
  *	ExecutorStart must be called at the beginning of execution of any
  *	query plan and ExecutorEnd must always be called at the end of
  *	execution of a plan (unless it is aborted due to error).
+ *	ExecutorStart 必须在任何查询计划执行开始时调用，而 ExecutorEnd 必须始终在计划执行结束时调用（除非由于错误而中止）。
  *
  *	ExecutorRun accepts direction and count arguments that specify whether
  *	the plan is to be executed forwards, backwards, and for how many tuples.
  *	In some cases ExecutorRun may be called multiple times to process all
  *	the tuples for a plan.  It is also acceptable to stop short of executing
  *	the whole plan (but only if it is a SELECT).
+ *	ExecutorRun 接受方向和计数参数，这些参数指定计划是向前执行还是向后执行，以及执行多少个元组。
+ *	在某些情况下，ExecutorRun 可能会被多次调用以处理计划的所有元组。
+ *	提前停止执行整个计划也是可以接受的（但仅限 SELECT 操作）。
  *
  *	ExecutorFinish must be called after the final ExecutorRun call and
  *	before ExecutorEnd.  This can be omitted only in case of EXPLAIN,
  *	which should also omit ExecutorRun.
+ *	ExecutorFinish 必须在最后的 ExecutorRun 调用之后、ExecutorEnd 之前调用。
+ *	只有在 EXPLAIN 的情况下才可以省略它，EXPLAIN 也应该省略 ExecutorRun。
+ *
+ * Core Flow:
+ * 核心流程：
+ * 1. Startup (ExecutorStart): Initializes EState, sets command ID, registers snapshots,
+ *    starts AFTER triggers context, and runs InitPlan to build PlanState.
+ *    启动 (ExecutorStart)：初始化 EState，设置命令 ID，注册快照，开始 AFTER 触发器上下文，并运行 InitPlan 构建 PlanState。
+ * 2. Execution (ExecutorRun): Calls ExecutePlan to iterate through the plan tree and retrieve tuples.
+ *    执行 (ExecutorRun)：调用 ExecutePlan 遍历计划树并检索元组。
+ * 3. Completion (ExecutorFinish): Finalizes plan processing (e.g., ModifyTable) and fires AFTER triggers.
+ *    完成 (ExecutorFinish)：完成计划处理（例如 ModifyTable）并触发 AFTER 触发器。
+ * 4. Cleanup (ExecutorEnd): Shuts down the plan, unregisters snapshots, and frees memory.
+ *    清理 (ExecutorEnd)：关闭计划，注销快照，并释放内存。
  *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
- *
  *
  * IDENTIFICATION
  *	  src/backend/executor/execMain.c
@@ -101,20 +121,26 @@ static void ReportNotNullViolationError(ResultRelInfo *resultRelInfo,
  *
  *		This routine must be called at the beginning of any execution of any
  *		query plan
+ *		必须在任何查询计划执行开始时调用此例程
  *
  * Takes a QueryDesc previously created by CreateQueryDesc (which is separate
  * only because some places use QueryDescs for utility commands).  The tupDesc
  * field of the QueryDesc is filled in to describe the tuples that will be
  * returned, and the internal fields (estate and planstate) are set up.
+ * 接受之前由 CreateQueryDesc 创建的 QueryDesc（之所以将其分开，仅仅是因为某些地方将 QueryDescs 
+ * 用于实用程序命令）。填充 QueryDesc 的 tupDesc 字段以描述将返回的元组，并设置内部字段（estate 和 planstate）。
  *
  * eflags contains flag bits as described in executor.h.
+ * eflags 包含 executor.h 中描述的标志位。
  *
  * NB: the CurrentMemoryContext when this is called will become the parent
  * of the per-query context used for this Executor invocation.
+ * 注意：调用此例程时的 CurrentMemoryContext 将成为用于此执行器调用的每个查询上下文的父上下文。
  *
  * We provide a function hook variable that lets loadable plugins
  * get control when ExecutorStart is called.  Such a plugin would
  * normally call standard_ExecutorStart().
+ * 我们提供了一个函数钩子变量，允许可加载插件在调用 ExecutorStart 时获得控制权。这样的插件通常会调用 standard_ExecutorStart()。
  *
  * ----------------------------------------------------------------
  */
@@ -124,10 +150,12 @@ ExecutorStart(QueryDesc *queryDesc, int eflags)
 	/*
 	 * In some cases (e.g. an EXECUTE statement or an execute message with the
 	 * extended query protocol) the query_id won't be reported, so do it now.
+	 * 在某些情况下（例如 EXECUTE 语句或扩展查询协议的执行消息），query_id 将不会被报告，因此现在进行报告。
 	 *
 	 * Note that it's harmless to report the query_id multiple times, as the
 	 * call will be ignored if the top level query_id has already been
 	 * reported.
+	 * 请注意，多次报告 query_id 是无害的，因为如果已经报告了顶级 query_id，则该调用将被忽略。
 	 */
 	pgstat_report_query_id(queryDesc->plannedstmt->queryId, false);
 
@@ -153,6 +181,7 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	/*
 	 * If the transaction is read-only, we need to check if any writes are
 	 * planned to non-temporary tables.  EXPLAIN is considered read-only.
+	 * 如果事务是只读的，我们需要检查是否计划对非临时表进行任何写入。EXPLAIN 被视为只读。
 	 *
 	 * Don't allow writes in parallel mode.  Supporting UPDATE and DELETE
 	 * would require (a) storing the combo CID hash in shared memory, rather
@@ -160,10 +189,14 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	 * alternative to heap_update()'s reliance on xmax for mutual exclusion.
 	 * INSERT may have no such troubles, but we forbid it to simplify the
 	 * checks.
+	 * 不允许在并行模式下进行写入。支持 UPDATE 和 DELETE 需要 (a) 将组合 CID 哈希存储在共享内存中，
+	 * 而不是仅在并行开始时同步一次，以及 (b) 替代 heap_update() 对 xmax 互斥的依赖。
+	 * INSERT 可能没有此类麻烦，但为了简化检查，我们禁止了它。
 	 *
 	 * We have lower-level defenses in CommandCounterIncrement and elsewhere
 	 * against performing unsafe operations in parallel mode, but this gives a
 	 * more user-friendly error message.
+	 * 我们在 CommandCounterIncrement 和其他地方拥有针对在并行模式下执行不安全操作的较低级别防御，但这提供了一个更用户友好的错误消息。
 	 */
 	if ((XactReadOnly || IsInParallelMode()) &&
 		!(eflags & EXEC_FLAG_EXPLAIN_ONLY))
@@ -251,12 +284,14 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	/*
 	 * Set up an AFTER-trigger statement context, unless told not to, or
 	 * unless it's EXPLAIN-only mode (when ExecutorFinish won't be called).
+	 * 设置 AFTER 触发器语句上下文，除非被告知不要这样做，或者处于 EXPLAIN-only 模式（此时将不会调用 ExecutorFinish）。
 	 */
 	if (!(eflags & (EXEC_FLAG_SKIP_TRIGGERS | EXEC_FLAG_EXPLAIN_ONLY)))
 		AfterTriggerBeginQuery();
 
 	/*
 	 * Initialize the plan state tree
+	 * 初始化计划状态树
 	 */
 	InitPlan(queryDesc, eflags);
 
@@ -269,27 +304,39 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
  *		This is the main routine of the executor module. It accepts
  *		the query descriptor from the traffic cop and executes the
  *		query plan.
+ *		这是执行器模块的主例程。它从 traffic cop 接受查询描述符并执行查询计划。
  *
  *		ExecutorStart must have been called already.
+ *		ExecutorStart 必须已经调用。
  *
  *		If direction is NoMovementScanDirection then nothing is done
  *		except to start up/shut down the destination.  Otherwise,
  *		we retrieve up to 'count' tuples in the specified direction.
+ *		如果方向是 NoMovementScanDirection，则除了启动/关闭目标之外什么都不做。
+ *		否则，我们按指定方向检索最多 'count' 个元组。
  *
  *		Note: count = 0 is interpreted as no portal limit, i.e., run to
  *		completion.  Also note that the count limit is only applied to
  *		retrieved tuples, not for instance to those inserted/updated/deleted
  *		by a ModifyTable plan node.
+ *		注意：count = 0 被理解为没有入口限制，即运行直至完成。
+ *		另请注意，计数限制仅应用于检索到的元组，而不适用于（例如）由 ModifyTable 
+ *		计划节点插入/更新/删除的元组。
  *
  *		There is no return value, but output tuples (if any) are sent to
  *		the destination receiver specified in the QueryDesc; and the number
  *		of tuples processed at the top level can be found in
  *		estate->es_processed.  The total number of tuples processed in all
  *		the ExecutorRun calls can be found in estate->es_total_processed.
+ *		这里没有返回值，但输出元组（如果有）会被发送到 QueryDesc 中指定的目标接收器；
+ *		顶层处理的元组数量可以在 estate->es_processed 中找到。所有 ExecutorRun 
+ *		调用中处理的总元组数量可以在 estate->es_total_processed 中找到。
  *
  *		We provide a function hook variable that lets loadable plugins
  *		get control when ExecutorRun is called.  Such a plugin would
  *		normally call standard_ExecutorRun().
+ *		我们提供了一个函数钩子变量，允许可加载插件在调用 ExecutorRun 时获得控制权。
+ *		这样的插件通常会调用 standard_ExecutorRun()。
  *
  * ----------------------------------------------------------------
  */
@@ -352,6 +399,7 @@ standard_ExecutorRun(QueryDesc *queryDesc,
 
 	/*
 	 * Run plan, unless direction is NoMovement.
+	 * 运行计划，除非方向是 NoMovement。
 	 *
 	 * Note: pquery.c selects NoMovement if a prior call already reached
 	 * end-of-data in the user-specified fetch direction.  This is important
@@ -361,6 +409,11 @@ standard_ExecutorRun(QueryDesc *queryDesc,
 	 * about whether a parallel plan would operate properly if an additional,
 	 * necessarily non-parallel execution request occurs after completing a
 	 * parallel execution.  (That case should work, but it's untested.)
+	 * 注意：如果之前的调用已经达到用户指定抓取方向的数据末尾，pquery.c 就会选择 NoMovement。
+	 * 这很重要，因为如果执行器的各个部分在报告 EOF 后再次调用，可能会表现异常。
+	 * 例如，heapam.c 实际上会重新启动 heapscan 并重新返回其所有数据。
+	 * 此外，在完成并行执行后，如果发生额外的、必然是非并行的执行请求，并行计划是否能够正常运行也存在一些疑问。
+	 * （这种情况应该可以工作，但尚未测试。）
 	 */
 	if (!ScanDirectionIsNoMovement(direction))
 		ExecutePlan(queryDesc,
@@ -395,10 +448,14 @@ standard_ExecutorRun(QueryDesc *queryDesc,
  *		It performs cleanup such as firing AFTER triggers.  It is
  *		separate from ExecutorEnd because EXPLAIN ANALYZE needs to
  *		include these actions in the total runtime.
+ *		此例程必须在最后的 ExecutorRun 调用之后调用。它执行诸如触发 AFTER 触发器之类的清理工作。
+ *		它之所以与 ExecutorEnd 分开，是因为 EXPLAIN ANALYZE 需要在总运行时间中包含这些操作。
  *
  *		We provide a function hook variable that lets loadable plugins
  *		get control when ExecutorFinish is called.  Such a plugin would
  *		normally call standard_ExecutorFinish().
+ *		我们提供了一个函数钩子变量，允许可加载插件在调用 ExecutorFinish 时获得控制权。
+ *		这样的插件通常会调用 standard_ExecutorFinish()。
  *
  * ----------------------------------------------------------------
  */
@@ -455,10 +512,13 @@ standard_ExecutorFinish(QueryDesc *queryDesc)
  *
  *		This routine must be called at the end of execution of any
  *		query plan
+ *		必须在任何查询计划执行结束时调用此例程
  *
  *		We provide a function hook variable that lets loadable plugins
  *		get control when ExecutorEnd is called.  Such a plugin would
  *		normally call standard_ExecutorEnd().
+ *		我们提供了一个函数钩子变量，允许可加载插件在调用 ExecutorEnd 时获得控制权。
+ *		这样的插件通常会调用 standard_ExecutorEnd()。
  *
  * ----------------------------------------------------------------
  */
@@ -750,6 +810,7 @@ ExecCheckOneRelPerms(RTEPermissionInfo *perminfo)
  * ExecCheckPermissionsModified
  *		Check INSERT or UPDATE access permissions for a single relation (these
  *		are processed uniformly).
+ *		检查单个关系的 INSERT 或 UPDATE 访问权限（这些均按统一方式处理）。
  */
 static bool
 ExecCheckPermissionsModified(Oid relOid, Oid userid, Bitmapset *modifiedCols,
@@ -761,6 +822,8 @@ ExecCheckPermissionsModified(Oid relOid, Oid userid, Bitmapset *modifiedCols,
 	 * When the query doesn't explicitly update any columns, allow the query
 	 * if we have permission on any column of the rel.  This is to handle
 	 * SELECT FOR UPDATE as well as possible corner cases in UPDATE.
+	 * 当查询没有显式更新任何列时，如果我们拥有该关系中任何列的权限，则允许该查询。
+	 * 这是为了处理 SELECT FOR UPDATE 以及 UPDATE 中的可能边缘情况。
 	 */
 	if (bms_is_empty(modifiedCols))
 	{
@@ -793,10 +856,13 @@ ExecCheckPermissionsModified(Oid relOid, Oid userid, Bitmapset *modifiedCols,
  * Check that the query does not imply any writes to non-temp tables;
  * unless we're in parallel mode, in which case don't even allow writes
  * to temp tables.
+ * 检查查询是否暗示对非临时表进行任何写入；除非我们处于并行模式，在这种情况下甚至不允许对临时表进行写入。
  *
  * Note: in a Hot Standby this would need to reject writes to temp
  * tables just as we do in parallel mode; but an HS standby can't have created
  * any temp tables in the first place, so no need to check that.
+ * 注意：在热备机 (Hot Standby) 中，这需要像我们在并行模式中所做的那样拒绝向临时表写入；
+ * 但热备机从一开始就无法创建任何临时表，所以不需要检查这一点。
  */
 static void
 ExecCheckXactReadOnly(PlannedStmt *plannedstmt)
@@ -806,6 +872,7 @@ ExecCheckXactReadOnly(PlannedStmt *plannedstmt)
 	/*
 	 * Fail if write permissions are requested in parallel mode for table
 	 * (temp or non-temp), otherwise fail for any non-temp table.
+	 * 如果在并行模式下请求对表（临时或非临时）的写入权限，则失败；否则仅针对任何非临时表失败。
 	 */
 	foreach(l, plannedstmt->permInfos)
 	{
@@ -830,6 +897,7 @@ ExecCheckXactReadOnly(PlannedStmt *plannedstmt)
  *
  *		Initializes the query plan: open files, allocate storage
  *		and start up the rule manager
+ *		初始化查询计划：打开文件、分配存储并启动规则管理器
  * ----------------------------------------------------------------
  */
 static void
@@ -847,11 +915,13 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 
 	/*
 	 * Do permissions checks
+	 * 执行权限检查
 	 */
 	ExecCheckPermissions(rangeTable, plannedstmt->permInfos, true);
 
 	/*
 	 * initialize the node's execution state
+	 * 初始化节点的执行状态
 	 */
 	ExecInitRangeTable(estate, rangeTable, plannedstmt->permInfos,
 					   bms_copy(plannedstmt->unprunableRelids));
@@ -867,11 +937,16 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	 * executed, are saved in es_part_prune_results.  These results correspond
 	 * to each PartitionPruneInfo entry, and the es_part_prune_results list is
 	 * parallel to es_part_prune_infos.
+	 * 执行运行时“初始”裁剪，以识别哪些子计划（对应于包含 PartitionPruneInfo [如 Append] 的
+	 * 计划节点的子节点）将不会被执行。结果是将被执行的子计划索引的位图集，并保存在 
+	 * es_part_prune_results 中。这些结果对应于每个 PartitionPruneInfo 条目，
+	 * 且 es_part_prune_results 列表与 es_part_prune_infos 平行。
 	 */
 	ExecDoInitialPruning(estate);
 
 	/*
 	 * Next, build the ExecRowMark array from the PlanRowMark(s), if any.
+	 * 接下来，从 PlanRowMark（如果有）构建 ExecRowMark 数组。
 	 */
 	if (plannedstmt->rowMarks)
 	{
@@ -1238,10 +1313,13 @@ CheckValidRowMarkRel(Relation rel, RowMarkType markType)
 
 /*
  * Initialize ResultRelInfo data for one result relation
+ * 初始化一个结果关系的关系信息 (ResultRelInfo) 数据
  *
  * Caution: before Postgres 9.1, this function included the relkind checking
  * that's now in CheckValidResultRel, and it also did ExecOpenIndices if
  * appropriate.  Be sure callers cover those needs.
+ * 注意：在 Postgres 9.1 之前，此函数包含现在位于 CheckValidResultRel 中的 relkind 检查，
+ * 并且它还会在适当的情况下执行 ExecOpenIndices。请确保调用者涵盖了这些需求。
  */
 void
 InitResultRelInfo(ResultRelInfo *resultRelInfo,
@@ -1328,11 +1406,14 @@ InitResultRelInfo(ResultRelInfo *resultRelInfo,
 /*
  * ExecGetTriggerResultRel
  *		Get a ResultRelInfo for a trigger target relation.
+ *		获取触发器目标关系的 ResultRelInfo。
  *
  * Most of the time, triggers are fired on one of the result relations of the
  * query, and so we can just return a suitable one we already made and stored
  * in the es_opened_result_relations or es_tuple_routing_result_relations
  * Lists.
+ * 大多数情况下，触发器在查询的一个结果关系上触发，因此我们只需返回一个之前已创建
+ * 并存储在 es_opened_result_relations 或 es_tuple_routing_result_relations 列表中的合适关系。
  *
  * However, it is sometimes necessary to fire triggers on other relations;
  * this happens mainly when an RI update trigger queues additional triggers
@@ -1342,6 +1423,10 @@ InitResultRelInfo(ResultRelInfo *resultRelInfo,
  * also provides a way for EXPLAIN ANALYZE to report the runtimes of such
  * triggers.)  So we make additional ResultRelInfo's as needed, and save them
  * in es_trig_target_relations.
+ * 然而，有时需要在其他关系上触发触发器；这主要发生在 RI 更新触发器在其他关系上排队其他触发器时，
+ * 这些触发器将在外部查询的上下文中进行处理。为了提高效率，我们也希望为这些触发器提供 
+ * ResultRelInfo；这可以避免重复重新打开该关系。（它还提供了一种让 EXPLAIN ANALYZE 报告此类
+ * 触发器运行时间的方法。）因此，我们根据需要制作额外的 ResultRelInfo，并将其保存在 es_trig_target_relations 中。
  */
 ResultRelInfo *
 ExecGetTriggerResultRel(EState *estate, Oid relid,
@@ -1488,6 +1573,7 @@ ExecGetAncestorResultRels(EState *estate, ResultRelInfo *resultRelInfo)
  *		ExecPostprocessPlan
  *
  *		Give plan nodes a final chance to execute before shutdown
+ *		在关闭前为计划节点提供最后的执行机会
  * ----------------------------------------------------------------
  */
 static void
@@ -1528,12 +1614,16 @@ ExecPostprocessPlan(EState *estate)
  *		ExecEndPlan
  *
  *		Cleans up the query plan -- closes files and frees up storage
+ *		清理查询计划 —— 关闭文件并释放存储空间
  *
  * NOTE: we are no longer very worried about freeing storage per se
  * in this code; FreeExecutorState should be guaranteed to release all
  * memory that needs to be released.  What we are worried about doing
  * is closing relations and dropping buffer pins.  Thus, for example,
  * tuple tables must be cleared or dropped to ensure pins are released.
+ * 注意：在此代码中，我们不再非常担心释放存储空间本身；FreeExecutorState 应该保证释放
+ * 所有需要释放的内存。我们担心的是关闭关系和丢弃缓冲区引脚。因此，例如，元组表必须
+ * 被清除或丢弃，以确保引脚被释放。
  * ----------------------------------------------------------------
  */
 static void
@@ -1543,6 +1633,7 @@ ExecEndPlan(PlanState *planstate, EState *estate)
 
 	/*
 	 * shut down the node-type-specific query processing
+	 * 关闭特定节点类型的查询处理
 	 */
 	ExecEndNode(planstate);
 
@@ -1567,6 +1658,7 @@ ExecEndPlan(PlanState *planstate, EState *estate)
 	/*
 	 * Close any Relations that have been opened for range table entries or
 	 * result relations.
+	 * 关闭为范围表条目或结果关系打开的任何关系。
 	 */
 	ExecCloseResultRelations(estate);
 	ExecCloseRangeTableRelations(estate);
@@ -1574,6 +1666,7 @@ ExecEndPlan(PlanState *planstate, EState *estate)
 
 /*
  * Close any relations that have been opened for ResultRelInfos.
+ * 关闭为 ResultRelInfos 打开的任何关系。
  */
 void
 ExecCloseResultRelations(EState *estate)
@@ -1632,8 +1725,10 @@ ExecCloseResultRelations(EState *estate)
 
 /*
  * Close all relations opened by ExecGetRangeTableRelation().
+ * 关闭所有由 ExecGetRangeTableRelation() 打开的关系。
  *
  * We do not release any locks we might hold on those rels.
+ * 我们不会释放我们可能持有的这些关系的任何锁。
  */
 void
 ExecCloseRangeTableRelations(EState *estate)
@@ -1652,8 +1747,10 @@ ExecCloseRangeTableRelations(EState *estate)
  *
  *		Processes the query plan until we have retrieved 'numberTuples' tuples,
  *		moving in the specified direction.
+ *		处理查询计划，直到按指定方向检索到 'numberTuples' 个元组。
  *
  *		Runs to completion if numberTuples is 0
+ *		如果 numberTuples 为 0，则运行直至完成。
  * ----------------------------------------------------------------
  */
 static void
@@ -1677,6 +1774,7 @@ ExecutePlan(QueryDesc *queryDesc,
 
 	/*
 	 * Set the direction.
+	 * 设置方向。
 	 */
 	estate->es_direction = direction;
 
@@ -1713,6 +1811,7 @@ ExecutePlan(QueryDesc *queryDesc,
 		/*
 		 * if the tuple is null, then we assume there is nothing more to
 		 * process so we just end the loop...
+		 * 如果元组为 null，则我们假设没有什么需要处理的了，所以我们直接结束循环...
 		 */
 		if (TupIsNull(slot))
 			break;
@@ -1720,10 +1819,13 @@ ExecutePlan(QueryDesc *queryDesc,
 		/*
 		 * If we have a junk filter, then project a new tuple with the junk
 		 * removed.
+		 * 如果我们有垃圾过滤器，那么投射一个移除垃圾列后的新元组。
 		 *
 		 * Store this new "clean" tuple in the junkfilter's resultSlot.
 		 * (Formerly, we stored it back over the "dirty" tuple, which is WRONG
 		 * because that tuple slot has the wrong descriptor.)
+		 * 将此新的“干净”元组存储在垃圾过滤器的 resultSlot 中。
+		 * （以前，我们将其存回“脏”元组上方，这是错误的，因为该元组插槽具有错误的描述符。）
 		 */
 		if (estate->es_junkFilter != NULL)
 			slot = ExecFilterJunk(estate->es_junkFilter, slot);
@@ -1764,6 +1866,7 @@ ExecutePlan(QueryDesc *queryDesc,
 	/*
 	 * If we know we won't need to back up, we can release resources at this
 	 * point.
+	 * 如果我们知道不需要备份（回退），我们可以在此时释放资源。
 	 */
 	if (!(estate->es_top_eflags & EXEC_FLAG_BACKWARD))
 		ExecShutdownNode(planstate);
@@ -1775,8 +1878,10 @@ ExecutePlan(QueryDesc *queryDesc,
 
 /*
  * ExecRelCheck --- check that tuple meets check constraints for result relation
+ * ExecRelCheck --- 检查元组是否满足结果关系的检查约束 (CHECK constraints)
  *
  * Returns NULL if OK, else name of failed check constraint
+ * 如果确定则返回 NULL，否则返回失败的检查约束名称
  */
 static const char *
 ExecRelCheck(ResultRelInfo *resultRelInfo,
@@ -1851,10 +1956,12 @@ ExecRelCheck(ResultRelInfo *resultRelInfo,
 
 /*
  * ExecPartitionCheck --- check that tuple meets the partition constraint.
+ * ExecPartitionCheck --- 检查元组是否满足分区约束。
  *
  * Returns true if it meets the partition constraint.  If the constraint
  * fails and we're asked to emit an error, do so and don't return; otherwise
  * return false.
+ * 如果满足分区约束则返回 true。如果约束失败并且我们被要求发出错误，则发出错误且不返回；否则返回 false。
  */
 bool
 ExecPartitionCheck(ResultRelInfo *resultRelInfo, TupleTableSlot *slot,
@@ -1971,14 +2078,19 @@ ExecPartitionCheckEmitError(ResultRelInfo *resultRelInfo,
 
 /*
  * ExecConstraints - check constraints of the tuple in 'slot'
+ * ExecConstraints - 检查 'slot' 中元组的约束
  *
  * This checks the traditional NOT NULL and check constraints.
+ * 这检查传统的 NOT NULL 和检查约束 (CHECK constraints)。
  *
  * The partition constraint is *NOT* checked.
+ * *不* 检查分区约束。
  *
  * Note: 'slot' contains the tuple to check the constraints of, which may
  * have been converted from the original input tuple after tuple routing.
  * 'resultRelInfo' is the final result relation, after tuple routing.
+ * 注意：'slot' 包含要检查其约束的元组，该元组可能在元组路由后已从原始输入元组转换。
+ * 'resultRelInfo' 是元组路由后的最终结果关系。
  */
 void
 ExecConstraints(ResultRelInfo *resultRelInfo,
@@ -2374,22 +2486,31 @@ ExecWithCheckOptions(WCOKind kind, ResultRelInfo *resultRelInfo,
 
 /*
  * ExecBuildSlotValueDescription -- construct a string representing a tuple
+ * ExecBuildSlotValueDescription -- 构建表示元组的字符串
  *
  * This is intentionally very similar to BuildIndexValueDescription, but
  * unlike that function, we truncate long field values (to at most maxfieldlen
  * bytes).  That seems necessary here since heap field values could be very
  * long, whereas index entries typically aren't so wide.
+ * 这有意与 BuildIndexValueDescription 非常相似，但与该函数不同的是，我们截断了长的字段值
+ * （最多 maxfieldlen 字节）。这在这里似乎是必要的，因为堆字段值可能非常长，
+ * 而索引条目通常不会那么宽。
  *
  * Also, unlike the case with index entries, we need to be prepared to ignore
  * dropped columns.  We used to use the slot's tuple descriptor to decode the
  * data, but the slot's descriptor doesn't identify dropped columns, so we
  * now need to be passed the relation's descriptor.
+ * 此外，与索引条目的情况不同，我们需要准备好忽略已删除的列。我们以前使用插槽的元组描述符
+ * 来解码数据，但插槽的描述符不识别已删除的列，所以我们现在需要传递关系的描述符。
  *
  * Note that, like BuildIndexValueDescription, if the user does not have
  * permission to view any of the columns involved, a NULL is returned.  Unlike
  * BuildIndexValueDescription, if the user has access to view a subset of the
  * column involved, that subset will be returned with a key identifying which
  * columns they are.
+ * 请注意，与 BuildIndexValueDescription 类似，如果用户无权查看涉及的任何列，
+ * 则返回 NULL。与 BuildIndexValueDescription 不同，如果用户有权查看所涉及列的子集，
+ * 则将返回该子集，并带有一个标识它们是哪些列的键。
  */
 char *
 ExecBuildSlotValueDescription(Oid reloid,
@@ -2624,20 +2745,27 @@ ExecBuildAuxRowMark(ExecRowMark *erm, List *targetlist)
 /*
  * EvalPlanQual logic --- recheck modified tuple(s) to see if we want to
  * process the updated version under READ COMMITTED rules.
+ * EvalPlanQual 逻辑 --- 重新检查已修改的元组，看我们是否想要在 READ COMMITTED 规则下处理更新后的版本。
  *
  * See backend/executor/README for some info about how this works.
+ * 有关此工作原理的一些信息，请参阅 backend/executor/README。
  */
 
 
 /*
  * Check the updated version of a tuple to see if we want to process it under
  * READ COMMITTED rules.
+ * 检查元组的更新版本，看我们是否想在 READ COMMITTED 规则下处理它。
  *
  *	epqstate - state for EvalPlanQual rechecking
+ *	epqstate - EvalPlanQual 重新检查的状态
  *	relation - table containing tuple
+ *	relation - 包含元组的表
  *	rti - rangetable index of table containing tuple
+ *	rti - 包含元组的表的范围表索引
  *	inputslot - tuple for processing - this can be the slot from
  *		EvalPlanQualSlot() for this rel, for increased efficiency.
+ *	inputslot - 用于处理的元组 —— 为了提高效率，这可以是该关系的 EvalPlanQualSlot() 中的插槽。
  *
  * This tests whether the tuple in inputslot still matches the relevant
  * quals. For that result to be useful, typically the input tuple has to be
@@ -2645,9 +2773,13 @@ ExecBuildAuxRowMark(ExecRowMark *erm, List *targetlist)
  * locked (otherwise the result might be out of date). That's typically
  * achieved by using table_tuple_lock() with the
  * TUPLE_LOCK_FLAG_FIND_LAST_VERSION flag.
+ * 这将测试 inputslot 中的元组是否仍匹配相关的查询条件 (quals)。为了使结果有用，通常输入元组必须是
+ * 最后的一个行版本（否则结果不是特别有用）并且已锁定（否则结果可能过时）。
+ * 这通常通过使用带有 TUPLE_LOCK_FLAG_FIND_LAST_VERSION 标志的 table_tuple_lock() 来实现。
  *
  * Returns a slot containing the new candidate update/delete tuple, or
  * NULL if we determine we shouldn't process the row.
+ * 返回包含新候选更新/删除元组的插槽，或者如果我们确定不应处理该行，则返回 NULL。
  */
 TupleTableSlot *
 EvalPlanQual(EPQState *epqstate, Relation relation,
@@ -2995,9 +3127,11 @@ EvalPlanQualBegin(EPQState *epqstate)
 
 /*
  * Start execution of an EvalPlanQual plan tree.
+ * 开始执行 EvalPlanQual 计划树。
  *
  * This is a cut-down version of ExecutorStart(): we copy some state from
  * the top-level estate rather than initializing it fresh.
+ * 这是一个 ExecutorStart() 的裁剪版本：我们从顶级 EState 复制一些状态，而不是重新初始化它。
  */
 static void
 EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
@@ -3174,6 +3308,7 @@ EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
 /*
  * EvalPlanQualEnd -- shut down at termination of parent plan state node,
  * or if we are done with the current EPQ child.
+ * EvalPlanQualEnd -- 在父计划状态节点终止时，或当我们处理完当前的 EPQ 子节点时关闭。
  *
  * This is a cut-down version of ExecutorEnd(); basically we want to do most
  * of the normal cleanup, but *not* close result relations (which we are
@@ -3181,6 +3316,10 @@ EvalPlanQualStart(EPQState *epqstate, Plan *planTree)
  * result and trigger target relations that got opened, since those are not
  * shared.  (There probably shouldn't be any of the latter, but just in
  * case...)
+ * 这是一个 ExecutorEnd() 的裁剪版本；基本上我们想要执行大部分正常的清理工作，
+ * 但*不*关闭结果关系（我们只是从外部查询共享这些关系）。
+ * 然而，我们必须关闭任何已打开的结果和触发器目标关系，因为它们不是共享的。
+ * （后者可能不应该存在，但以防万一...）
  */
 void
 EvalPlanQualEnd(EPQState *epqstate)

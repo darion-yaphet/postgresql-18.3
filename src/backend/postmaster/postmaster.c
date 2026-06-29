@@ -462,10 +462,13 @@ static PMState pmState = PM_INIT;
 static bool connsAllowed = true;
 
 /* Start time of SIGKILL timeout during immediate shutdown or child crash */
+/* 立即关闭或子进程崩溃期间 SIGKILL 超时的开始时间 */
 /* Zero means timeout is not running */
+/* 零表示超时未运行 */
 static time_t AbortStartTime = 0;
 
 /* Length of said timeout */
+/* 上述超时的长度 */
 #define SIGKILL_CHILDREN_AFTER_SECS		5
 
 static bool ReachedNormalRunning = false;	/* T if we've reached PM_RUN */
@@ -477,19 +480,24 @@ bool		ClientAuthInProgress = false;	/* T during new-client
 bool		redirection_done = false;	/* stderr redirected for syslogger? */
 
 /* received START_AUTOVAC_LAUNCHER signal */
+/* 收到 START_AUTOVAC_LAUNCHER 信号 */
 static bool start_autovac_launcher = false;
 
 /* the launcher needs to be signaled to communicate some condition */
+	/* 启动器需要被发送信号以通知某些状况 */
 static bool avlauncher_needs_signal = false;
 
 /* received START_WALRECEIVER signal */
+	/* 收到 START_WALRECEIVER 信号 */
 static bool WalReceiverRequested = false;
 
 /* set when there's a worker that needs to be started up */
+	/* 当有需要启动的工作进程时设置 */
 static bool StartWorkerNeeded = true;
 static bool HaveCrashedWorker = false;
 
 /* set when signals arrive */
+/* 当信号到达时设置 */
 static volatile sig_atomic_t pending_pm_pmsignal;
 static volatile sig_atomic_t pending_pm_child_exit;
 static volatile sig_atomic_t pending_pm_reload_request;
@@ -498,10 +506,12 @@ static volatile sig_atomic_t pending_pm_fast_shutdown_request;
 static volatile sig_atomic_t pending_pm_immediate_shutdown_request;
 
 /* event multiplexing object */
+/* 事件多路复用对象 */
 static WaitEventSet *pm_wait_set;
 
 #ifdef USE_SSL
 /* Set when and if SSL has been initialized properly */
+/* 在 SSL 已正确初始化时且仅在此时设置 */
 bool		LoadedSSL = false;
 #endif
 
@@ -510,6 +520,7 @@ static DNSServiceRef bonjour_sdref = NULL;
 #endif
 
 /* State for IO worker management. */
+/* 用于 IO 工作进程管理的状态。 */
 static int	io_worker_count = 0;
 static PMChild *io_worker_children[MAX_IO_WORKERS];
 
@@ -574,6 +585,7 @@ typedef struct
 #endif							/* WIN32 */
 
 /* Macros to check exit status of a child process */
+/* 用于检查子进程退出状态的宏 */
 #define EXIT_STATUS_0(st)  ((st) == 0)
 #define EXIT_STATUS_1(st)  (WIFEXITED(st) && WEXITSTATUS(st) == 1)
 #define EXIT_STATUS_3(st)  (WIFEXITED(st) && WEXITSTATUS(st) == 3)
@@ -640,6 +652,9 @@ PostmasterMain(int argc, char *argv[])
 	 * the PostmasterContext, which is space that can be recycled by backends.
 	 * Allocated data that needs to be available to backends should be
 	 * allocated in TopMemoryContext.
+	 *
+	 * 默认情况下，postmaster 中的 palloc() 请求将在 PostmasterContext 中分配，
+	 * 该空间可以被后端回收。需要对后端可用的已分配数据应在 TopMemoryContext 中分配。
 	 */
 	PostmasterContext = AllocSetContextCreate(TopMemoryContext,
 											  "Postmaster",
@@ -647,6 +662,7 @@ PostmasterMain(int argc, char *argv[])
 	MemoryContextSwitchTo(PostmasterContext);
 
 	/* Initialize paths to installation files */
+	/* 初始化安装文件路径 */
 	getInstallationPaths(argv[0]);
 
 	/*
@@ -709,10 +725,13 @@ PostmasterMain(int argc, char *argv[])
 #endif
 
 	/* Begin accepting signals. */
+	/* 开始接受信号。 */
 	sigprocmask(SIG_SETMASK, &UnBlockSig, NULL);
 
 	/*
 	 * Options setup
+	 *
+	 * 选项设置
 	 */
 	InitializeGUCOptions();
 
@@ -736,6 +755,7 @@ PostmasterMain(int argc, char *argv[])
 
 			case 'b':
 				/* Undocumented flag used for binary upgrades */
+				/* 用于二进制升级的未记录标志 */
 				IsBinaryUpgrade = true;
 				break;
 
@@ -761,6 +781,7 @@ PostmasterMain(int argc, char *argv[])
 							 errmsg("--%s must be first argument", optarg)));
 
 				/* FALLTHROUGH */
+				/* 坠入/穿透（FALLTHROUGH） */
 			case 'c':
 				{
 					char	   *name,
@@ -826,6 +847,7 @@ PostmasterMain(int argc, char *argv[])
 
 			case 'j':
 				/* only used by interactive backend */
+				/* 仅由交互式后端使用 */
 				break;
 
 			case 'k':
@@ -854,6 +876,7 @@ PostmasterMain(int argc, char *argv[])
 
 			case 'r':
 				/* only used by single-user backend */
+				/* 仅由单用户后端使用 */
 				break;
 
 			case 'S':
@@ -906,6 +929,8 @@ PostmasterMain(int argc, char *argv[])
 
 	/*
 	 * Postmaster accepts no non-option switch arguments.
+	 *
+	 * Postmaster 不接受非选项切换参数。
 	 */
 	if (optind < argc)
 	{
@@ -1213,6 +1238,8 @@ PostmasterMain(int argc, char *argv[])
 	/*
 	 * Estimate number of openable files.  This must happen after setting up
 	 * semaphores, because on some platforms semaphores count as open files.
+	 *
+	 * 估算可打开文件的数量。这必须在设置信号量之后发生，因为在某些平台上信号量算作打开的文件。
 	 */
 	set_max_safe_fds();
 
@@ -1229,6 +1256,8 @@ PostmasterMain(int argc, char *argv[])
 
 	/*
 	 * Initialize I/O completion port used to deliver list of dead children.
+	 *
+	 * 初始化用于传递已死亡子进程列表的 I/O 完成端口。
 	 */
 	win32ChildQueue = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 1);
 	if (win32ChildQueue == NULL)
@@ -1238,6 +1267,7 @@ PostmasterMain(int argc, char *argv[])
 
 #ifdef EXEC_BACKEND
 	/* Write out nondefault GUC settings for child processes to use */
+	/* 写出非默认 GUC 设置供子进程使用 */
 	write_nondefault_variables(PGC_POSTMASTER);
 
 	/*
@@ -1247,6 +1277,11 @@ PostmasterMain(int argc, char *argv[])
 	 * parameter file before the child can read it.  It should be safe to do
 	 * so now, because we verified earlier that there are no conflicting
 	 * Postgres processes in this data directory.
+	 *
+	 * 清理用于向子进程传递参数的临时目录（见 internal_forkexec）。
+	 * 我们必须在启动任何子进程之前执行此操作，否则会出现竞争条件：
+	 * 我们可能会在子进程读取参数文件之前将其删除。现在这样做应该是安全的，
+	 * 因为我们之前已验证此数据目录中没有冲突的 Postgres 进程。
 	 */
 	RemovePgTempFilesInDir(PG_TEMP_FILES_DIR, true, false);
 #endif
@@ -1367,6 +1402,7 @@ PostmasterMain(int argc, char *argv[])
 		if (!SplitGUCList(rawstring, ',', &elemlist))
 		{
 			/* syntax error in list */
+			/* 列表中存在语法错误 */
 			ereport(FATAL,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("invalid list syntax in parameter \"%s\"",
@@ -1429,6 +1465,9 @@ PostmasterMain(int argc, char *argv[])
 		 * all "applicable" interfaces.  It's not entirely clear from the
 		 * DNS-SD docs whether this would be appropriate if we have bound to
 		 * just a subset of the available network interfaces.
+		 *
+		 * 我们为 interface_index 传递 0，这将导致在所有“适用”的接口上进行注册。
+		 * 如果我们仅绑定到可用网络接口的子集，这是否合适，从 DNS-SD 文档中并不完全清楚。
 		 */
 		err = DNSServiceRegister(&bonjour_sdref,
 								 0,
@@ -1477,6 +1516,7 @@ PostmasterMain(int argc, char *argv[])
 		if (!SplitDirectoriesString(rawstring, ',', &elemlist))
 		{
 			/* syntax error in list */
+			/* 列表中存在语法错误 */
 			ereport(FATAL,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("invalid list syntax in parameter \"%s\"",
@@ -1600,6 +1640,7 @@ PostmasterMain(int argc, char *argv[])
 		 */
 		ereport(FATAL,
 		/* translator: %s is a configuration file */
+			/* 翻译器：%s 是一个配置文件 */
 				(errmsg("could not load %s", HbaFileName)));
 	}
 	if (!load_ident())
@@ -1938,6 +1979,7 @@ DetermineSleepTime(void)
 		int			ms;
 
 		/* result of TimestampDifferenceMilliseconds is in [0, INT_MAX] */
+		/* TimestampDifferenceMilliseconds 的结果在 [0, INT_MAX] 之间 */
 		ms = (int) TimestampDifferenceMilliseconds(GetCurrentTimestamp(),
 												   next_wakeup);
 		return Min(60 * 1000, ms);
@@ -2120,6 +2162,7 @@ ServerLoop(void)
 			/* 我们之前对它们很绅士。现在不再是了 */
 			ereport(LOG,
 			/* translator: %s is SIGKILL or SIGABRT */
+			/* 翻译器：%s 是 SIGKILL 或 SIGABRT */
 					(errmsg("issuing %s to recalcitrant children",
 							send_abort_for_kill ? "SIGABRT" : "SIGKILL")));
 			TerminateChildren(send_abort_for_kill ? SIGABRT : SIGKILL);
@@ -2429,9 +2472,11 @@ process_pm_reload_request(void)
 		SignalChildren(SIGHUP, btmask_all_except(B_DEAD_END_BACKEND));
 
 		/* Reload authentication config files too */
+		/* 也重新加载身份验证配置文件 */
 		if (!load_hba())
 			ereport(LOG,
 			/* translator: %s is a configuration file */
+			/* 翻译器：%s 是一个配置文件 */
 					(errmsg("%s was not reloaded", HbaFileName)));
 
 		if (!load_ident())
@@ -2548,6 +2593,7 @@ process_pm_shutdown_request(void)
 					(errmsg("received smart shutdown request")));
 
 			/* Report status */
+			/* 报告状态 */
 			AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_STOPPING);
 #ifdef USE_SYSTEMD
 			sd_notify(0, "STOPPING=1");
@@ -2600,6 +2646,7 @@ process_pm_shutdown_request(void)
 					(errmsg("received fast shutdown request")));
 
 			/* Report status */
+			/* 报告状态 */
 			AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_STOPPING);
 #ifdef USE_SYSTEMD
 			sd_notify(0, "STOPPING=1");
@@ -2652,6 +2699,7 @@ process_pm_shutdown_request(void)
 					(errmsg("received immediate shutdown request")));
 
 			/* Report status */
+			/* 报告状态 */
 			AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_STOPPING);
 #ifdef USE_SYSTEMD
 			sd_notify(0, "STOPPING=1");
@@ -2660,11 +2708,13 @@ process_pm_shutdown_request(void)
 			/* tell children to shut down ASAP */
 			/* 告诉子进程尽快关闭 */
 			/* (note we don't apply send_abort_for_crash here) */
+			/* （注意，我们在这里不应用 send_abort_for_crash） */
 			SetQuitSignalReason(PMQUIT_FOR_STOP);
 			TerminateChildren(SIGQUIT);
 			UpdatePMState(PM_WAIT_BACKENDS);
 
 			/* set stopwatch for them to die */
+			/* 为它们的死亡设置秒表 */
 			AbortStartTime = time(NULL);
 
 			/*
@@ -2727,6 +2777,7 @@ process_pm_child_exit(void)
 				StartupStatus = STARTUP_NOT_RUNNING;
 				UpdatePMState(PM_WAIT_BACKENDS);
 				/* PostmasterStateMachine logic does the rest */
+				/* PostmasterStateMachine 逻辑会处理其余部分 */
 				continue;
 			}
 
@@ -2739,6 +2790,7 @@ process_pm_child_exit(void)
 				TerminateChildren(SIGTERM);
 				UpdatePMState(PM_WAIT_BACKENDS);
 				/* PostmasterStateMachine logic does the rest */
+				/* PostmasterStateMachine 逻辑会处理其余部分 */
 				continue;
 			}
 
@@ -2834,6 +2886,7 @@ process_pm_child_exit(void)
 					(errmsg("database system is ready to accept connections")));
 
 			/* Report status */
+			/* 报告状态 */
 			AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_READY);
 #ifdef USE_SYSTEMD
 			sd_notify(0, "READY=1");
@@ -3169,6 +3222,8 @@ CleanupBackend(PMChild *bp,
 		/*
 		 * Uh-oh, the child failed to clean itself up.  Treat as a crash after
 		 * all.
+		 *
+		 * 糟糕，子进程未能清理自身。终究还是将其视为崩溃。
 		 */
 		crashed = true;
 	}
@@ -3797,6 +3852,15 @@ PostmasterStateMachine(void)
 		 * The reason we wait is to protect against a new postmaster starting
 		 * conflicting subprocesses; this isn't an ironclad protection, but it
 		 * at least helps in the shutdown-and-immediately-restart scenario.
+		 *
+		 * 当除日志记录器之外的所有其他子进程都消失时，PM_WAIT_DEAD_END 状态结束。
+		 * 在正常关闭期间，留下的只有死路（dead-end）后端，但在 FatalError（致命错误）
+		 * 处理中，我们直接跳转到这里，还有更多的进程残留。请注意，无论是在导致 
+		 * PM_WAIT_DEAD_END 的正常状态转换期间，还是在 FatalError 处理期间， 
+		 * 它们都已经被发送了适当的关闭信号。
+		 *
+		 * 我们等待的原因是为了防止新的 postmaster 启动冲突的子进程；这并不是一个
+		 * 铁板钉钉的保护，但它至少在“关闭并立即重启”的场景中有所帮助。
 		 */
 		if (CountChildren(btmask_all_except(B_LOGGER)) == 0)
 		{
@@ -3827,6 +3891,14 @@ PostmasterStateMachine(void)
 	 * Note that the syslogger continues to run.  It will exit when it sees
 	 * EOF on its input pipe, which happens when there are no more upstream
 	 * processes.
+	 *
+	 * 如果我们被告知关闭，我们会在没有剩余子进程时立即退出。如果有崩溃， 
+	 * 清理将在下一次启动时发生。（在 PostgreSQL 8.3 之前，我们尝试在退出前 
+	 * 从崩溃中恢复，但如果我们是因为从 init 收到 SIGTERM 而退出，这似乎是明智的 
+	 * —— 在 init 决定向我们发送 SIGKILL 之前，可能根本没有时间进行恢复。）
+	 *
+	 * 请注意，系统日志记录器（syslogger）继续运行。当它在输入管道上看到 EOF 
+	 *（当没有更多上游进程时会发生这种情况）时，它将退出。
 	 */
 	if (Shutdown > NoShutdown && pmState == PM_NO_CHILDREN)
 	{
@@ -4111,6 +4183,7 @@ LaunchMissingBackgroundProcesses(void)
 			if (WalReceiverPMChild != 0)
 				WalReceiverRequested = false;
 			/* else leave the flag set, so we'll try again later */
+			/* 否则保持该标志设置，以便我们稍后重试 */
 		}
 	}
 
@@ -4156,6 +4229,7 @@ pm_signame(int signal)
 			PM_TOSTR_CASE(SIGUSR2);
 		default:
 			/* all signals sent by postmaster should be listed here */
+			/* Postmaster 发送的所有信号都应该列在这里 */
 			Assert(false);
 			return "(unknown)";
 	}
@@ -4547,6 +4621,7 @@ process_pm_pmsignal(void)
 				(errmsg("database system is ready to accept read-only connections")));
 
 		/* Report status */
+			/* 报告状态 */
 		AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_READY);
 #ifdef USE_SYSTEMD
 		sd_notify(0, "READY=1");
@@ -4556,6 +4631,7 @@ process_pm_pmsignal(void)
 		connsAllowed = true;
 
 		/* Some workers may be scheduled to start now */
+		/* 某些工作进程可能定于现在启动 */
 		StartWorkerNeeded = true;
 	}
 
@@ -4917,6 +4993,8 @@ StartAutovacuumWorker(void)
 			/*
 			 * fork failed, fall through to report -- actual error message was
 			 * logged by StartChildProcess
+			 *
+			 * fork 失败，坠入到报告 —— 实际的错误消息已被 StartChildProcess 记录
 			 */
 		}
 	}
@@ -5086,11 +5164,13 @@ bgworker_should_start_now(BgWorkerStartTime start_time)
 			if (start_time == BgWorkerStart_RecoveryFinished)
 				return true;
 			/* fall through */
+			/* 坠入/向下穿透 */
 
 		case PM_HOT_STANDBY:
 			if (start_time == BgWorkerStart_ConsistentState)
 				return true;
 			/* fall through */
+			/* 坠入/向下穿透 */
 
 		case PM_RECOVERY:
 		case PM_STARTUP:
@@ -5098,6 +5178,7 @@ bgworker_should_start_now(BgWorkerStartTime start_time)
 			if (start_time == BgWorkerStart_PostmasterStart)
 				return true;
 			/* fall through */
+			/* 坠入/向下穿透 */
 	}
 
 	return false;

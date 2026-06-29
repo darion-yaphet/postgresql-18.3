@@ -999,6 +999,7 @@ ImmediateCheckpointRequested(void)
 	/*
 	 * We don't need to acquire the ckpt_lck in this case because we're only
 	 * looking at a single flag bit.
+	 * 我们在此情况下不需要获取 ckpt_lck，因为我们只是查看一个标志位。
 	 */
 	if (cps->ckpt_flags & CHECKPOINT_IMMEDIATE)
 		return true;
@@ -1055,6 +1056,7 @@ CheckpointWriteDelay(int flags, double progress)
 			ConfigReloadPending = false;
 			ProcessConfigFile(PGC_SIGHUP);
 			/* update shmem copies of config variables */
+			/* 更新配置变量的共享内存拷贝 */
 			UpdateSharedMemoryConfig();
 		}
 
@@ -1064,6 +1066,7 @@ CheckpointWriteDelay(int flags, double progress)
 		CheckArchiveTimeout();
 
 		/* Report interim statistics to the cumulative stats system */
+		/* 向累积统计系统报告临时统计数据 */
 		pgstat_report_checkpointer();
 
 		/*
@@ -1213,6 +1216,7 @@ IsCheckpointOnSchedule(double progress)
  */
 
 /* SIGINT: set flag to trigger writing of shutdown checkpoint */
+/* SIGINT: 设置标志以触发写入 shutdown 检查点 */
 static void
 ReqShutdownXLOG(SIGNAL_ARGS)
 {
@@ -1326,16 +1330,19 @@ RequestCheckpoint(int flags)
 
 	/*
 	 * If in a standalone backend, just do it ourselves.
+	 * 如果在独立的后端进程中，我们自己执行检查点即可。
 	 */
 	if (!IsPostmasterEnvironment)
 	{
 		/*
 		 * There's no point in doing slow checkpoints in a standalone backend,
 		 * because there's no other backends the checkpoint could disrupt.
+		 * 在独立后端进程中没有必要进行缓慢的检查点，因为没有其他后端会因此受到干扰。
 		 */
 		CreateCheckPoint(flags | CHECKPOINT_IMMEDIATE);
 
 		/* Free all smgr objects, as CheckpointerMain() normally would. */
+		/* 释放所有 smgr 对象，正如 CheckpointerMain() 通常所做的那样。 */
 		smgrdestroyall();
 
 		return;
@@ -1345,10 +1352,14 @@ RequestCheckpoint(int flags)
 	 * Atomically set the request flags, and take a snapshot of the counters.
 	 * When we see ckpt_started > old_started, we know the flags we set here
 	 * have been seen by checkpointer.
+	 * 原子地设置请求标志，并获取计数器的快照。
+	 * 当我们看到 ckpt_started > old_started 时，我们知道我们在此设置的标志已被 checkpointer 看到。
 	 *
 	 * Note that we OR the flags with any existing flags, to avoid overriding
 	 * a "stronger" request by another backend.  The flag senses must be
 	 * chosen to make this work!
+	 * 注意，我们使用任何现有标志对标志进行 OR 操作，以避免覆盖另一个后端发出的“更强”请求。
+	 * 必须正确选择标志的含义才能使其工作！
 	 */
 	SpinLockAcquire(&CheckpointerShmem->ckpt_lck);
 
@@ -1367,6 +1378,11 @@ RequestCheckpoint(int flags)
 	 * checkpoint to occur, we consider failure to set the latch to be
 	 * nonfatal and merely LOG it.  The checkpointer should see the request
 	 * when it does start, with or without the SetLatch().
+	 * 设置 checkpointer 的 latch 以请求检查点。checkpointer 可能尚未启动，
+	 * 所以如果需要，我们将重试几次。（实际上，不仅是几次，因为在缓慢或超载的
+	 * 编译农场机器上，已观察到 checkpointer 可能需要几秒钟才能启动。）
+	 * 然而，如果未指示等待检查点发生，我们认为设置 latch 失败是非致命的，并且仅仅记录 LOG。
+	 * 无论有没有 SetLatch()，checkpointer 在启动时都应该能看到该请求。
 	 */
 #define MAX_SIGNAL_TRIES 600	/* max wait 60.0 sec */
 	for (ntries = 0;; ntries++)
@@ -1387,6 +1403,7 @@ RequestCheckpoint(int flags)
 		{
 			SetLatch(&GetPGProcByNumber(checkpointerProc)->procLatch);
 			/* notified successfully */
+			/* 成功通知 */
 			break;
 		}
 
@@ -1397,6 +1414,7 @@ RequestCheckpoint(int flags)
 	/*
 	 * If requested, wait for completion.  We detect completion according to
 	 * the algorithm given above.
+	 * 如果请求了，则等待完成。我们根据上面给出的算法检测完成。
 	 */
 	if (flags & CHECKPOINT_WAIT)
 	{
@@ -1404,6 +1422,7 @@ RequestCheckpoint(int flags)
 					new_failed;
 
 		/* Wait for a new checkpoint to start. */
+		/* 等待一个新的检查点开始。 */
 		ConditionVariablePrepareToSleep(&CheckpointerShmem->start_cv);
 		for (;;)
 		{
@@ -1421,6 +1440,7 @@ RequestCheckpoint(int flags)
 
 		/*
 		 * We are waiting for ckpt_done >= new_started, in a modulo sense.
+		 * 我们在模的意义上等待 ckpt_done >= new_started。
 		 */
 		ConditionVariablePrepareToSleep(&CheckpointerShmem->done_cv);
 		for (;;)
@@ -1585,9 +1605,11 @@ CompactCheckpointerRequestQueue(void)
 		return false;
 
 	/* Initialize skip_slot array */
+	/* 初始化 skip_slot 数组 */
 	skip_slot = palloc0(sizeof(bool) * CheckpointerShmem->num_requests);
 
 	/* Initialize temporary hash table */
+	/* 初始化临时哈希表 */
 	ctl.keysize = sizeof(CheckpointerRequest);
 	ctl.entrysize = sizeof(struct CheckpointerSlotMapping);
 	ctl.hcxt = CurrentMemoryContext;
@@ -1673,6 +1695,7 @@ CompactCheckpointerRequestQueue(void)
 	CheckpointerShmem->num_requests = preserve_count;
 
 	/* Cleanup. */
+	/* 清理。 */
 	pfree(skip_slot);
 	return true;
 }
@@ -1688,7 +1711,7 @@ CompactCheckpointerRequestQueue(void)
  *
  * 取出排队的 sync 请求并交给 sync 机制处理。
  *
- * 之所以导出：必须在 CreateCheckPoint 期间调用；必须在开始 fsync 前
+ * 之作用于此：必须在 CreateCheckPoint 期间调用；必须在开始 fsync 前
  * 确保已接受所有挂起请求。CreateCheckPoint 有时在非 checkpointer 进程中
  * 运行，若非 checkpointer 则直接返回。
  */

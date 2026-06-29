@@ -4007,6 +4007,7 @@ AutoVacuumShmemSize(void)
 
 	/*
 	 * Need the fixed struct and the array of WorkerInfoData.
+	 * 需要固定结构体和 WorkerInfoData 数组。
 	 */
 	size = sizeof(AutoVacuumShmemStruct);
 	size = MAXALIGN(size);
@@ -4077,6 +4078,9 @@ check_autovacuum_work_mem(int *newval, void **extra, GucSource source)
 	 *
 	 * If we haven't yet changed the boot_val default of -1, just let it be.
 	 * Autovacuum will look to maintenance_work_mem instead.
+	 * -1 表示回退（fallback）。
+	 * 如果我们还没有更改 boot_val 默认值 -1，就顺其自然。
+	 * 自动清理将使用 maintenance_work_mem 代替。
 	 */
 	if (*newval == -1)
 		return true;
@@ -4085,6 +4089,8 @@ check_autovacuum_work_mem(int *newval, void **extra, GucSource source)
 	 * We clamp manually-set values to at least 64kB.  Since
 	 * maintenance_work_mem is always set to at least this value, do the same
 	 * here.
+	 * 我们将手动设置的值限制在至少 64kB。因为 maintenance_work_mem 
+	 * 总是被设置为至少这个值，所以在这里也做同样的处理。
 	 */
 	if (*newval < 64)
 		*newval = 64;

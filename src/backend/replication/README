@@ -1,4 +1,10 @@
 src/backend/replication/README
+（说明：本文描述物理复制中 walreceiver 动态库、walreceiver 与 walsender 的 IPC，
+以及关机顺序与 PMSignal 标记；协议细节见手册。
+核心流程（备机）：startup 重放到归档末尾后请求 postmaster 启动 walreceiver → 从主库流式接收 WAL
+写入 pg_wal → 更新 WalRcvData->flushedUpto 并唤醒 startup 继续重放。
+核心流程（主库）：每个复制连接对应一个 walsender，占用 WalSndCtl 一项，按协议向 walreceiver 发送 WAL；
+walreceiver.h 中声明的是动态库需实现的回调接口（连接、读 WAL、发消息等），非单一名称的“一个函数”。）
 
 Walreceiver - libpqwalreceiver API
 ----------------------------------
@@ -7,13 +13,17 @@ The transport-specific part of walreceiver, responsible for connecting to
 the primary server, receiving WAL files and sending messages, is loaded
 dynamically to avoid having to link the main server binary with libpq.
 The dynamically loaded module is in libpqwalreceiver subdirectory.
+walreceiver 中与传输相关的部分（连接主库、接收 WAL、收发消息）采用动态加载，
+以免主服务器二进制与 libpq 静态链接；动态库位于 libpqwalreceiver 子目录。
 
 The dynamically loaded module implements a set of functions with details
 about each one of them provided in src/include/replication/walreceiver.h.
+动态模块实现一组函数；各函数说明见 src/include/replication/walreceiver.h。
 
 This API should be considered internal at the moment, but we could open it
 up for 3rd party replacements of libpqwalreceiver in the future, allowing
 pluggable methods for receiving WAL.
+该 API 目前视为内部接口；将来可对外开放，允许第三方替换 libpqwalreceiver，以可插拔方式接收 WAL。
 
 Walreceiver IPC
 ---------------
@@ -21,20 +31,27 @@ Walreceiver IPC
 When the WAL replay in startup process has reached the end of archived WAL,
 restorable using restore_command, it starts up the walreceiver process
 to fetch more WAL (if streaming replication is configured).
+当 startup 中的 WAL 重放已追到可用 restore_command 恢复的归档 WAL 末尾时，
+若配置了流复制，则启动 walreceiver 以拉取更多 WAL。
 
 Walreceiver is a postmaster subprocess, so the startup process can't fork it
 directly. Instead, it sends a signal to postmaster, asking postmaster to launch
 it. Before that, however, startup process fills in WalRcvData->conninfo
 and WalRcvData->slotname, and initializes the starting point in
 WalRcvData->receiveStart.
+walreceiver 是 postmaster 子进程，startup 不能直接 fork，改为通知 postmaster 拉起。
+在此之前，startup 填写 WalRcvData->conninfo、WalRcvData->slotname，并在 WalRcvData->receiveStart 初始化起始点。
 
 As walreceiver receives WAL from the primary server, and writes and flushes
 it to disk (in pg_wal), it updates WalRcvData->flushedUpto and signals
 the startup process to know how far WAL replay can advance.
+walreceiver 从主库接收 WAL 并写入、刷盘到 pg_wal 后，更新 WalRcvData->flushedUpto 并通知 startup，
+使后者知道重放最多可推进到哪里。
 
 Walreceiver sends information about replication progress to the primary server
 whenever it either writes or flushes new WAL, or the specified interval elapses.
 This is used for reporting purpose.
+在写入或刷出新 WAL 时，或到达指定间隔时，walreceiver 向主库回报复制进度，用于状态上报。
 
 Walsender IPC
 -------------
@@ -47,6 +64,10 @@ receive all the WAL, including the shutdown checkpoint, before the primary
 is shut down. Therefore postmaster treats walsenders like the pgarch process,
 and instructs them to terminate at the PM_WAIT_XLOG_ARCHIVAL phase, after all
 regular backends have died and checkpointer has issued the shutdown checkpoint.
+关机时 postmaster 对 walsender 与普通后端不同：普通后端先退出再写关机检查点并结束 pgarch 等；
+若 walsender 也如此，备机可能在主库关机前收不到含关机检查点在内的全部 WAL。
+因此 postmaster 将 walsender 视同 pgarch：在所有普通后端退出且 checkpointer 已发出关机检查点之后，
+在 PM_WAIT_XLOG_ARCHIVAL 阶段再令其结束。
 
 When postmaster accepts a connection, it immediately forks a new process
 to handle the handshake and authentication, and the process initializes to
@@ -54,23 +75,30 @@ become a backend. Postmaster doesn't know if the process becomes a regular
 backend or a walsender process at that time - that's indicated in the
 connection handshake - so we need some extra signaling to let postmaster
 identify walsender processes.
+postmaster accept 连接后会立刻 fork 新进程做握手与认证，进程再初始化为后端；
+此时 postmaster 尚不知是普通后端还是 walsender（由连接握手决定），需额外信号以识别 walsender。
 
 When walsender process starts up, it marks itself as a walsender process in
 the PMSignal array. That way postmaster can tell it apart from regular
 backends.
+walsender 启动时在 PMSignal 数组中标记自身，postmaster 据此与普通后端区分。
 
 Note that no big harm is done if postmaster thinks that a walsender is a
 regular backend; it will just terminate the walsender earlier in the shutdown
 phase. A walsender will look like a regular backend until it's done with the
 initialization and has marked itself in PMSignal array, and at process
 termination, after unmarking the PMSignal slot.
+若 postmaster 误把 walsender 当成普通后端，后果也不严重：只是会在关机阶段更早结束该 walsender。
+在初始化完成并在 PMSignal 中标记之前，以及进程结束前取消标记之后，walsender 在外观上可能仍像普通后端。
 
 Each walsender allocates an entry from the WalSndCtl array, and tracks
 information about replication progress. User can monitor them via
 statistics views.
+每个 walsender 从 WalSndCtl 数组占用一项，记录复制进度；用户可通过统计视图查看。
 
 
 Walsender - walreceiver protocol
 --------------------------------
 
 See manual.
+详见官方手册（主备流复制协议与消息格式）。
