@@ -18,4 +18,6 @@ lwlocknames_h = custom_target('lwlocknames_h',
 generated_backend_headers += lwlocknames_h
 
 # autoconf generates the file there, ensure we get a conflict
+
+# autoconf 会在该位置生成文件，确保我们得到冲突。
 generated_sources_ac += {'src/backend/storage/lmgr': ['lwlocknames.h']}

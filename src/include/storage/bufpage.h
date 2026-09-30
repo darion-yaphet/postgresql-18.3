@@ -143,6 +143,13 @@ typedef struct
 								/* 低位 */
 } PageXLogRecPtr;
 
+/*
+ * Convert a split page LSN to its native 64-bit representation.
+ * The function combines the high and low 32-bit fields into one WAL position.
+ *
+ * 将拆分的页面 LSN 转换为本机 64 位表示。
+ * 该函数将高、低 32 位字段组合为一个 WAL 位置。
+ */
 static inline XLogRecPtr
 PageXLogRecPtrGet(PageXLogRecPtr val)
 {
@@ -244,7 +251,11 @@ typedef struct PageHeaderData
 								/* 特殊空间起始位置的偏移量 */
 	uint16		pd_pagesize_version;
 	TransactionId pd_prune_xid; /* oldest prunable XID, or zero if none */
+
+								/* 最旧的可清理 XID；若不存在则为零。 */
 	ItemIdData	pd_linp[FLEXIBLE_ARRAY_MEMBER]; /* line pointer array */
+
+								/* 行指针数组。 */
 } PageHeaderData;
 
 typedef PageHeaderData *PageHeader;
@@ -260,6 +271,14 @@ typedef PageHeaderData *PageHeader;
  * PD_PAGE_FULL is set if an UPDATE doesn't find enough free space in the
  * page for its new tuple version; this suggests that a prune is needed.
  * Again, this is just a hint.
+ *
+ * pd_flags 包含下列标志位。未定义的位初始化为零，并可能在未来使用。
+ *
+ * 若 pd_lower 前存在任何 LP_UNUSED 行指针，则设置 PD_HAS_FREE_LINES。由于对它的
+ * 修改不会记录 WAL，应将其视为提示而非事实。
+ *
+ * 若 UPDATE 未在页面中为其新元组版本找到足够空闲空间，则设置 PD_PAGE_FULL；这表示
+ * 需要清理。再次强调，这只是提示。
  */
 #define PD_HAS_FREE_LINES	0x0001	/* are there any unused line pointers? */
 									/* 页面中是否存在未使用的行指针？ */
@@ -298,6 +317,8 @@ typedef PageHeaderData *PageHeader;
  *						page support functions
  * ----------------------------------------------------------------
  */
+
+/* 页面支持函数。 */
 
 /*
  * line pointer(s) do not count as part of header
@@ -400,6 +421,11 @@ PageGetPageLayoutVersion(const PageData *page)
  *
  * We could support setting these two values separately, but there's
  * no real need for it at the moment.
+ *
+ * PageSetPageSizeAndVersion
+ *		设置一个页面的页面大小和页面布局版本号。
+ *
+ * 我们可以支持分别设置这两个值，但目前没有实际需要。
  */
 static inline void
 PageSetPageSizeAndVersion(Page page, Size size, uint8 version)
@@ -502,6 +528,14 @@ PageGetMaxOffsetNumber(const PageData *page)
  * Additional functions for access to page headers.
  * 用于访问页面头部的其他函数。
  */
+
+/*
+ * Return the WAL LSN stored in a page header.
+ * The function reads the split LSN fields and combines them into one value.
+ *
+ * 返回页面头部中存储的 WAL LSN。
+ * 该函数读取拆分的 LSN 字段并将它们组合为一个值。
+ */
 static inline XLogRecPtr
 PageGetLSN(const PageData *page)
 {
@@ -511,6 +545,9 @@ PageGetLSN(const PageData *page)
 /*
  * PageSetLSN -
  *    Sets the LSN for the last change to the page.
+ *
+ * PageSetLSN -
+ *    设置页面最后一次变更的 LSN。
  */
 static inline void
 PageSetLSN(Page page, XLogRecPtr lsn)
@@ -518,6 +555,13 @@ PageSetLSN(Page page, XLogRecPtr lsn)
 	PageXLogRecPtrSet(((PageHeader) page)->pd_lsn, lsn);
 }
 
+/*
+ * Test whether a page has reusable line pointers.
+ * The function checks the PD_HAS_FREE_LINES hint bit in the page header.
+ *
+ * 测试页面是否有可重用的行指针。
+ * 该函数检查页面头部中的 PD_HAS_FREE_LINES 提示位。
+ */
 static inline bool
 PageHasFreeLinePointers(const PageData *page)
 {
@@ -527,18 +571,44 @@ PageHasFreeLinePointers(const PageData *page)
 /*
  * PageSetHasFreeLinePointers/PageClearHasFreeLinePointers -
  *    Manage the PD_HAS_FREE_LINES hint bit.
+ *
+ * PageSetHasFreeLinePointers/PageClearHasFreeLinePointers -
+ *    管理 PD_HAS_FREE_LINES 提示位。
+ */
+
+/*
+ * Set the page's reusable-line-pointer hint.
+ * The function records that at least one unused line pointer is available.
+ *
+ * 设置页面的可重用行指针提示。
+ * 该函数记录至少有一个未使用的行指针可用。
  */
 static inline void
 PageSetHasFreeLinePointers(Page page)
 {
 	((PageHeader) page)->pd_flags |= PD_HAS_FREE_LINES;
 }
+
+/*
+ * Clear the page's reusable-line-pointer hint.
+ * The function records that no unused line pointer is currently known.
+ *
+ * 清除页面的可重用行指针提示。
+ * 该函数记录当前未知有任何未使用的行指针。
+ */
 static inline void
 PageClearHasFreeLinePointers(Page page)
 {
 	((PageHeader) page)->pd_flags &= ~PD_HAS_FREE_LINES;
 }
 
+/*
+ * Test whether a page is marked full.
+ * The function checks the PD_PAGE_FULL hint bit in the page header.
+ *
+ * 测试页面是否被标记为满。
+ * 该函数检查页面头部中的 PD_PAGE_FULL 提示位。
+ */
 static inline bool
 PageIsFull(const PageData *page)
 {
@@ -548,18 +618,44 @@ PageIsFull(const PageData *page)
 /*
  * PageSetFull/PageClearFull -
  *    Manage the PD_PAGE_FULL hint bit.
+ *
+ * PageSetFull/PageClearFull -
+ *    管理 PD_PAGE_FULL 提示位。
+ */
+
+/*
+ * Set the page-full hint.
+ * The function records that an update found insufficient space for a new tuple.
+ *
+ * 设置页面已满提示。
+ * 该函数记录某次更新未找到新元组所需的足够空间。
  */
 static inline void
 PageSetFull(Page page)
 {
 	((PageHeader) page)->pd_flags |= PD_PAGE_FULL;
 }
+
+/*
+ * Clear the page-full hint.
+ * The function removes the hint after page-space conditions have changed.
+ *
+ * 清除页面已满提示。
+ * 该函数在页面空间条件变化后移除该提示。
+ */
 static inline void
 PageClearFull(Page page)
 {
 	((PageHeader) page)->pd_flags &= ~PD_PAGE_FULL;
 }
 
+/*
+ * Test whether all page tuples are visible.
+ * The function checks the PD_ALL_VISIBLE status bit in the page header.
+ *
+ * 测试页面中的所有元组是否可见。
+ * 该函数检查页面头部中的 PD_ALL_VISIBLE 状态位。
+ */
 static inline bool
 PageIsAllVisible(const PageData *page)
 {
@@ -569,12 +665,31 @@ PageIsAllVisible(const PageData *page)
 /*
  * PageSetAllVisible/PageClearAllVisible -
  *    Manage the PD_ALL_VISIBLE status bit.
+ *
+ * PageSetAllVisible/PageClearAllVisible -
+ *    管理 PD_ALL_VISIBLE 状态位。
+ */
+
+/*
+ * Set the all-visible status bit.
+ * The function records that every tuple on the page is visible to all transactions.
+ *
+ * 设置全可见状态位。
+ * 该函数记录页面上的每个元组对所有事务均可见。
  */
 static inline void
 PageSetAllVisible(Page page)
 {
 	((PageHeader) page)->pd_flags |= PD_ALL_VISIBLE;
 }
+
+/*
+ * Clear the all-visible status bit.
+ * The function removes the status after a change can make tuples non-visible.
+ *
+ * 清除全可见状态位。
+ * 该函数在变更可能使元组不可见后移除该状态。
+ */
 static inline void
 PageClearAllVisible(Page page)
 {
@@ -602,10 +717,14 @@ do { \
  */
 
 /* flags for PageAddItemExtended() */
+
+/* PageAddItemExtended() 的标志。 */
 #define PAI_OVERWRITE			(1 << 0)
 #define PAI_IS_HEAP				(1 << 1)
 
 /* flags for PageIsVerified() */
+
+/* PageIsVerified() 的标志。 */
 #define PIV_LOG_WARNING			(1 << 0)
 #define PIV_LOG_LOG				(1 << 1)
 #define PIV_IGNORE_CHECKSUM_FAILURE (1 << 2)
@@ -639,6 +758,10 @@ StaticAssertDecl(BLCKSZ == ((BLCKSZ / sizeof(size_t)) * sizeof(size_t)),
  *    General initialization for each buffer page.
  * PageInit -
  *    对每个缓冲区页面的通用初始化。
+ *
+ * The function establishes the page header, free-space bounds, and optional special area.
+ *
+ * 该函数建立页面头部、空闲空间边界和可选特殊区域。
  */
 extern void PageInit(Page page, Size pageSize, Size specialSize);
 
@@ -647,6 +770,10 @@ extern void PageInit(Page page, Size pageSize, Size specialSize);
  *    Verifies that the page checksum (if any) and headers are correct.
  * PageIsVerified -
  *    验证页面校验和（如果有）和头部是否正确。
+ *
+ * The function validates page layout and checksum state, reporting checksum failure separately.
+ *
+ * 该函数验证页面布局和校验和状态，并单独报告校验和失败。
  */
 extern bool PageIsVerified(PageData *page, BlockNumber blkno, int flags,
 						   bool *checksum_failure_p);
@@ -656,6 +783,10 @@ extern bool PageIsVerified(PageData *page, BlockNumber blkno, int flags,
  *    Low-level version of PageAddItem with extra flags.
  * PageAddItemExtended -
  *    PageAddItem 的更底层版本，带有额外的标志。
+ *
+ * The function reserves line-pointer and tuple space, then installs the new item.
+ *
+ * 该函数预留行指针和元组空间，然后安装新项目。
  */
 extern OffsetNumber PageAddItemExtended(Page page, Item item, Size size,
 										OffsetNumber offsetNumber, int flags);
@@ -666,9 +797,40 @@ extern OffsetNumber PageAddItemExtended(Page page, Item item, Size size,
  * PageGetTempPage/Copy -
  *    用于创建页面临时副本的工具，通常用于索引构建。
  */
+/*
+ * Allocate a temporary page with the same layout as a source page.
+ * The function creates workspace suitable for subsequent page modifications.
+ *
+ * 分配与源页面布局相同的临时页面。
+ * 该函数创建适合后续页面修改的工作空间。
+ */
 extern Page PageGetTempPage(const PageData *page);
+
+/*
+ * Allocate and copy a source page into temporary storage.
+ * The function creates isolated workspace containing the complete page image.
+ *
+ * 分配临时存储并复制一个源页面。
+ * 该函数创建包含完整页面映像的隔离工作空间。
+ */
 extern Page PageGetTempPageCopy(const PageData *page);
+
+/*
+ * Allocate and copy only the special area of a source page.
+ * The function prepares a temporary page retaining access-method private data.
+ *
+ * 分配并仅复制源页面的特殊区域。
+ * 该函数准备一个保留访问方法私有数据的临时页面。
+ */
 extern Page PageGetTempPageCopySpecial(const PageData *page);
+
+/*
+ * Restore an old page from a temporary replacement page.
+ * The function swaps page storage after callers finish temporary modifications.
+ *
+ * 从临时替换页面恢复旧页面。
+ * 该函数在调用者完成临时修改后交换页面存储。
+ */
 extern void PageRestoreTempPage(Page tempPage, Page oldPage);
 
 /*
@@ -676,6 +838,10 @@ extern void PageRestoreTempPage(Page tempPage, Page oldPage);
  *    Compacts a page by removing deleted items and consolidating free space.
  * PageRepairFragmentation -
  *    通过移除已删除的项并整合空闲空间来平整页面的碎片化。
+ *
+ * The function relocates live tuples and updates line pointers to form contiguous free space.
+ *
+ * 该函数重新定位存活元组并更新行指针，以形成连续的空闲空间。
  */
 extern void PageRepairFragmentation(Page page);
 
@@ -684,6 +850,10 @@ extern void PageRepairFragmentation(Page page);
  *    Removes unused line pointers from the end of the array.
  * PageTruncateLinePointerArray -
  *    移除行指针数组末尾未使用的行指针。
+ *
+ * The function shortens the line-pointer area while preserving used item references.
+ *
+ * 该函数在保留已使用项目引用的同时缩短行指针区域。
  */
 extern void PageTruncateLinePointerArray(Page page);
 
@@ -693,9 +863,40 @@ extern void PageTruncateLinePointerArray(Page page);
  * PageGetFreeSpace* -
  *    计算页面在不同场景下的可用空间。
  */
+/*
+ * Return usable free space for one item on a page.
+ * The function accounts for required line-pointer overhead.
+ *
+ * 返回页面上一个项目可用的空闲空间。
+ * 该函数计入所需的行指针开销。
+ */
 extern Size PageGetFreeSpace(const PageData *page);
+
+/*
+ * Return space available for multiple new tuples.
+ * The function reserves line-pointer overhead for the requested tuple count.
+ *
+ * 返回多个新元组可用的空间。
+ * 该函数为请求的元组数量预留行指针开销。
+ */
 extern Size PageGetFreeSpaceForMultipleTuples(const PageData *page, int ntups);
+
+/*
+ * Return the exact unallocated space on a page.
+ * The function measures the gap between page lower and upper boundaries.
+ *
+ * 返回页面上精确的未分配空间。
+ * 该函数测量页面下、上边界之间的间隙。
+ */
 extern Size PageGetExactFreeSpace(const PageData *page);
+
+/*
+ * Return free space usable by heap tuple insertion.
+ * The function applies heap-specific reservation rules to page free space.
+ *
+ * 返回堆元组插入可用的空闲空间。
+ * 该函数将堆特定的预留规则应用到页面空闲空间。
+ */
 extern Size PageGetHeapFreeSpace(const PageData *page);
 
 /*
@@ -704,8 +905,31 @@ extern Size PageGetHeapFreeSpace(const PageData *page);
  * PageIndexTupleDelete* -
  *    从索引页面删除元组。
  */
+/*
+ * Delete one tuple from an index page and compact it.
+ * The function removes the selected item and consolidates page space.
+ *
+ * 从索引页面删除一个元组并压缩页面。
+ * 该函数移除选定项目并整合页面空间。
+ */
 extern void PageIndexTupleDelete(Page page, OffsetNumber offnum);
+
+/*
+ * Delete multiple tuples from an index page.
+ * The function removes the supplied offsets in one coordinated compaction pass.
+ *
+ * 从索引页面删除多个元组。
+ * 该函数在一次协调的压缩过程中移除给定偏移量。
+ */
 extern void PageIndexMultiDelete(Page page, OffsetNumber *itemnos, int nitems);
+
+/*
+ * Delete one index tuple without compacting the page.
+ * The function marks or clears the item while preserving current physical layout.
+ *
+ * 从索引页面删除一个元组而不压缩页面。
+ * 该函数在保留当前物理布局的同时标记或清除该项目。
+ */
 extern void PageIndexTupleDeleteNoCompact(Page page, OffsetNumber offnum);
 
 /*
@@ -713,6 +937,10 @@ extern void PageIndexTupleDeleteNoCompact(Page page, OffsetNumber offnum);
  *    Replaces a tuple version on an index page.
  * PageIndexTupleOverwrite -
  *    在索引页面上替换一个元组版本。
+ *
+ * The function verifies space and overwrites the selected tuple in place.
+ *
+ * 该函数验证空间，并原地覆盖选定元组。
  */
 extern bool PageIndexTupleOverwrite(Page page, OffsetNumber offnum,
 									Item newtup, Size newsize);
@@ -722,8 +950,27 @@ extern bool PageIndexTupleOverwrite(Page page, OffsetNumber offnum,
  *    Functions for calculating and setting the page checksum.
  * PageSetChecksum* -
  *    用于计算和设置页面校验和的函数。
+ *
+ * The functions compute a block-specific checksum and either return a copy or update the page.
+ *
+ * 这些函数计算块特定校验和，并返回副本或更新页面。
+ */
+/*
+ * Return a copy of a page with its checksum set.
+ * The function preserves the source page while calculating and storing the checksum in the copy.
+ *
+ * 返回设置校验和后的页面副本。
+ * 该函数保留源页面，同时在副本中计算并存储校验和。
  */
 extern char *PageSetChecksumCopy(Page page, BlockNumber blkno);
+
+/*
+ * Calculate and set a page checksum in place.
+ * The function incorporates the block number and writes the resulting checksum to the header.
+ *
+ * 原地计算并设置页面校验和。
+ * 该函数合入块号并将结果校验和写入头部。
+ */
 extern void PageSetChecksumInplace(Page page, BlockNumber blkno);
 
 #endif							/* BUFPAGE_H */

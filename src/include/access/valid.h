@@ -10,6 +10,10 @@
  * src/include/access/valid.h
  *
  *-------------------------------------------------------------------------
+ *
+ * 中文翻译：
+ * valid.h POSTGRES 元组限定有效性定义。 src/in
+ * clude/access/valid.h
  */
 #ifndef VALID_H
 #define VALID_H
@@ -23,6 +27,14 @@
  *		HeapKeyTest
  *
  *		Test a heap tuple to see if it satisfies a scan key.
+ *
+ * 中文翻译：
+ * HeapKeyTest 测试堆元组以查看它是否满足扫描键。
+ */
+/*
+ * Function HeapKeyTest carries out its declared access-layer task by interpreting supplied inputs, applying module-specific checks or state changes, and producing the required result.
+ *
+ * 函数 HeapKeyTest通过解析传入输入、执行模块特定检查或状态变更并产生所需结果，完成其声明的访问层任务。
  */
 static inline bool
 HeapKeyTest(HeapTuple tuple, TupleDesc tupdesc, int nkeys, ScanKey keys)
@@ -56,3 +68,5 @@ HeapKeyTest(HeapTuple tuple, TupleDesc tupdesc, int nkeys, ScanKey keys)
 }
 
 #endif							/* VALID_H */
+
+/* 中文翻译：VALID_H */

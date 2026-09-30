@@ -36,8 +36,26 @@ typedef struct XLogStats
 	XLogRecStats record_stats[RM_MAX_ID + 1][MAX_XLINFO_TYPES];
 } XLogStats;
 
+/*
+ * Function: XLogRecGetLen.
+ * Purpose: Performs the WAL reading or recovery operation represented by xlog rec get len.
+ * Core flow: It prepares the reader or recovery context, processes the requested WAL state, and exposes the result.
+ *
+ * 函数：XLogRecGetLen。
+ * 作用：执行 xlog rec get len 所表示的 WAL 读取或恢复操作。
+ * 核心流程：它准备读取器或恢复上下文，处理请求的 WAL 状态，并提供结果。
+ */
 extern void XLogRecGetLen(XLogReaderState *record, uint32 *rec_len,
 						  uint32 *fpi_len);
+/*
+ * Function: XLogRecStoreStats.
+ * Purpose: Performs the WAL reading or recovery operation represented by xlog rec store stats.
+ * Core flow: It prepares the reader or recovery context, processes the requested WAL state, and exposes the result.
+ *
+ * 函数：XLogRecStoreStats。
+ * 作用：执行 xlog rec store stats 所表示的 WAL 读取或恢复操作。
+ * 核心流程：它准备读取器或恢复上下文，处理请求的 WAL 状态，并提供结果。
+ */
 extern void XLogRecStoreStats(XLogStats *stats, XLogReaderState *record);
 
 #endif							/* XLOGSTATS_H */

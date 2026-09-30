@@ -55,11 +55,45 @@
  * there *must not* be any unused padding bytes in this struct.  That
  * should be safe as long as all the fields are of type Oid.
  */
+
+/*
+ * RelFileLocator 必须提供物理访问一个关系所需的全部信息，后端的进程编号除外，后者
+ * 可以单独提供。请注意，一个“物理”关系由文件系统中的多个文件组成：每个分叉文件单独
+ * 存储，每个分叉文件又可划分为多个段。参见 md.c。
+ *
+ * spcOid 标识关系所在的表空间，对应 pg_tablespace.oid。
+ *
+ * dbOid 标识关系所在的数据库。对“共享”关系（集群中所有数据库共用的关系）其值为零；
+ * 非零 dbOid 对应 pg_database.oid。
+ *
+ * relNumber 标识具体关系，对应 pg_class.relfilenode（不是 pg_class.oid，因为某些
+ * 情形需要为关系分配新的物理文件）。请注意，relNumber 仅在特定表空间内的数据库中
+ * 唯一。
+ *
+ * 注意：当且仅当 dbOid 为零时，spcOid 必须为 GLOBALTABLESPACE_OID。仅“全局”表空间
+ * 支持共享关系。
+ *
+ * 注意：pg_class 中允许 reltablespace == 0 表示关系存储在其数据库的“默认”表空间
+ * （由 pg_database.dattablespace 标识）。但 RelFileLocator 结构体不允许使用这一简写
+ * ——设置 spcOid 时必须提供真实表空间 ID。
+ *
+ * 注意：pg_class 中 relfilenode 可为零，表示该关系是“映射”关系，其当前真实文件节点号
+ * 可从 relmapper.c 获得。RelFileLocator 同样不允许该情形。
+ *
+ * 注意：多个位置将 RelFileLocator 用作哈希表键。因此该结构体中绝不能有未使用的填充
+ * 字节。只要所有字段都是 Oid 类型，这应当是安全的。
+ */
 typedef struct RelFileLocator
 {
 	Oid			spcOid;			/* tablespace */
+
+	/* 表空间。 */
 	Oid			dbOid;			/* database */
+
+	/* 数据库。 */
 	RelFileNumber relNumber;	/* relation */
+
+	/* 关系。 */
 } RelFileLocator;
 
 /*
@@ -69,6 +103,13 @@ typedef struct RelFileLocator
  * one backend), or the owning backend's proc number for backend-local
  * relations.  Backend-local relations are always transient and removed in
  * case of a database crash; they are never WAL-logged or fsync'd.
+ */
+
+/*
+ * 为 relfilelocator 添加后端进程编号即可获得定位物理存储所需的完整信息。对于常规关系
+ * （可由一个以上后端访问），backend 为 INVALID_PROC_NUMBER；对于后端本地关系，则为
+ * 所有者后端的进程编号。后端本地关系始终是临时的，数据库崩溃时会被移除；它们从不写入
+ * WAL，也不执行 fsync。
  */
 typedef struct RelFileLocatorBackend
 {
@@ -85,6 +126,13 @@ typedef struct RelFileLocatorBackend
  * RelFileLocators.  It is probably redundant to compare spcOid if the other
  * fields are found equal, but do it anyway to be sure.  Likewise for checking
  * the backend number in RelFileLocatorBackendEquals.
+ */
+
+/*
+ * 注意：RelFileLocatorEquals 和 RelFileLocatorBackendEquals 首先比较 relNumber，
+ * 因为它最可能在两个不相等的 RelFileLocator 中不同。如果其他字段相等，比较 spcOid
+ * 可能是冗余的，但仍进行比较以确保正确性。RelFileLocatorBackendEquals 中检查后端编号
+ * 也是如此。
  */
 #define RelFileLocatorEquals(locator1, locator2) \
 	((locator1).relNumber == (locator2).relNumber && \

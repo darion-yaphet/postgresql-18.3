@@ -85,10 +85,18 @@ typedef union PgAioTargetData
 	struct
 	{
 		RelFileLocator rlocator;	/* physical relation identifier */
+
+								/* 关系的物理标识符 */
 		BlockNumber blockNum;	/* blknum relative to begin of reln */
+
+								/* 相对于关系起始位置的块号 */
 		BlockNumber nblocks;
 		ForkNumber	forkNum:8;	/* don't waste 4 byte for four values */
+
+								/* 不为四个取值浪费 4 个字节 */
 		bool		is_temp:1;	/* proc can be inferred by owning AIO */
+
+								/* 进程可由所属 AIO 推断得出 */
 		bool		skip_fsync:1;
 	}			smgr;
 } PgAioTargetData;
@@ -101,10 +109,18 @@ typedef union PgAioTargetData
 typedef enum PgAioResultStatus
 {
 	PGAIO_RS_UNKNOWN,			/* not yet completed / uninitialized */
+
+								/* 尚未完成／未初始化 */
 	PGAIO_RS_OK,
 	PGAIO_RS_PARTIAL,			/* did not fully succeed, no warning/error */
+
+								/* 未完全成功，且没有警告或错误 */
 	PGAIO_RS_WARNING,			/* [partially] succeeded, with a warning */
+
+								/* [部分] 成功，但带有警告 */
 	PGAIO_RS_ERROR,				/* failed entirely */
+
+								/* 完全失败 */
 } PgAioResultStatus;
 
 
@@ -127,10 +143,15 @@ typedef struct PgAioResult
 	/*
 	 * This is of type PgAioHandleCallbackID, but can't use a bitfield of an
 	 * enum, because some compilers treat enums as signed.
+	 *
+	 * 此字段的类型是 PgAioHandleCallbackID，但不能使用枚举的位域，
+	 * 因为某些编译器将枚举视为有符号类型。
 	 */
 	uint32		id:PGAIO_RESULT_ID_BITS;
 
 	/* of type PgAioResultStatus, see above */
+
+	/* 类型为 PgAioResultStatus，见上文 */
 	uint32		status:PGAIO_RESULT_STATUS_BITS;
 
 	/* meaning defined by callback->report */

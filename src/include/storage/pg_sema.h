@@ -30,6 +30,15 @@
  * seem worth insisting on ABI compatibility for Windows too.  Hence, on
  * that platform just define PGSemaphore as HANDLE.
  */
+
+/*
+ * 结构体 PGSemaphoreData 及指针类型 PGSemaphore 表示单个信号量的数据结构。
+ * PGSemaphoreData 的内容因实现而异，平台无关代码绝不能访问它；因此这里将
+ * PGSemaphoreData 声明为不透明结构体。
+ *
+ * 不过，Windows 与其他移植平台差异足够大，因此不必强求 Windows 也保持 ABI
+ * 兼容。在该平台上，直接将 PGSemaphore 定义为 HANDLE。
+ */
 #ifndef USE_WIN32_SEMAPHORES
 typedef struct PGSemaphoreData *PGSemaphore;
 #else
@@ -38,24 +47,38 @@ typedef HANDLE PGSemaphore;
 
 
 /* Report amount of shared memory needed */
+
+/* 报告所需的共享内存大小。 */
 extern Size PGSemaphoreShmemSize(int maxSemas);
 
 /* Module initialization (called during postmaster start or shmem reinit) */
+
+/* 模块初始化（在 postmaster 启动或共享内存重新初始化期间调用）。 */
 extern void PGReserveSemaphores(int maxSemas);
 
 /* Allocate a PGSemaphore structure with initial count 1 */
+
+/* 分配一个初始计数为 1 的 PGSemaphore 结构。 */
 extern PGSemaphore PGSemaphoreCreate(void);
 
 /* Reset a previously-initialized PGSemaphore to have count 0 */
+
+/* 将已初始化的 PGSemaphore 重置为计数 0。 */
 extern void PGSemaphoreReset(PGSemaphore sema);
 
 /* Lock a semaphore (decrement count), blocking if count would be < 0 */
+
+/* 锁定信号量（递减计数）；若计数将小于 0 则阻塞。 */
 extern void PGSemaphoreLock(PGSemaphore sema);
 
 /* Unlock a semaphore (increment count) */
+
+/* 解锁信号量（递增计数）。 */
 extern void PGSemaphoreUnlock(PGSemaphore sema);
 
 /* Lock a semaphore only if able to do so without blocking */
+
+/* 仅在无需阻塞时锁定信号量。 */
 extern bool PGSemaphoreTryLock(PGSemaphore sema);
 
 #endif							/* PG_SEMA_H */

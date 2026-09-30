@@ -78,6 +78,8 @@ typedef struct BlockIdData
 
 typedef BlockIdData *BlockId;	/* block identifier */
 
+								/* 块标识符。 */
+
 /* ----------------
  *		support functions
  * ----------------

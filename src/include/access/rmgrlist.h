@@ -1,19 +1,27 @@
 /*---------------------------------------------------------------------------
  * rmgrlist.h
  *
+  * rmgrlist.h
+ *
  * The resource manager list is kept in its own source file for possible
  * use by automatic tools.  The exact representation of a rmgr is determined
  * by the PG_RMGR macro, which is not defined in this file; it can be
  * defined by the caller for special purposes.
  *
+  * 资源管理器列表保存在其自己的源文件中，以供自动工具使用。  rmgr 的精确表示由 PG_RMGR 宏确定，该宏在本文件中没有定义；它可以由调用者定义用于特殊目的。
+ *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/access/rmgrlist.h
+ *
+  * src/include/access/rmgrlist.h
  *---------------------------------------------------------------------------
  */
 
 /* there is deliberately not an #ifndef RMGRLIST_H here */
+
+/* 这里故意没有#ifndef RMGRLIST_H */
 
 /*
  * List of resource manager entries.  Note that order of entries defines the
@@ -21,10 +29,16 @@
  * entries should be added at the end, to avoid changing IDs of existing
  * entries.
  *
+  * 资源管理器条目列表。  请注意，条目的顺序定义了每个 rmgr 的 ID 的数值，该数值存储在 WAL 记录中。  新条目应添加在末尾，以避免更改现有条目的 ID。
+ *
  * Changes to this list possibly need an XLOG_PAGE_MAGIC bump.
+ *
+ * 说明预写式日志（WAL）相关的状态、格式或处理约束。
  */
 
 /* symbol name, textual name, redo, desc, identify, startup, cleanup, mask, decode */
+
+/* 符号名称、文本名称、重做、描述、识别、启动、清理、掩码、解码 */
 PG_RMGR(RM_XLOG_ID, "XLOG", xlog_redo, xlog_desc, xlog_identify, NULL, NULL, NULL, xlog_decode)
 PG_RMGR(RM_XACT_ID, "Transaction", xact_redo, xact_desc, xact_identify, NULL, NULL, NULL, xact_decode)
 PG_RMGR(RM_SMGR_ID, "Storage", smgr_redo, smgr_desc, smgr_identify, NULL, NULL, NULL, NULL)

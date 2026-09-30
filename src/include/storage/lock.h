@@ -11,6 +11,8 @@
  *
  *-------------------------------------------------------------------------
  */
+
+/* PostgreSQL 底层锁机制。 */
 #ifndef LOCK_H_
 #define LOCK_H_
 
@@ -26,9 +28,13 @@
 #include "utils/timestamp.h"
 
 /* struct PGPROC is declared in proc.h, but must forward-reference it */
+
+/* PGPROC 在 proc.h 中声明，但此处必须前向引用它。 */
 typedef struct PGPROC PGPROC;
 
 /* GUC variables */
+
+/* GUC 变量。 */
 extern PGDLLIMPORT int max_locks_per_xact;
 extern PGDLLIMPORT bool log_lock_failures;
 
@@ -57,10 +63,20 @@ extern PGDLLIMPORT bool Debug_deadlocks;
  * coding errors from trying to use struct assignment with it; instead use
  * GET_VXID_FROM_PGPROC().
  */
+
+/* 顶层事务由包含 PGPROC 字段 procNumber 和 lxid 的 VirtualTransactionID 标识。恢复的预备事务使用
+ * 普通 XID，LOCKTAG_VIRTUALTRANSACTION 不会引用该类型。这些标识短期唯一，但会在数据库重启或 XID
+ * 回绕后复用，因此不得持久化到磁盘。VirtualTransactionId 结构整体不保证原子赋值；但
+ * LocalTransactionId 可原子赋值，procNumber 很少变化，所以分别访问两个字段。为避免将它用于 PGPROC
+ * 结构赋值，应改用 GET_VXID_FROM_PGPROC()。 */
 typedef struct
 {
 	ProcNumber	procNumber;		/* proc number of the PGPROC */
+
+	/* PGPROC 的进程号。 */
 	LocalTransactionId localTransactionId;	/* lxid from PGPROC */
+
+	/* 来自 PGPROC 的 lxid。 */
 } VirtualTransactionId;
 
 #define InvalidLocalTransactionId		0
@@ -80,6 +96,8 @@ typedef struct
 		 (vxid_dst).localTransactionId = (proc).vxid.lxid)
 
 /* MAX_LOCKMODES cannot be larger than the # of bits in LOCKMASK */
+
+/* MAX_LOCKMODES 不能大于 LOCKMASK 中的位数。 */
 #define MAX_LOCKMODES		10
 
 #define LOCKBIT_ON(lockmode) (1 << (lockmode))
@@ -106,6 +124,10 @@ typedef struct
  * GUC variable is not constant, but we use "const" here to denote that
  * it can't be changed through this reference.)
  */
+
+/* 此数据结构定义与“锁方法”关联的锁语义。语义通过定义哪些锁模式冲突来说明每种锁模式的含义；这些
+ * 数据均为常量并保存在常量表中。numLockModes 是锁方法中定义的模式数，conflictTab 是表示模式冲突
+ * 的位掩码数组，lockModeNames 用于调试输出，trace_flag 指向该锁方法的 GUC 跟踪标志。 */
 typedef struct LockMethodData
 {
 	int			numLockModes;
@@ -120,9 +142,13 @@ typedef const LockMethodData *LockMethod;
  * Lock methods are identified by LOCKMETHODID.  (Despite the declaration as
  * uint16, we are constrained to 256 lockmethods by the layout of LOCKTAG.)
  */
+
+/* 锁方法由 LOCKMETHODID 标识。尽管声明为 uint16，LOCKTAG 的布局将锁方法限制为 256 个。 */
 typedef uint16 LOCKMETHODID;
 
 /* These identify the known lock methods */
+
+/* 这些值标识已知锁方法。 */
 #define DEFAULT_LOCKMETHOD	1
 #define USER_LOCKMETHOD		2
 
@@ -133,6 +159,9 @@ typedef uint16 LOCKMETHODID;
  * The LockTagType enum defines the different kinds of objects we can lock.
  * We can handle up to 256 different LockTagTypes.
  */
+
+/* LOCKTAG 是在锁哈希表查找 LOCK 项所需的键，唯一标识可锁定对象。LockTagType 枚举定义可锁定的
+ * 对象类型，最多支持 256 种。 */
 typedef enum LockTagType
 {
 	LOCKTAG_RELATION,			/* whole relation */
@@ -162,6 +191,9 @@ extern PGDLLIMPORT const char *const LockTagTypeNames[];
  * We include lockmethodid in the locktag so that a single hash table in
  * shared memory can store locks of different lockmethods.
  */
+
+/* LOCKTAG 经过精心设计，可在无填充的情况下容纳于 16 字节；若 Oid、BlockNumber 或 TransactionId
+ * 扩展到超过 32 位，则需调整。lockmethodid 包含在 locktag 中，使一个共享内存哈希表能存储不同锁方法。 */
 typedef struct LOCKTAG
 {
 	uint32		locktag_field1; /* a 32-bit ID field */
@@ -177,6 +209,9 @@ typedef struct LOCKTAG
  * the physical fields of LOCKTAG.  Use these to set up LOCKTAG values,
  * rather than accessing the fields directly.  Note multiple eval of target!
  */
+
+/* 这些宏定义如何将可锁定对象的逻辑 ID 映射到 LOCKTAG 的物理字段。应使用它们建立 LOCKTAG，而不是
+ * 直接访问字段；请注意目标会被多次求值。 */
 
 /* ID info for a relation is DB OID + REL OID; DB OID = 0 if shared */
 #define SET_LOCKTAG_RELATION(locktag,dboid,reloid) \
@@ -522,6 +557,9 @@ typedef enum
  * hash code with LockTagHashCode(), then apply one of these macros.
  * NB: NUM_LOCK_PARTITIONS must be a power of 2!
  */
+
+/* 锁管理器的共享哈希表分区以降低争用。要确定 locktag 所属分区，先用 LockTagHashCode() 计算标签
+ * 哈希码，再应用这些宏。注意：NUM_LOCK_PARTITIONS 必须是 2 的幂。 */
 #define LockHashPartition(hashcode) \
 	((hashcode) % NUM_LOCK_PARTITIONS)
 #define LockHashPartitionLock(hashcode) \
@@ -539,23 +577,56 @@ typedef enum
  * possible, we map different PGPROCs to different partition locks.  The lock
  * used for a given lock group is determined by the group leader's pgprocno.
  */
+
+/* 死锁检测器必须访问 PGPROC 中的 lockGroupLeader 及相关字段，因此这些字段由一个锁哈希分区锁保护。
+ * 检测器本就会获取所有此类锁，因而可安全访问。为减少争用，不同 PGPROC 映射到不同分区锁；锁组使用
+ * 的锁由组长 pgprocno 决定。 */
 #define LockHashPartitionLockByProc(leader_pgproc) \
 	LockHashPartitionLock(GetNumberFromPGProc(leader_pgproc))
 
 /*
  * function prototypes
  */
+
+/* 函数原型。 */
+/* Initializes lock-manager shared-memory structures. */
+
+/* 初始化锁管理器共享内存结构。 */
 extern void LockManagerShmemInit(void);
+/* Returns the shared-memory size needed by the lock manager. */
+
+/* 返回锁管理器所需的共享内存大小。 */
 extern Size LockManagerShmemSize(void);
+/* Initializes this backend's access to the lock manager. */
+
+/* 初始化当前后端对锁管理器的访问。 */
 extern void InitLockManagerAccess(void);
+/* Returns the lock method table for a LOCK object. */
+
+/* 返回 LOCK 对象的锁方法表。 */
 extern LockMethod GetLocksMethodTable(const LOCK *lock);
+/* Returns the lock method table selected by a lock tag. */
+
+/* 返回锁标签选择的锁方法表。 */
 extern LockMethod GetLockTagsMethodTable(const LOCKTAG *locktag);
+/* Computes the hash code used to partition and find a lock tag. */
+
+/* 计算用于分区和查找锁标签的哈希码。 */
 extern uint32 LockTagHashCode(const LOCKTAG *locktag);
+/* Tests whether two lock modes conflict according to their method table. */
+
+/* 根据锁方法表测试两个锁模式是否冲突。 */
 extern bool DoLockModesConflict(LOCKMODE mode1, LOCKMODE mode2);
+/* Acquires a lock, optionally waiting when a conflicting holder exists. */
+
+/* 获取锁；存在冲突持有者时可选择等待。 */
 extern LockAcquireResult LockAcquire(const LOCKTAG *locktag,
 									 LOCKMODE lockmode,
 									 bool sessionLock,
 									 bool dontWait);
+/* Acquires a lock with extended local-state and error-reporting controls. */
+
+/* 使用扩展的本地状态和错误报告控制获取锁。 */
 extern LockAcquireResult LockAcquireExtended(const LOCKTAG *locktag,
 											 LOCKMODE lockmode,
 											 bool sessionLock,
@@ -563,68 +634,184 @@ extern LockAcquireResult LockAcquireExtended(const LOCKTAG *locktag,
 											 bool reportMemoryError,
 											 LOCALLOCK **locallockp,
 											 bool logLockFailure);
+/* Rolls back bookkeeping for an in-progress strong-lock acquisition. */
+
+/* 回滚正在进行的强锁获取的记录状态。 */
 extern void AbortStrongLockAcquire(void);
+/* Marks a locally held lock as clear after invalidation processing. */
+
+/* 在失效处理后将本地持有锁标记为已清除。 */
 extern void MarkLockClear(LOCALLOCK *locallock);
+/* Releases one lock acquisition and updates local/shared lock state. */
+
+/* 释放一次锁获取并更新本地和共享锁状态。 */
 extern bool LockRelease(const LOCKTAG *locktag,
 						LOCKMODE lockmode, bool sessionLock);
+/* Releases all locks of a method, optionally including session locks. */
+
+/* 释放一个锁方法的所有锁，并可包括会话锁。 */
 extern void LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks);
+/* Releases all session locks belonging to a lock method. */
+
+/* 释放属于一个锁方法的全部会话锁。 */
 extern void LockReleaseSession(LOCKMETHODID lockmethodid);
+/* Releases locks owned by the current resource owner. */
+
+/* 释放当前资源所有者拥有的锁。 */
 extern void LockReleaseCurrentOwner(LOCALLOCK **locallocks, int nlocks);
+/* Reassigns current-owner locks to the parent resource owner. */
+
+/* 将当前所有者的锁重新分配给父资源所有者。 */
 extern void LockReassignCurrentOwner(LOCALLOCK **locallocks, int nlocks);
+/* Tests whether this backend holds the requested or a stronger lock. */
+
+/* 测试当前后端是否持有所需或更强的锁。 */
 extern bool LockHeldByMe(const LOCKTAG *locktag,
 						 LOCKMODE lockmode, bool orstronger);
 #ifdef USE_ASSERT_CHECKING
+/* Returns the backend-local lock hash for assertion checks. */
+
+/* 返回供断言检查使用的后端本地锁哈希表。 */
 extern HTAB *GetLockMethodLocalHash(void);
 #endif
+/* Reports whether a lock mode currently has waiters. */
+
+/* 报告锁模式当前是否有等待者。 */
 extern bool LockHasWaiters(const LOCKTAG *locktag,
 						   LOCKMODE lockmode, bool sessionLock);
+/* Returns VXIDs that conflict with a requested lock tag and mode. */
+
+/* 返回与所请求锁标签和模式冲突的 VXID。 */
 extern VirtualTransactionId *GetLockConflicts(const LOCKTAG *locktag,
 											  LOCKMODE lockmode, int *countp);
+/* Saves locks belonging to a transaction being prepared. */
+
+/* 保存正在预备事务所属的锁。 */
 extern void AtPrepare_Locks(void);
+/* Finalizes prepared-transaction lock state using its transaction ID. */
+
+/* 使用事务 ID 完成预备事务的锁状态。 */
 extern void PostPrepare_Locks(TransactionId xid);
+/* Tests a requested lock against existing holders for conflicts. */
+
+/* 将所请求锁与现有持有者比较以测试冲突。 */
 extern bool LockCheckConflicts(LockMethod lockMethodTable,
 							   LOCKMODE lockmode,
 							   LOCK *lock, PROCLOCK *proclock);
+/* Grants one lock mode to a PROCLOCK and updates shared counters. */
+
+/* 向 PROCLOCK 授予一个锁模式并更新共享计数器。 */
 extern void GrantLock(LOCK *lock, PROCLOCK *proclock, LOCKMODE lockmode);
+/* Grants the lock currently awaited by this backend. */
+
+/* 授予当前后端正在等待的锁。 */
 extern void GrantAwaitedLock(void);
+/* Returns the local lock entry currently awaited by this backend. */
+
+/* 返回当前后端正在等待的本地锁条目。 */
 extern LOCALLOCK *GetAwaitedLock(void);
+/* Clears this backend's awaited-lock tracking state. */
+
+/* 清除当前后端的待授予锁跟踪状态。 */
 extern void ResetAwaitedLock(void);
 
+/* Removes a process from a lock wait queue using its lock hash code. */
+
+/* 使用锁哈希码将进程从锁等待队列移除。 */
 extern void RemoveFromWaitQueue(PGPROC *proc, uint32 hashcode);
+/* Collects a snapshot of lock status for lock-listing callers. */
+
+/* 为锁列表调用方收集锁状态快照。 */
 extern LockData *GetLockStatusData(void);
+/* Collects blocker information for a process blocked on a lock. */
+
+/* 收集被锁阻塞进程的阻塞者信息。 */
 extern BlockedProcsData *GetBlockerStatusData(int blocked_pid);
 
+/* Returns WAL-ready records for locks held by running transactions. */
+
+/* 返回正在运行事务持有锁的 WAL 就绪记录。 */
 extern xl_standby_lock *GetRunningTransactionLocks(int *nlocks);
+/* Returns the human-readable name of a lock mode. */
+
+/* 返回锁模式的人类可读名称。 */
 extern const char *GetLockmodeName(LOCKMETHODID lockmethodid, LOCKMODE mode);
 
+/* Recreates lock state from a two-phase commit record during recovery. */
+
+/* 在恢复期间从两阶段提交记录重建锁状态。 */
 extern void lock_twophase_recover(TransactionId xid, uint16 info,
 								  void *recdata, uint32 len);
+/* Releases two-phase locks after commit processing. */
+
+/* 在提交处理后释放两阶段锁。 */
 extern void lock_twophase_postcommit(TransactionId xid, uint16 info,
 									 void *recdata, uint32 len);
+/* Releases two-phase locks after abort processing. */
+
+/* 在中止处理后释放两阶段锁。 */
 extern void lock_twophase_postabort(TransactionId xid, uint16 info,
 									void *recdata, uint32 len);
+/* Restores two-phase lock state on a standby during recovery. */
+
+/* 在恢复期间于备机恢复两阶段锁状态。 */
 extern void lock_twophase_standby_recover(TransactionId xid, uint16 info,
 										  void *recdata, uint32 len);
 
+/* Runs deadlock detection for a waiting process and returns the outcome. */
+
+/* 为等待进程执行死锁检测并返回结果。 */
 extern DeadLockState DeadLockCheck(PGPROC *proc);
+/* Returns the autovacuum process blocking the current lock wait, if any. */
+
+/* 返回阻塞当前锁等待的 autovacuum 进程（如有）。 */
 extern PGPROC *GetBlockingAutoVacuumPgproc(void);
+/* Reports a detected deadlock and terminates the current statement. */
+
+/* 报告检测到的死锁并终止当前语句。 */
 pg_noreturn extern void DeadLockReport(void);
+/* Records a simple deadlock edge for later detector processing. */
+
+/* 记录简单死锁边，供检测器后续处理。 */
 extern void RememberSimpleDeadLock(PGPROC *proc1,
 								   LOCKMODE lockmode,
 								   LOCK *lock,
 								   PGPROC *proc2);
+/* Initializes backend-local data used by deadlock checking. */
+
+/* 初始化死锁检查使用的后端本地数据。 */
 extern void InitDeadLockChecking(void);
 
+/* Counts processes waiting for the specified lock tag. */
+
+/* 统计等待指定锁标签的进程。 */
 extern int	LockWaiterCount(const LOCKTAG *locktag);
 
 #ifdef LOCK_DEBUG
+/* Dumps locks associated with one process for debugging. */
+
+/* 为调试转储一个进程关联的锁。 */
 extern void DumpLocks(PGPROC *proc);
+/* Dumps all lock-manager state for debugging. */
+
+/* 为调试转储全部锁管理器状态。 */
 extern void DumpAllLocks(void);
 #endif
 
 /* Lock a VXID (used to wait for a transaction to finish) */
+
+/* 锁定 VXID（用于等待事务结束）。 */
+/* Inserts a virtual transaction ID into the VXID lock table. */
+
+/* 将虚拟事务 ID 插入 VXID 锁表。 */
 extern void VirtualXactLockTableInsert(VirtualTransactionId vxid);
+/* Removes a virtual transaction ID from the VXID lock table. */
+
+/* 从 VXID 锁表中移除虚拟事务 ID。 */
 extern void VirtualXactLockTableCleanup(void);
+/* Acquires or waits for the lock associated with a virtual transaction. */
+
+/* 获取或等待与虚拟事务关联的锁。 */
 extern bool VirtualXactLock(VirtualTransactionId vxid, bool wait);
 
 #endif							/* LOCK_H_ */

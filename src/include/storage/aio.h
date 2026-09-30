@@ -45,6 +45,8 @@
 
 
 /* io_uring is incompatible with EXEC_BACKEND */
+
+/* io_uring 与 EXEC_BACKEND 不兼容。 */
 #if defined(USE_LIBURING) && !defined(EXEC_BACKEND)
 #define IOMETHOD_IO_URING_ENABLED
 #endif
@@ -210,6 +212,8 @@ typedef union
  * 有关执行 IO 的对象的信息。主要是针对 PgAioTargetData 进行操作的回调函数。
  *
  * typedef is in aio_types.h
+ *
+ * typedef 位于 aio_types.h 中。
  */
 struct PgAioTargetInfo
 {
@@ -277,6 +281,8 @@ typedef PgAioResult (*PgAioHandleCallbackComplete) (PgAioHandle *ioh, PgAioResul
 typedef void (*PgAioHandleCallbackReport) (PgAioResult result, const PgAioTargetData *target_data, int elevel);
 
 /* typedef is in aio_types.h */
+
+/* typedef 位于 aio_types.h 中。 */
 struct PgAioHandleCallbacks
 {
 	/*
@@ -360,6 +366,8 @@ struct PgAioHandleCallbacks
  */
 
 /* functions in aio.c */
+
+/* aio.c 中的函数。 */
 struct ResourceOwnerData;
 
 /*
@@ -429,6 +437,8 @@ extern ProcNumber pgaio_io_get_owner(PgAioHandle *ioh);
 extern void pgaio_io_get_wref(PgAioHandle *ioh, PgAioWaitRef *iow);
 
 /* functions in aio_io.c */
+
+/* aio_io.c 中的函数。 */
 struct iovec;
 
 /*
@@ -475,6 +485,8 @@ extern void pgaio_io_start_writev(PgAioHandle *ioh,
 
 /* functions in aio_target.c */
 
+/* aio_target.c 中的函数。 */
+
 /*
  * pgaio_io_set_target -
  *    Set the target for the IO operation.
@@ -509,6 +521,8 @@ extern char *pgaio_io_get_target_description(PgAioHandle *ioh);
 
 /* functions in aio_callback.c */
 
+/* aio_callback.c 中的函数。 */
+
 /*
  * pgaio_io_register_callbacks -
  *    Register a set of callbacks for the IO handle using a callback ID.
@@ -524,7 +538,22 @@ extern void pgaio_io_register_callbacks(PgAioHandle *ioh, PgAioHandleCallbackID 
  * pgaio_io_set_handle_data_64/32 -
  *    在句柄中存储任意数据。
  */
+/*
+ * Store 64-bit handle data for an IO operation.
+ * The function records callback-visible per-handle values in the shared handle storage.
+ *
+ * 为 IO 操作存储 64 位句柄数据。
+ * 该函数在共享句柄存储中记录回调可见的每句柄值。
+ */
 extern void pgaio_io_set_handle_data_64(PgAioHandle *ioh, uint64 *data, uint8 len);
+
+/*
+ * Store 32-bit handle data for an IO operation.
+ * The function records callback-visible per-handle values in the shared handle storage.
+ *
+ * 为 IO 操作存储 32 位句柄数据。
+ * 该函数在共享句柄存储中记录回调可见的每句柄值。
+ */
 extern void pgaio_io_set_handle_data_32(PgAioHandle *ioh, uint32 *data, uint8 len);
 
 /*

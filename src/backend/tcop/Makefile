@@ -3,6 +3,8 @@
 # Makefile--
 #    Makefile for tcop
 #
+#    tcop 的 Makefile
+#
 # IDENTIFICATION
 #    src/backend/tcop/Makefile
 #
