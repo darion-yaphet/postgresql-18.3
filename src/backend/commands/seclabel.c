@@ -3,6 +3,8 @@
  * seclabel.c
  *	  routines to support security label feature.
  *
+ * 安全标签功能的支持例程。
+ *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
@@ -25,6 +27,12 @@
 #include "utils/memutils.h"
 #include "utils/rel.h"
 
+/*
+ * 核心流程概览：
+ * ExecSecLabelStmt 解析对象、检查属主，交给标签提供者，再写入
+ * pg_seclabel 或共享目录 pg_shseclabel。
+ * Get/Set/DeleteSecurityLabel 按对象是否共享选择对应目录维护标签。
+ */
 typedef struct
 {
 	const char *provider_name;
@@ -33,6 +41,9 @@ typedef struct
 
 static List *label_provider_list = NIL;
 
+/*
+ * 判断该 ObjectType 是否支持安全标签。
+ */
 static bool
 SecLabelSupportsObjectType(ObjectType objtype)
 {
@@ -97,19 +108,31 @@ SecLabelSupportsObjectType(ObjectType objtype)
 			/*
 			 * There's intentionally no default: case here; we want the
 			 * compiler to warn if a new ObjectType hasn't been handled above.
+			 *
+			 * 故意不写 default。若新增的 ObjectType 上面没处理，编译器会告警。
 			 */
 	}
 
 	/* Shouldn't get here, but if we do, say "no support" */
+	/*
+	 *
+	 * 不应到达这里；若到达，则报告不支持。
+	 */
 	return false;
 }
 
 /*
  * ExecSecLabelStmt --
  *
+ * ExecSecLabelStmt：
+ *
  * Apply a security label to a database object.
  *
+ * 给数据库对象设置安全标签。
+ *
  * Returns the ObjectAddress of the object to which the policy was applied.
+ *
+ * 返回被施加策略的对象的 ObjectAddress。
  */
 ObjectAddress
 ExecSecLabelStmt(SecLabelStmt *stmt)
@@ -122,6 +145,8 @@ ExecSecLabelStmt(SecLabelStmt *stmt)
 	/*
 	 * Find the named label provider, or if none specified, check whether
 	 * there's exactly one, and if so use it.
+	 *
+	 * 查找指定的标签提供者；若未指定，则在恰好只有一个时使用它。
 	 */
 	if (stmt->provider == NULL)
 	{
@@ -164,15 +189,26 @@ ExecSecLabelStmt(SecLabelStmt *stmt)
 	 * an ObjectAddress. get_object_address() will throw an error if the
 	 * object does not exist, and will also acquire a lock on the target to
 	 * guard against concurrent modifications.
+	 *
+	 * 把解析器中的对象标识转成 ObjectAddress。对象不存在时
+	 * get_object_address() 会报错，并锁住目标以防并发修改。
 	 */
 	address = get_object_address(stmt->objtype, stmt->object,
 								 &relation, ShareUpdateExclusiveLock, false);
 
 	/* Require ownership of the target object. */
+	/*
+	 *
+	 * 要求拥有目标对象。
+	 */
 	check_object_ownership(GetUserId(), stmt->objtype, address,
 						   stmt->object, relation);
 
 	/* Perform other integrity checks as needed. */
+	/*
+	 *
+	 * 按需要做其它完整性检查。
+	 */
 	switch (stmt->objtype)
 	{
 		case OBJECT_COLUMN:
@@ -181,6 +217,9 @@ ExecSecLabelStmt(SecLabelStmt *stmt)
 			 * Allow security labels only on columns of tables, views,
 			 * materialized views, composite types, and foreign tables (which
 			 * are the only relkinds for which pg_dump will dump labels).
+			 *
+			 * 只允许在表、视图、物化视图、复合类型和外部表的列上设置安全标签
+			 * （pg_dump 也只转储这些 relkind 的标签）。
 			 */
 			if (relation->rd_rel->relkind != RELKIND_RELATION &&
 				relation->rd_rel->relkind != RELKIND_VIEW &&
@@ -199,9 +238,17 @@ ExecSecLabelStmt(SecLabelStmt *stmt)
 	}
 
 	/* Provider gets control here, may throw ERROR to veto new label. */
+	/*
+	 *
+	 * 控制权交给提供者，它可以报 ERROR 以否决新标签。
+	 */
 	provider->hook(&address, stmt->label);
 
 	/* Apply new label. */
+	/*
+	 *
+	 * 应用新标签。
+	 */
 	SetSecurityLabel(&address, provider->provider_name, stmt->label);
 
 	/*
@@ -209,6 +256,9 @@ ExecSecLabelStmt(SecLabelStmt *stmt)
 	 * the reference count correct - but we retain any locks acquired by
 	 * get_object_address() until commit time, to guard against concurrent
 	 * activity.
+	 *
+	 * 若 get_object_address() 打开了关系，这里关闭它以保持引用计数，
+	 * 但把它取得的锁保留到提交，以防并发操作。
 	 */
 	if (relation != NULL)
 		relation_close(relation, NoLock);
@@ -219,6 +269,8 @@ ExecSecLabelStmt(SecLabelStmt *stmt)
 /*
  * GetSharedSecurityLabel returns the security label for a shared object for
  * a given provider, or NULL if there is no such label.
+ *
+ * GetSharedSecurityLabel 返回共享对象在给定提供者下的安全标签，没有则返回 NULL。
  */
 static char *
 GetSharedSecurityLabel(const ObjectAddress *object, const char *provider)
@@ -267,6 +319,8 @@ GetSharedSecurityLabel(const ObjectAddress *object, const char *provider)
 /*
  * GetSecurityLabel returns the security label for a shared or database object
  * for a given provider, or NULL if there is no such label.
+ *
+ * GetSecurityLabel 返回共享对象或数据库对象在给定提供者下的安全标签，没有则返回 NULL。
  */
 char *
 GetSecurityLabel(const ObjectAddress *object, const char *provider)
@@ -280,10 +334,18 @@ GetSecurityLabel(const ObjectAddress *object, const char *provider)
 	char	   *seclabel = NULL;
 
 	/* Shared objects have their own security label catalog. */
+	/*
+	 *
+	 * 共享对象使用单独的安全标签目录。
+	 */
 	if (IsSharedRelation(object->classId))
 		return GetSharedSecurityLabel(object, provider);
 
 	/* Must be an unshared object, so examine pg_seclabel. */
+	/*
+	 *
+	 * 必须是非共享对象，因此查 pg_seclabel。
+	 */
 	ScanKeyInit(&keys[0],
 				Anum_pg_seclabel_objoid,
 				BTEqualStrategyNumber, F_OIDEQ,
@@ -324,6 +386,8 @@ GetSecurityLabel(const ObjectAddress *object, const char *provider)
 /*
  * SetSharedSecurityLabel is a helper function of SetSecurityLabel to
  * handle shared database objects.
+ *
+ * SetSharedSecurityLabel 是 SetSecurityLabel 处理共享数据库对象的辅助函数。
  */
 static void
 SetSharedSecurityLabel(const ObjectAddress *object,
@@ -339,6 +403,10 @@ SetSharedSecurityLabel(const ObjectAddress *object,
 	bool		replaces[Natts_pg_shseclabel];
 
 	/* Prepare to form or update a tuple, if necessary. */
+	/*
+	 *
+	 * 必要时准备构造或更新元组。
+	 */
 	memset(nulls, false, sizeof(nulls));
 	memset(replaces, false, sizeof(replaces));
 	values[Anum_pg_shseclabel_objoid - 1] = ObjectIdGetDatum(object->objectId);
@@ -348,6 +416,10 @@ SetSharedSecurityLabel(const ObjectAddress *object,
 		values[Anum_pg_shseclabel_label - 1] = CStringGetTextDatum(label);
 
 	/* Use the index to search for a matching old tuple */
+	/*
+	 *
+	 * 用索引查找匹配的旧元组。
+	 */
 	ScanKeyInit(&keys[0],
 				Anum_pg_shseclabel_objoid,
 				BTEqualStrategyNumber, F_OIDEQ,
@@ -382,6 +454,10 @@ SetSharedSecurityLabel(const ObjectAddress *object,
 	systable_endscan(scan);
 
 	/* If we didn't find an old tuple, insert a new one */
+	/*
+	 *
+	 * 没有旧元组则插入新元组。
+	 */
 	if (newtup == NULL && label != NULL)
 	{
 		newtup = heap_form_tuple(RelationGetDescr(pg_shseclabel),
@@ -399,6 +475,9 @@ SetSharedSecurityLabel(const ObjectAddress *object,
  * SetSecurityLabel attempts to set the security label for the specified
  * provider on the specified object to the given value.  NULL means that any
  * existing label should be deleted.
+ *
+ * SetSecurityLabel 把指定对象在指定提供者下的安全标签设为给定值。
+ * NULL 表示删除已有标签。
  */
 void
 SetSecurityLabel(const ObjectAddress *object,
@@ -414,6 +493,10 @@ SetSecurityLabel(const ObjectAddress *object,
 	bool		replaces[Natts_pg_seclabel];
 
 	/* Shared objects have their own security label catalog. */
+	/*
+	 *
+	 * 共享对象使用单独的安全标签目录。
+	 */
 	if (IsSharedRelation(object->classId))
 	{
 		SetSharedSecurityLabel(object, provider, label);
@@ -421,6 +504,10 @@ SetSecurityLabel(const ObjectAddress *object,
 	}
 
 	/* Prepare to form or update a tuple, if necessary. */
+	/*
+	 *
+	 * 必要时准备构造或更新元组。
+	 */
 	memset(nulls, false, sizeof(nulls));
 	memset(replaces, false, sizeof(replaces));
 	values[Anum_pg_seclabel_objoid - 1] = ObjectIdGetDatum(object->objectId);
@@ -431,6 +518,10 @@ SetSecurityLabel(const ObjectAddress *object,
 		values[Anum_pg_seclabel_label - 1] = CStringGetTextDatum(label);
 
 	/* Use the index to search for a matching old tuple */
+	/*
+	 *
+	 * 用索引查找匹配的旧元组。
+	 */
 	ScanKeyInit(&keys[0],
 				Anum_pg_seclabel_objoid,
 				BTEqualStrategyNumber, F_OIDEQ,
@@ -469,6 +560,10 @@ SetSecurityLabel(const ObjectAddress *object,
 	systable_endscan(scan);
 
 	/* If we didn't find an old tuple, insert a new one */
+	/*
+	 *
+	 * 没有旧元组则插入新元组。
+	 */
 	if (newtup == NULL && label != NULL)
 	{
 		newtup = heap_form_tuple(RelationGetDescr(pg_seclabel),
@@ -477,6 +572,10 @@ SetSecurityLabel(const ObjectAddress *object,
 	}
 
 	/* Update indexes, if necessary */
+	/*
+	 *
+	 * 必要时更新索引。
+	 */
 	if (newtup != NULL)
 		heap_freetuple(newtup);
 
@@ -486,6 +585,8 @@ SetSecurityLabel(const ObjectAddress *object,
 /*
  * DeleteSharedSecurityLabel is a helper function of DeleteSecurityLabel
  * to handle shared database objects.
+ *
+ * DeleteSharedSecurityLabel 是 DeleteSecurityLabel 处理共享数据库对象的辅助函数。
  */
 void
 DeleteSharedSecurityLabel(Oid objectId, Oid classId)
@@ -518,6 +619,8 @@ DeleteSharedSecurityLabel(Oid objectId, Oid classId)
 /*
  * DeleteSecurityLabel removes all security labels for an object (and any
  * sub-objects, if applicable).
+ *
+ * DeleteSecurityLabel 删除对象（及适用时的子对象）的全部安全标签。
  */
 void
 DeleteSecurityLabel(const ObjectAddress *object)
@@ -529,6 +632,10 @@ DeleteSecurityLabel(const ObjectAddress *object)
 	int			nkeys;
 
 	/* Shared objects have their own security label catalog. */
+	/*
+	 *
+	 * 共享对象使用单独的安全标签目录。
+	 */
 	if (IsSharedRelation(object->classId))
 	{
 		Assert(object->objectSubId == 0);
@@ -566,6 +673,9 @@ DeleteSecurityLabel(const ObjectAddress *object)
 	table_close(pg_seclabel, RowExclusiveLock);
 }
 
+/*
+ * 注册一个安全标签提供者及其检查钩子。
+ */
 void
 register_label_provider(const char *provider_name, check_object_relabel_type hook)
 {

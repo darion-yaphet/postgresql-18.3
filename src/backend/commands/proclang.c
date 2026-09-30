@@ -3,6 +3,8 @@
  * proclang.c
  *	  PostgreSQL LANGUAGE support code.
  *
+ * PostgreSQL LANGUAGE（过程语言）支持代码。
+ *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
@@ -31,7 +33,15 @@
 
 
 /*
+ * 核心流程概览：
+ * CreateProceduralLanguage 校验超级用户与 handler/inline/validator 函数，
+ * 插入或替换 pg_language，并维护属主、扩展和函数依赖。
+ * get_language_oid 按语言名查找 OID。
+ */
+/*
  * CREATE LANGUAGE
+ *
+ * 执行 CREATE LANGUAGE。
  */
 ObjectAddress
 CreateProceduralLanguage(CreatePLangStmt *stmt)
@@ -59,6 +69,8 @@ CreateProceduralLanguage(CreatePLangStmt *stmt)
 
 	/*
 	 * Check permission
+	 *
+	 * 检查权限。
 	 */
 	if (!superuser())
 		ereport(ERROR,
@@ -68,6 +80,8 @@ CreateProceduralLanguage(CreatePLangStmt *stmt)
 	/*
 	 * Lookup the PL handler function and check that it is of the expected
 	 * return type
+	 *
+	 * 查找 PL 处理函数，并检查返回类型是否符合预期。
 	 */
 	Assert(stmt->plhandler);
 	handlerOid = LookupFuncName(stmt->plhandler, 0, NULL, false);
@@ -79,30 +93,54 @@ CreateProceduralLanguage(CreatePLangStmt *stmt)
 						NameListToString(stmt->plhandler), "language_handler")));
 
 	/* validate the inline function */
+	/*
+	 *
+	 * 校验 inline 函数。
+	 */
 	if (stmt->plinline)
 	{
 		funcargtypes[0] = INTERNALOID;
 		inlineOid = LookupFuncName(stmt->plinline, 1, funcargtypes, false);
 		/* return value is ignored, so we don't check the type */
+		/*
+		 *
+		 * 返回值被忽略，因此不检查类型。
+		 */
 	}
 	else
 		inlineOid = InvalidOid;
 
 	/* validate the validator function */
+	/*
+	 *
+	 * 校验 validator 函数。
+	 */
 	if (stmt->plvalidator)
 	{
 		funcargtypes[0] = OIDOID;
 		valOid = LookupFuncName(stmt->plvalidator, 1, funcargtypes, false);
 		/* return value is ignored, so we don't check the type */
+		/*
+		 *
+		 * 返回值被忽略，因此不检查类型。
+		 */
 	}
 	else
 		valOid = InvalidOid;
 
 	/* ok to create it */
+	/*
+	 *
+	 * 可以创建。
+	 */
 	rel = table_open(LanguageRelationId, RowExclusiveLock);
 	tupDesc = RelationGetDescr(rel);
 
 	/* Prepare data to be inserted */
+	/*
+	 *
+	 * 准备待插入的数据。
+	 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 	memset(replaces, true, sizeof(replaces));
@@ -118,6 +156,10 @@ CreateProceduralLanguage(CreatePLangStmt *stmt)
 	nulls[Anum_pg_language_lanacl - 1] = true;
 
 	/* Check for pre-existing definition */
+	/*
+	 *
+	 * 检查是否已有定义。
+	 */
 	oldtup = SearchSysCache1(LANGNAME, PointerGetDatum(languageName));
 
 	if (HeapTupleIsValid(oldtup))
@@ -125,12 +167,20 @@ CreateProceduralLanguage(CreatePLangStmt *stmt)
 		Form_pg_language oldform = (Form_pg_language) GETSTRUCT(oldtup);
 
 		/* There is one; okay to replace it? */
+		/*
+		 *
+		 * 已存在；是否允许替换？
+		 */
 		if (!stmt->replace)
 			ereport(ERROR,
 					(errcode(ERRCODE_DUPLICATE_OBJECT),
 					 errmsg("language \"%s\" already exists", languageName)));
 
 		/* This is currently pointless, since we already checked superuser */
+		/*
+		 *
+		 * 此处检查目前无意义，因为前面已经要求超级用户。
+		 */
 #ifdef NOT_USED
 		if (!object_ownercheck(LanguageRelationId, oldform->oid, languageOwner))
 			aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_LANGUAGE,
@@ -140,12 +190,18 @@ CreateProceduralLanguage(CreatePLangStmt *stmt)
 		/*
 		 * Do not change existing oid, ownership or permissions.  Note
 		 * dependency-update code below has to agree with this decision.
+		 *
+		 * 不改变已有 oid、属主或权限。下面的依赖更新代码必须与此一致。
 		 */
 		replaces[Anum_pg_language_oid - 1] = false;
 		replaces[Anum_pg_language_lanowner - 1] = false;
 		replaces[Anum_pg_language_lanacl - 1] = false;
 
 		/* Okay, do it... */
+		/*
+		 *
+		 * 可以，执行更新。
+		 */
 		tup = heap_modify_tuple(oldtup, tupDesc, values, nulls, replaces);
 		CatalogTupleUpdate(rel, &tup->t_self, tup);
 
@@ -156,6 +212,10 @@ CreateProceduralLanguage(CreatePLangStmt *stmt)
 	else
 	{
 		/* Creating a new language */
+		/*
+		 *
+		 * 正在创建新语言。
+		 */
 		langoid = GetNewOidWithIndex(rel, LanguageOidIndexId,
 									 Anum_pg_language_oid);
 		values[Anum_pg_language_oid - 1] = ObjectIdGetDatum(langoid);
@@ -169,6 +229,9 @@ CreateProceduralLanguage(CreatePLangStmt *stmt)
 	 * existing language, first delete any existing pg_depend entries.
 	 * (However, since we are not changing ownership or permissions, the
 	 * shared dependencies do *not* need to change, and we leave them alone.)
+	 *
+	 * 为新语言建立依赖。若是更新已有语言，先删除现有 pg_depend 项。
+	 * 属主和权限不变，因此共享依赖不需要改动。
 	 */
 	myself.classId = LanguageRelationId;
 	myself.objectId = langoid;
@@ -178,20 +241,36 @@ CreateProceduralLanguage(CreatePLangStmt *stmt)
 		deleteDependencyRecordsFor(myself.classId, myself.objectId, true);
 
 	/* dependency on owner of language */
+	/*
+	 *
+	 * 对语言属主的依赖。
+	 */
 	if (!is_update)
 		recordDependencyOnOwner(myself.classId, myself.objectId,
 								languageOwner);
 
 	/* dependency on extension */
+	/*
+	 *
+	 * 对扩展的依赖。
+	 */
 	recordDependencyOnCurrentExtension(&myself, is_update);
 
 	addrs = new_object_addresses();
 
 	/* dependency on the PL handler function */
+	/*
+	 *
+	 * 对 PL 处理函数的依赖。
+	 */
 	ObjectAddressSet(referenced, ProcedureRelationId, handlerOid);
 	add_exact_object_address(&referenced, addrs);
 
 	/* dependency on the inline handler function, if any */
+	/*
+	 *
+	 * 对 inline 处理函数的依赖（若有）。
+	 */
 	if (OidIsValid(inlineOid))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, inlineOid);
@@ -199,6 +278,10 @@ CreateProceduralLanguage(CreatePLangStmt *stmt)
 	}
 
 	/* dependency on the validator function, if any */
+	/*
+	 *
+	 * 对 validator 函数的依赖（若有）。
+	 */
 	if (OidIsValid(valOid))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, valOid);
@@ -209,6 +292,10 @@ CreateProceduralLanguage(CreatePLangStmt *stmt)
 	free_object_addresses(addrs);
 
 	/* Post creation hook for new procedural language */
+	/*
+	 *
+	 * 新过程语言的创建后钩子。
+	 */
 	InvokeObjectPostCreateHook(LanguageRelationId, myself.objectId, 0);
 
 	table_close(rel, RowExclusiveLock);
@@ -219,8 +306,12 @@ CreateProceduralLanguage(CreatePLangStmt *stmt)
 /*
  * get_language_oid - given a language name, look up the OID
  *
+ * 按语言名查找 OID。
+ *
  * If missing_ok is false, throw an error if language name not found.  If
  * true, just return InvalidOid.
+ *
+ * missing_ok 为 false 时，找不到语言名就报错；为 true 时返回 InvalidOid。
  */
 Oid
 get_language_oid(const char *langname, bool missing_ok)

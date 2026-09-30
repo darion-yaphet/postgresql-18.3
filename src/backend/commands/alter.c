@@ -3,6 +3,8 @@
  * alter.c
  *	  Drivers for generic alter commands
  *
+ * 通用 ALTER 命令的分发例程。
+ *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
@@ -66,11 +68,20 @@
 #include "utils/rel.h"
 #include "utils/syscache.h"
 
+/*
+ * 核心流程概览：
+ * ExecRenameStmt、ExecAlterObjectDependsStmt、ExecAlterOwnerStmt 和
+ * SET SCHEMA 路径按对象类型分发。简单对象走 AlterObjectRename_internal、
+ * AlterObjectNamespace_internal、AlterObjectOwner_internal：检查属主与
+ * CREATE 权限、避免重名，更新目录元组、依赖，并调用对象访问钩子。
+ */
 static Oid	AlterObjectNamespace_internal(Relation rel, Oid objid, Oid nspOid);
 
 /*
  * Raise an error to the effect that an object of the given name is already
  * present in the given namespace.
+ *
+ * 报错：给定命名空间中已经有同名对象。
  */
 static void
 report_name_conflict(Oid classId, const char *name)
@@ -107,6 +118,9 @@ report_name_conflict(Oid classId, const char *name)
 			 errmsg(msgfmt, name)));
 }
 
+/*
+ * 报告命名空间中已存在同名对象。
+ */
 static void
 report_namespace_conflict(Oid classId, const char *name, Oid nspOid)
 {
@@ -153,13 +167,21 @@ report_namespace_conflict(Oid classId, const char *name, Oid nspOid)
 /*
  * AlterObjectRename_internal
  *
+ * AlterObjectRename_internal：
+ *
  * Generic function to rename the given object, for simple cases (won't
  * work for tables, nor other cases where we need to do more than change
  * the name column of a single catalog entry).
  *
+ * 简单情况下重命名对象的通用函数。不适用于表，也不适用于除了改一条目录记录的名字列之外还要做更多事的情况。
+ *
  * rel: catalog relation containing object (RowExclusiveLock'd by caller)
  * objectId: OID of object to be renamed
  * new_name: CString representation of new name
+ *
+ * rel：存放该对象的目录关系（调用者已加 RowExclusiveLock）。
+ * objectId：待重命名对象的 OID。
+ * new_name：新名字的 C 字符串。
  */
 static void
 AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
@@ -194,6 +216,10 @@ AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
 	old_name = NameStr(*(DatumGetName(datum)));
 
 	/* Get OID of namespace */
+	/*
+	 *
+	 * 取得命名空间 OID。
+	 */
 	if (Anum_namespace > 0)
 	{
 		datum = heap_getattr(oldtup, Anum_namespace,
@@ -205,9 +231,17 @@ AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
 		namespaceId = InvalidOid;
 
 	/* Permission checks ... superusers can always do it */
+	/*
+	 *
+	 * 权限检查。超级用户始终可以执行。
+	 */
 	if (!superuser())
 	{
 		/* Fail if object does not have an explicit owner */
+		/*
+		 *
+		 * 对象没有显式属主则失败。
+		 */
 		if (Anum_owner <= 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -215,6 +249,10 @@ AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
 							getObjectDescriptionOids(classId, objectId))));
 
 		/* Otherwise, must be owner of the existing object */
+		/*
+		 *
+		 * 否则必须是现有对象的属主。
+		 */
 		datum = heap_getattr(oldtup, Anum_owner,
 							 RelationGetDescr(rel), &isnull);
 		Assert(!isnull);
@@ -225,6 +263,10 @@ AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
 						   old_name);
 
 		/* User must have CREATE privilege on the namespace */
+		/*
+		 *
+		 * 用户必须对命名空间有 CREATE 权限。
+		 */
 		if (OidIsValid(namespaceId))
 		{
 			aclresult = object_aclcheck(NamespaceRelationId, namespaceId, GetUserId(),
@@ -239,6 +281,10 @@ AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
 			Form_pg_subscription form;
 
 			/* must have CREATE privilege on database */
+			/*
+			 *
+			 * 必须对数据库有 CREATE 权限。
+			 */
 			aclresult = object_aclcheck(DatabaseRelationId, MyDatabaseId,
 										GetUserId(), ACL_CREATE);
 			if (aclresult != ACLCHECK_OK)
@@ -248,6 +294,8 @@ AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
 			/*
 			 * Don't allow non-superuser modification of a subscription with
 			 * password_required=false.
+			 *
+			 * 不允许非超级用户修改 password_required=false 的订阅。
 			 */
 			form = (Form_pg_subscription) GETSTRUCT(oldtup);
 			if (!form->subpasswordrequired && !superuser())
@@ -262,6 +310,8 @@ AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
 	 * Check for duplicate name (more friendly than unique-index failure).
 	 * Since this is just a friendliness check, we can just skip it in cases
 	 * where there isn't suitable support.
+	 *
+	 * 检查重名（比唯一索引失败更友好）。这只是友好检查，没有合适支持时可以跳过。
 	 */
 	if (classId == ProcedureRelationId)
 	{
@@ -298,12 +348,20 @@ AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
 			report_name_conflict(classId, new_name);
 
 		/* Also enforce regression testing naming rules, if enabled */
+		/*
+		 *
+		 * 若已启用，同时执行回归测试的命名规则。
+		 */
 #ifdef ENFORCE_REGRESSION_TEST_NAME_RESTRICTIONS
 		if (strncmp(new_name, "regress_", 8) != 0)
 			elog(WARNING, "subscriptions created by regression test cases should have names starting with \"regress_\"");
 #endif
 
 		/* Wake up related replication workers to handle this change quickly */
+		/*
+		 *
+		 * 唤醒相关复制进程，以便尽快处理这次改动。
+		 */
 		LogicalRepWorkersWakeupAtCommit(objectId);
 	}
 	else if (nameCacheId >= 0)
@@ -324,6 +382,10 @@ AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
 	}
 
 	/* Build modified tuple */
+	/*
+	 *
+	 * 构造修改后的元组。
+	 */
 	values = palloc0(RelationGetNumberOfAttributes(rel) * sizeof(Datum));
 	nulls = palloc0(RelationGetNumberOfAttributes(rel) * sizeof(bool));
 	replaces = palloc0(RelationGetNumberOfAttributes(rel) * sizeof(bool));
@@ -334,11 +396,19 @@ AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
 							   values, nulls, replaces);
 
 	/* Perform actual update */
+	/*
+	 *
+	 * 执行实际更新。
+	 */
 	CatalogTupleUpdate(rel, &oldtup->t_self, newtup);
 
 	InvokeObjectPostAlterHook(classId, objectId, 0);
 
 	/* Do post catalog-update tasks */
+	/*
+	 *
+	 * 做目录更新之后的收尾。
+	 */
 	if (classId == PublicationRelationId)
 	{
 		Form_pg_publication pub = (Form_pg_publication) GETSTRUCT(oldtup);
@@ -346,15 +416,24 @@ AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
 		/*
 		 * Invalidate relsynccache entries.
 		 *
+		 * 使 relsynccache 项失效。
+		 *
 		 * Unlike ALTER PUBLICATION ADD/SET/DROP commands, renaming a
 		 * publication does not impact the publication status of tables. So,
 		 * we don't need to invalidate relcache to rebuild the rd_pubdesc.
 		 * Instead, we invalidate only the relsyncache.
+		 *
+		 * 与 ALTER PUBLICATION ADD/SET/DROP 不同，重命名发布不影响表的发布状态。
+		 * 因此不必让 relcache 失效来重建 rd_pubdesc，只需使 relsynccache 失效。
 		 */
 		InvalidatePubRelSyncCache(pub->oid, pub->puballtables);
 	}
 
 	/* Release memory */
+	/*
+	 *
+	 * 释放内存。
+	 */
 	pfree(values);
 	pfree(nulls);
 	pfree(replaces);
@@ -367,7 +446,11 @@ AlterObjectRename_internal(Relation rel, Oid objectId, const char *new_name)
  * Executes an ALTER OBJECT / RENAME TO statement.  Based on the object
  * type, the function appropriate to that type is executed.
  *
+ * 执行 ALTER OBJECT / RENAME TO。按对象类型调用相应函数。
+ *
  * Return value is the address of the renamed object.
+ *
+ * 返回值是被重命名对象的地址。
  */
 ObjectAddress
 ExecRenameStmt(RenameStmt *stmt)
@@ -457,15 +540,23 @@ ExecRenameStmt(RenameStmt *stmt)
 			elog(ERROR, "unrecognized rename stmt type: %d",
 				 (int) stmt->renameType);
 			return InvalidObjectAddress;	/* keep compiler happy */
+			/*
+			 *
+			 * 避免编译器告警。
+			 */
 	}
 }
 
 /*
  * Executes an ALTER OBJECT / [NO] DEPENDS ON EXTENSION statement.
  *
+ * 执行 ALTER OBJECT / [NO] DEPENDS ON EXTENSION。
+ *
  * Return value is the address of the altered object.  refAddress is an output
  * argument which, if not null, receives the address of the object that the
  * altered object now depends on.
+ *
+ * 返回值是被修改对象的地址。refAddress 若非空，则接收该对象现在所依赖对象的地址。
  */
 ObjectAddress
 ExecAlterObjectDependsStmt(AlterObjectDependsStmt *stmt, ObjectAddress *refAddress)
@@ -481,10 +572,14 @@ ExecAlterObjectDependsStmt(AlterObjectDependsStmt *stmt, ObjectAddress *refAddre
 	/*
 	 * Verify that the user is entitled to run the command.
 	 *
+	 * 确认用户有权执行该命令。
+	 *
 	 * We don't check any privileges on the extension, because that's not
 	 * needed.  The object owner is stipulating, by running this command, that
 	 * the extension owner can drop the object whenever they feel like it,
 	 * which is not considered a problem.
+	 *
+	 * 不检查扩展上的权限，因为不需要。对象属主执行此命令，即表示允许扩展属主随时删除该对象，这不视为问题。
 	 */
 	check_object_ownership(GetUserId(),
 						   stmt->objectType, address, stmt->object, rel);
@@ -492,6 +587,8 @@ ExecAlterObjectDependsStmt(AlterObjectDependsStmt *stmt, ObjectAddress *refAddre
 	/*
 	 * If a relation was involved, it would have been opened and locked. We
 	 * don't need the relation here, but we'll retain the lock until commit.
+	 *
+	 * 若涉及关系，它已经被打开并加锁。这里不需要该关系，但锁保留到提交。
 	 */
 	if (rel)
 		table_close(rel, NoLock);
@@ -512,6 +609,10 @@ ExecAlterObjectDependsStmt(AlterObjectDependsStmt *stmt, ObjectAddress *refAddre
 		List	   *currexts;
 
 		/* Avoid duplicates */
+		/*
+		 *
+		 * 避免重复。
+		 */
 		currexts = getAutoExtensionsOfObject(address.classId,
 											 address.objectId);
 		if (!list_member_oid(currexts, refAddr.objectId))
@@ -525,10 +626,16 @@ ExecAlterObjectDependsStmt(AlterObjectDependsStmt *stmt, ObjectAddress *refAddre
  * Executes an ALTER OBJECT / SET SCHEMA statement.  Based on the object
  * type, the function appropriate to that type is executed.
  *
+ * 执行 ALTER OBJECT / SET SCHEMA。按对象类型调用相应函数。
+ *
  * Return value is that of the altered object.
+ *
+ * 返回值是被修改对象的地址。
  *
  * oldSchemaAddr is an output argument which, if not NULL, is set to the object
  * address of the original schema.
+ *
+ * oldSchemaAddr 是输出参数；非 NULL 时被设为原模式的对象地址。
  */
 ObjectAddress
 ExecAlterObjectSchemaStmt(AlterObjectSchemaStmt *stmt,
@@ -561,6 +668,10 @@ ExecAlterObjectSchemaStmt(AlterObjectSchemaStmt *stmt,
 			break;
 
 			/* generic code path */
+			/*
+			 *
+			 * 通用代码路径。
+			 */
 		case OBJECT_AGGREGATE:
 		case OBJECT_COLLATION:
 		case OBJECT_CONVERSION:
@@ -599,6 +710,10 @@ ExecAlterObjectSchemaStmt(AlterObjectSchemaStmt *stmt,
 			elog(ERROR, "unrecognized AlterObjectSchemaStmt type: %d",
 				 (int) stmt->objectType);
 			return InvalidObjectAddress;	/* keep compiler happy */
+			/*
+			 *
+			 * 避免编译器告警。
+			 */
 	}
 
 	if (oldSchemaAddr)
@@ -610,16 +725,25 @@ ExecAlterObjectSchemaStmt(AlterObjectSchemaStmt *stmt,
 /*
  * Change an object's namespace given its classOid and object Oid.
  *
+ * 按 classOid 和对象 OID 更改对象的命名空间。
+ *
  * Objects that don't have a namespace should be ignored, as should
  * dependent types such as array types.
+ *
+ * 没有命名空间的对象应忽略，数组类型这类依赖类型也应忽略。
  *
  * This function is currently used only by ALTER EXTENSION SET SCHEMA,
  * so it only needs to cover object kinds that can be members of an
  * extension, and it can silently ignore dependent types --- we assume
  * those will be moved when their parent object is moved.
  *
+ * 本函数目前只给 ALTER EXTENSION SET SCHEMA 使用，因此只需覆盖能成为扩展成员的对象种类，
+ * 并可以静默忽略依赖类型——假定它们会随父对象一起移动。
+ *
  * Returns the OID of the object's previous namespace, or InvalidOid if
  * object doesn't have a schema or was ignored due to being a dependent type.
+ *
+ * 返回对象原来的命名空间 OID；若对象没有模式，或因是依赖类型而被忽略，则返回 InvalidOid。
  */
 Oid
 AlterObjectNamespace_oid(Oid classId, Oid objid, Oid nspOid,
@@ -671,6 +795,10 @@ AlterObjectNamespace_oid(Oid classId, Oid objid, Oid nspOid,
 
 		default:
 			/* ignore object types that don't have schema-qualified names */
+			/*
+			 *
+			 * 忽略没有模式限定名的对象类型。
+			 */
 			Assert(get_object_attnum_namespace(classId) == InvalidAttrNumber);
 	}
 
@@ -682,11 +810,19 @@ AlterObjectNamespace_oid(Oid classId, Oid objid, Oid nspOid,
  * cases (won't work for tables, nor other cases where we need to do more
  * than change the namespace column of a single catalog entry).
  *
+ * 简单情况下更改对象命名空间的通用函数。不适用于表，也不适用于除了改一条目录记录的命名空间列之外还要做更多事的情况。
+ *
  * rel: catalog relation containing object (RowExclusiveLock'd by caller)
  * objid: OID of object to change the namespace of
  * nspOid: OID of new namespace
  *
+ * rel：存放该对象的目录关系（调用者已加 RowExclusiveLock）。
+ * objid：要改命名空间的对象 OID。
+ * nspOid：新命名空间的 OID。
+ *
  * Returns the OID of the object's previous namespace.
+ *
+ * 返回对象原来的命名空间 OID。
  */
 static Oid
 AlterObjectNamespace_internal(Relation rel, Oid objid, Oid nspOid)
@@ -709,6 +845,10 @@ AlterObjectNamespace_internal(Relation rel, Oid objid, Oid nspOid)
 
 	tup = SearchSysCacheCopy1(oidCacheId, ObjectIdGetDatum(objid));
 	if (!HeapTupleIsValid(tup)) /* should not happen */
+	/*
+	 *
+	 * 不应发生。
+	 */
 		elog(ERROR, "cache lookup failed for object %u of catalog \"%s\"",
 			 objid, RelationGetRelationName(rel));
 
@@ -722,6 +862,8 @@ AlterObjectNamespace_internal(Relation rel, Oid objid, Oid nspOid)
 	/*
 	 * If the object is already in the correct namespace, we don't need to do
 	 * anything except fire the object access hook.
+	 *
+	 * 对象已在正确的命名空间中时，除了触发对象访问钩子外不必做其它事。
 	 */
 	if (oldNspOid == nspOid)
 	{
@@ -730,9 +872,17 @@ AlterObjectNamespace_internal(Relation rel, Oid objid, Oid nspOid)
 	}
 
 	/* Check basic namespace related issues */
+	/*
+	 *
+	 * 检查与命名空间相关的基本问题。
+	 */
 	CheckSetNamespace(oldNspOid, nspOid);
 
 	/* Permission checks ... superusers can always do it */
+	/*
+	 *
+	 * 权限检查。超级用户始终可以执行。
+	 */
 	if (!superuser())
 	{
 		Datum		owner;
@@ -740,6 +890,10 @@ AlterObjectNamespace_internal(Relation rel, Oid objid, Oid nspOid)
 		AclResult	aclresult;
 
 		/* Fail if object does not have an explicit owner */
+		/*
+		 *
+		 * 对象没有显式属主则失败。
+		 */
 		if (Anum_owner <= 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -747,6 +901,10 @@ AlterObjectNamespace_internal(Relation rel, Oid objid, Oid nspOid)
 							getObjectDescriptionOids(classId, objid))));
 
 		/* Otherwise, must be owner of the existing object */
+		/*
+		 *
+		 * 否则必须是现有对象的属主。
+		 */
 		owner = heap_getattr(tup, Anum_owner, RelationGetDescr(rel), &isnull);
 		Assert(!isnull);
 		ownerId = DatumGetObjectId(owner);
@@ -756,6 +914,10 @@ AlterObjectNamespace_internal(Relation rel, Oid objid, Oid nspOid)
 						   NameStr(*(DatumGetName(name))));
 
 		/* User must have CREATE privilege on new namespace */
+		/*
+		 *
+		 * 用户必须对新命名空间有 CREATE 权限。
+		 */
 		aclresult = object_aclcheck(NamespaceRelationId, nspOid, GetUserId(), ACL_CREATE);
 		if (aclresult != ACLCHECK_OK)
 			aclcheck_error(aclresult, OBJECT_SCHEMA,
@@ -766,6 +928,8 @@ AlterObjectNamespace_internal(Relation rel, Oid objid, Oid nspOid)
 	 * Check for duplicate name (more friendly than unique-index failure).
 	 * Since this is just a friendliness check, we can just skip it in cases
 	 * where there isn't suitable support.
+	 *
+	 * 检查重名（比唯一索引失败更友好）。这只是友好检查，没有合适支持时可以跳过。
 	 */
 	if (classId == ProcedureRelationId)
 	{
@@ -802,6 +966,10 @@ AlterObjectNamespace_internal(Relation rel, Oid objid, Oid nspOid)
 								  nspOid);
 
 	/* Build modified tuple */
+	/*
+	 *
+	 * 构造修改后的元组。
+	 */
 	values = palloc0(RelationGetNumberOfAttributes(rel) * sizeof(Datum));
 	nulls = palloc0(RelationGetNumberOfAttributes(rel) * sizeof(bool));
 	replaces = palloc0(RelationGetNumberOfAttributes(rel) * sizeof(bool));
@@ -811,14 +979,26 @@ AlterObjectNamespace_internal(Relation rel, Oid objid, Oid nspOid)
 							   values, nulls, replaces);
 
 	/* Perform actual update */
+	/*
+	 *
+	 * 执行实际更新。
+	 */
 	CatalogTupleUpdate(rel, &tup->t_self, newtup);
 
 	/* Release memory */
+	/*
+	 *
+	 * 释放内存。
+	 */
 	pfree(values);
 	pfree(nulls);
 	pfree(replaces);
 
 	/* update dependency to point to the new schema */
+	/*
+	 *
+	 * 把依赖改指向新模式。
+	 */
 	if (changeDependencyFor(classId, objid,
 							NamespaceRelationId, oldNspOid, nspOid) != 1)
 		elog(ERROR, "could not change schema dependency for object %u",
@@ -832,6 +1012,8 @@ AlterObjectNamespace_internal(Relation rel, Oid objid, Oid nspOid)
 /*
  * Executes an ALTER OBJECT / OWNER TO statement.  Based on the object
  * type, the function appropriate to that type is executed.
+ *
+ * 执行 ALTER OBJECT / OWNER TO。按对象类型调用相应函数。
  */
 ObjectAddress
 ExecAlterOwnerStmt(AlterOwnerStmt *stmt)
@@ -848,6 +1030,10 @@ ExecAlterOwnerStmt(AlterOwnerStmt *stmt)
 
 		case OBJECT_TYPE:
 		case OBJECT_DOMAIN:		/* same as TYPE */
+		/*
+		 *
+		 * 与 TYPE 相同。
+		 */
 			return AlterTypeOwner(castNode(List, stmt->object), newowner, stmt->objectType);
 			break;
 
@@ -872,6 +1058,10 @@ ExecAlterOwnerStmt(AlterOwnerStmt *stmt)
 										  newowner);
 
 			/* Generic cases */
+			/*
+			 *
+			 * 通用情况。
+			 */
 		case OBJECT_AGGREGATE:
 		case OBJECT_COLLATION:
 		case OBJECT_CONVERSION:
@@ -907,6 +1097,10 @@ ExecAlterOwnerStmt(AlterOwnerStmt *stmt)
 			elog(ERROR, "unrecognized AlterOwnerStmt type: %d",
 				 (int) stmt->objectType);
 			return InvalidObjectAddress;	/* keep compiler happy */
+			/*
+			 *
+			 * 避免编译器告警。
+			 */
 	}
 }
 
@@ -915,17 +1109,29 @@ ExecAlterOwnerStmt(AlterOwnerStmt *stmt)
  * cases (won't work for tables, nor other cases where we need to do more than
  * change the ownership column of a single catalog entry).
  *
+ * 简单情况下更改对象属主的通用函数。不适用于表，也不适用于除了改一条目录记录的属主列之外还要做更多事的情况。
+ *
  * classId: OID of catalog containing object
  * objectId: OID of object to change the ownership of
  * new_ownerId: OID of new object owner
  *
+ * classId：存放该对象的目录 OID。
+ * objectId：要改属主的对象 OID。
+ * new_ownerId：新属主的 OID。
+ *
  * This will work on large objects, but we have to beware of the fact that
  * classId isn't the OID of the catalog to modify in that case.
+ *
+ * 这也适用于大对象，但此时 classId 并不是要修改的那个目录的 OID。
  */
 void
 AlterObjectOwner_internal(Oid classId, Oid objectId, Oid new_ownerId)
 {
 	/* For large objects, the catalog to modify is pg_largeobject_metadata */
+	/*
+	 *
+	 * 对大对象，要修改的目录是 pg_largeobject_metadata。
+	 */
 	Oid			catalogId = (classId == LargeObjectRelationId) ? LargeObjectMetadataRelationId : classId;
 	AttrNumber	Anum_oid = get_object_attnum_oid(catalogId);
 	AttrNumber	Anum_owner = get_object_attnum_owner(catalogId);
@@ -942,6 +1148,10 @@ AlterObjectOwner_internal(Oid classId, Oid objectId, Oid new_ownerId)
 	rel = table_open(catalogId, RowExclusiveLock);
 
 	/* Search tuple and lock it. */
+	/*
+	 *
+	 * 查找元组并加锁。
+	 */
 	oldtup =
 		get_catalog_object_by_oid_extended(rel, Anum_oid, objectId, true);
 	if (oldtup == NULL)
@@ -970,9 +1180,17 @@ AlterObjectOwner_internal(Oid classId, Oid objectId, Oid new_ownerId)
 		bool	   *replaces;
 
 		/* Superusers can bypass permission checks */
+		/*
+		 *
+		 * 超级用户可以跳过权限检查。
+		 */
 		if (!superuser())
 		{
 			/* must be owner */
+			/*
+			 *
+			 * 必须是属主。
+			 */
 			if (!has_privs_of_role(GetUserId(), old_ownerId))
 			{
 				char	   *objname;
@@ -995,9 +1213,17 @@ AlterObjectOwner_internal(Oid classId, Oid objectId, Oid new_ownerId)
 							   objname);
 			}
 			/* Must be able to become new owner */
+			/*
+			 *
+			 * 必须能够成为新属主。
+			 */
 			check_can_set_role(GetUserId(), new_ownerId);
 
 			/* New owner must have CREATE privilege on namespace */
+			/*
+			 *
+			 * 新属主必须对命名空间有 CREATE 权限。
+			 */
 			if (OidIsValid(namespaceId))
 			{
 				AclResult	aclresult;
@@ -1011,6 +1237,10 @@ AlterObjectOwner_internal(Oid classId, Oid objectId, Oid new_ownerId)
 		}
 
 		/* Build a modified tuple */
+		/*
+		 *
+		 * 构造修改后的元组。
+		 */
 		nattrs = RelationGetNumberOfAttributes(rel);
 		values = palloc0(nattrs * sizeof(Datum));
 		nulls = palloc0(nattrs * sizeof(bool));
@@ -1021,6 +1251,8 @@ AlterObjectOwner_internal(Oid classId, Oid objectId, Oid new_ownerId)
 		/*
 		 * Determine the modified ACL for the new owner.  This is only
 		 * necessary when the ACL is non-null.
+		 *
+		 * 计算新属主对应的 ACL。仅当 ACL 非空时需要。
 		 */
 		if (Anum_acl != InvalidAttrNumber)
 		{
@@ -1041,14 +1273,26 @@ AlterObjectOwner_internal(Oid classId, Oid objectId, Oid new_ownerId)
 								   values, nulls, replaces);
 
 		/* Perform actual update */
+		/*
+		 *
+		 * 执行实际更新。
+		 */
 		CatalogTupleUpdate(rel, &newtup->t_self, newtup);
 
 		UnlockTuple(rel, &oldtup->t_self, InplaceUpdateTupleLock);
 
 		/* Update owner dependency reference */
+		/*
+		 *
+		 * 更新属主依赖引用。
+		 */
 		changeDependencyOnOwner(classId, objectId, new_ownerId);
 
 		/* Release memory */
+		/*
+		 *
+		 * 释放内存。
+		 */
 		pfree(values);
 		pfree(nulls);
 		pfree(replaces);
@@ -1057,6 +1301,10 @@ AlterObjectOwner_internal(Oid classId, Oid objectId, Oid new_ownerId)
 		UnlockTuple(rel, &oldtup->t_self, InplaceUpdateTupleLock);
 
 	/* Note the post-alter hook gets classId not catalogId */
+	/*
+	 *
+	 * 注意：alter 之后的钩子收到的是 classId，不是 catalogId。
+	 */
 	InvokeObjectPostAlterHook(classId, objectId, 0);
 
 	table_close(rel, RowExclusiveLock);

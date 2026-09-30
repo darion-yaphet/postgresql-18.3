@@ -3,6 +3,8 @@
  * schemacmds.c
  *	  schema creation/manipulation commands
  *
+ * 模式的创建与修改命令。
+ *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
@@ -37,16 +39,27 @@
 #include "utils/rel.h"
 #include "utils/syscache.h"
 
+/*
+ * 核心流程概览：
+ * CreateSchemaCommand 检查权限与 IF NOT EXISTS，创建命名空间，临时把新模式
+ * 放到 search_path 前面，再按无前向引用的顺序执行内嵌实用语句。
+ * RenameSchema 改名；AlterSchemaOwner 更改属主并更新 ACL 与依赖。
+ */
 static void AlterSchemaOwner_internal(HeapTuple tup, Relation rel, Oid newOwnerId);
 
 /*
  * CREATE SCHEMA
+ *
+ * 执行 CREATE SCHEMA。
  *
  * Note: caller should pass in location information for the whole
  * CREATE SCHEMA statement, which in turn we pass down as the location
  * of the component commands.  This comports with our general plan of
  * reporting location/len for the whole command even when executing
  * a subquery.
+ *
+ * 调用者应传入整条 CREATE SCHEMA 语句的位置，我们再把它当作
+ * 各子命令的位置传下去。这样即使在执行子查询时，报告的仍是整条命令的位置和长度。
  */
 Oid
 CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
@@ -69,6 +82,8 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 
 	/*
 	 * Who is supposed to own the new schema?
+	 *
+	 * 新模式应由谁拥有？
 	 */
 	if (stmt->authrole)
 		owner_uid = get_rolespec_oid(stmt->authrole, false);
@@ -76,6 +91,10 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 		owner_uid = saved_uid;
 
 	/* fill schema name with the user name if not specified */
+	/*
+	 *
+	 * 未指定模式名时，用用户名填充。
+	 */
 	if (!schemaName)
 	{
 		HeapTuple	tuple;
@@ -94,6 +113,10 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 	 * imply that the target role itself must have create-schema privilege).
 	 * The latter provision guards against "giveaway" attacks.  Note that a
 	 * superuser will always have both of these privileges a fortiori.
+	 *
+	 * 创建模式必须对当前数据库有 schema-create 权限，并且能够成为目标角色
+	 * （并不要求目标角色自己有 create-schema 权限）。后者用于防止“转赠”攻击。
+	 * 超级用户必然同时拥有这两项权限。
 	 */
 	aclresult = object_aclcheck(DatabaseRelationId, MyDatabaseId, saved_uid, ACL_CREATE);
 	if (aclresult != ACLCHECK_OK)
@@ -103,6 +126,10 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 	check_can_set_role(saved_uid, owner_uid);
 
 	/* Additional check to protect reserved schema names */
+	/*
+	 *
+	 * 额外检查，以保护保留的模式名。
+	 */
 	if (!allowSystemTableMods && IsReservedName(schemaName))
 		ereport(ERROR,
 				(errcode(ERRCODE_RESERVED_NAME),
@@ -115,6 +142,10 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 	 * NamespaceCreate will complain anyway.)  We could do this before making
 	 * the permissions checks, but since CREATE TABLE IF NOT EXISTS makes its
 	 * creation-permission check first, we do likewise.
+	 *
+	 * 若指定了 if_not_exists 且模式已存在，则直接返回。
+	 * 未指定时不必在这里检查，NamespaceCreate 会报错。
+	 * 本可以先做存在性检查，但 CREATE TABLE IF NOT EXISTS 先查创建权限，这里保持一致。
 	 */
 	if (stmt->if_not_exists)
 	{
@@ -124,11 +155,17 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 			/*
 			 * If we are in an extension script, insist that the pre-existing
 			 * object be a member of the extension, to avoid security risks.
+			 *
+			 * 若处于扩展脚本中，已存在的对象必须属于该扩展，以避免安全风险。
 			 */
 			ObjectAddressSet(address, NamespaceRelationId, namespaceId);
 			checkMembershipInCurrentExtension(&address);
 
 			/* OK to skip */
+			/*
+			 *
+			 * 可以跳过。
+			 */
 			ereport(NOTICE,
 					(errcode(ERRCODE_DUPLICATE_SCHEMA),
 					 errmsg("schema \"%s\" already exists, skipping",
@@ -142,25 +179,42 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 	 * temporarily set the current user so that the object(s) will be created
 	 * with the correct ownership.
 	 *
+	 * 若请求的授权与当前用户不同，临时切换当前用户，使对象以正确的属主创建。
+	 *
 	 * (The setting will be restored at the end of this routine, or in case of
 	 * error, transaction abort will clean things up.)
+	 *
+	 * 该设置在本函数结束时恢复；若出错，事务中止会负责清理。
 	 */
 	if (saved_uid != owner_uid)
 		SetUserIdAndSecContext(owner_uid,
 							   save_sec_context | SECURITY_LOCAL_USERID_CHANGE);
 
 	/* Create the schema's namespace */
+	/*
+	 *
+	 * 创建该模式的命名空间。
+	 */
 	namespaceId = NamespaceCreate(schemaName, owner_uid, false);
 
 	/* Advance cmd counter to make the namespace visible */
+	/*
+	 *
+	 * 推进命令计数器，使命名空间可见。
+	 */
 	CommandCounterIncrement();
 
 	/*
 	 * Prepend the new schema to the current search path.
 	 *
+	 * 把新模式加到当前 search_path 的最前面。
+	 *
 	 * We use the equivalent of a function SET option to allow the setting to
 	 * persist for exactly the duration of the schema creation.  guc.c also
 	 * takes care of undoing the setting on error.
+	 *
+	 * 这相当于函数的 SET 选项，使设置只在创建模式期间有效。
+	 * 出错时 guc.c 也会撤销该设置。
 	 */
 	save_nestlevel = NewGUCNestLevel();
 
@@ -182,6 +236,9 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 	 * must do this here and not in ProcessUtilitySlow because otherwise the
 	 * objects created below are reported before the schema, which would be
 	 * wrong.
+	 *
+	 * 把新模式报告给可能关心的事件触发器。必须在这里做，而不能放到
+	 * ProcessUtilitySlow，否则下面创建的对象会先于模式被报告。
 	 */
 	ObjectAddressSet(address, NamespaceRelationId, namespaceId);
 	EventTriggerCollectSimpleCommand(address, InvalidObjectAddress,
@@ -193,6 +250,9 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 	 * references.  Note that the result is still a list of raw parsetrees ---
 	 * we cannot, in general, run parse analysis on one statement until we
 	 * have actually executed the prior ones.
+	 *
+	 * 检查 CREATE SCHEMA 内嵌的命令，重排成没有前向引用、可以顺序执行的次序。
+	 * 结果仍是原始分析树：通常必须先执行前面的语句，才能分析后面的语句。
 	 */
 	parsetree_list = transformCreateSchemaStmtElements(stmt->schemaElts,
 													   schemaName);
@@ -202,6 +262,9 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 	 * allows only utility commands in CREATE SCHEMA, there is no need to pass
 	 * them through parse_analyze_*() or the rewriter; we can just hand them
 	 * straight to ProcessUtility.
+	 *
+	 * 执行 CREATE SCHEMA 中的每条命令。语法只允许实用语句，
+	 * 因此不必经过 parse_analyze_*() 或重写器，直接交给 ProcessUtility。
 	 */
 	foreach(parsetree_item, parsetree_list)
 	{
@@ -209,6 +272,10 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 		PlannedStmt *wrapper;
 
 		/* need to make a wrapper PlannedStmt */
+		/*
+		 *
+		 * 需要包一层 PlannedStmt。
+		 */
 		wrapper = makeNode(PlannedStmt);
 		wrapper->commandType = CMD_UTILITY;
 		wrapper->canSetTag = false;
@@ -217,6 +284,10 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 		wrapper->stmt_len = stmt_len;
 
 		/* do this step */
+		/*
+		 *
+		 * 执行这一步。
+		 */
 		ProcessUtility(wrapper,
 					   queryString,
 					   false,
@@ -227,15 +298,25 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 					   NULL);
 
 		/* make sure later steps can see the object created here */
+		/*
+		 *
+		 * 确保后续步骤能看见这里创建的对象。
+		 */
 		CommandCounterIncrement();
 	}
 
 	/*
 	 * Restore the GUC variable search_path we set above.
+	 *
+	 * 恢复上面设置的 GUC search_path。
 	 */
 	AtEOXact_GUC(true, save_nestlevel);
 
 	/* Reset current user and security context */
+	/*
+	 *
+	 * 恢复当前用户和安全上下文。
+	 */
 	SetUserIdAndSecContext(saved_uid, save_sec_context);
 
 	return namespaceId;
@@ -244,6 +325,8 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
 
 /*
  * Rename schema
+ *
+ * 重命名模式。
  */
 ObjectAddress
 RenameSchema(const char *oldname, const char *newname)
@@ -267,17 +350,29 @@ RenameSchema(const char *oldname, const char *newname)
 	nspOid = nspform->oid;
 
 	/* make sure the new name doesn't exist */
+	/*
+	 *
+	 * 确认新名字尚不存在。
+	 */
 	if (OidIsValid(get_namespace_oid(newname, true)))
 		ereport(ERROR,
 				(errcode(ERRCODE_DUPLICATE_SCHEMA),
 				 errmsg("schema \"%s\" already exists", newname)));
 
 	/* must be owner */
+	/*
+	 *
+	 * 必须是属主。
+	 */
 	if (!object_ownercheck(NamespaceRelationId, nspOid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_SCHEMA,
 					   oldname);
 
 	/* must have CREATE privilege on database */
+	/*
+	 *
+	 * 必须对数据库有 CREATE 权限。
+	 */
 	aclresult = object_aclcheck(DatabaseRelationId, MyDatabaseId, GetUserId(), ACL_CREATE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_DATABASE,
@@ -290,6 +385,10 @@ RenameSchema(const char *oldname, const char *newname)
 				 errdetail("The prefix \"pg_\" is reserved for system schemas.")));
 
 	/* rename */
+	/*
+	 *
+	 * 执行重命名。
+	 */
 	namestrcpy(&nspform->nspname, newname);
 	CatalogTupleUpdate(rel, &tup->t_self, tup);
 
@@ -303,6 +402,9 @@ RenameSchema(const char *oldname, const char *newname)
 	return address;
 }
 
+/*
+ * 按 OID 更改模式属主。
+ */
 void
 AlterSchemaOwner_oid(Oid schemaoid, Oid newOwnerId)
 {
@@ -325,6 +427,8 @@ AlterSchemaOwner_oid(Oid schemaoid, Oid newOwnerId)
 
 /*
  * Change schema owner
+ *
+ * 更改模式属主。
  */
 ObjectAddress
 AlterSchemaOwner(const char *name, Oid newOwnerId)
@@ -357,6 +461,9 @@ AlterSchemaOwner(const char *name, Oid newOwnerId)
 	return address;
 }
 
+/*
+ * 在已打开的 pg_namespace 元组上更改模式属主。
+ */
 static void
 AlterSchemaOwner_internal(HeapTuple tup, Relation rel, Oid newOwnerId)
 {
@@ -370,6 +477,8 @@ AlterSchemaOwner_internal(HeapTuple tup, Relation rel, Oid newOwnerId)
 	/*
 	 * If the new owner is the same as the existing owner, consider the
 	 * command to have succeeded.  This is for dump restoration purposes.
+	 *
+	 * 新属主与现属主相同时，视为命令成功。这是为了转储恢复。
 	 */
 	if (nspForm->nspowner != newOwnerId)
 	{
@@ -383,21 +492,34 @@ AlterSchemaOwner_internal(HeapTuple tup, Relation rel, Oid newOwnerId)
 		AclResult	aclresult;
 
 		/* Otherwise, must be owner of the existing object */
+		/*
+		 *
+		 * 否则必须是现有对象的属主。
+		 */
 		if (!object_ownercheck(NamespaceRelationId, nspForm->oid, GetUserId()))
 			aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_SCHEMA,
 						   NameStr(nspForm->nspname));
 
 		/* Must be able to become new owner */
+		/*
+		 *
+		 * 必须能够成为新属主。
+		 */
 		check_can_set_role(GetUserId(), newOwnerId);
 
 		/*
 		 * must have create-schema rights
+		 *
+		 * 必须有 create-schema 权限。
 		 *
 		 * NOTE: This is different from other alter-owner checks in that the
 		 * current user is checked for create privileges instead of the
 		 * destination owner.  This is consistent with the CREATE case for
 		 * schemas.  Because superusers will always have this right, we need
 		 * no special case for them.
+		 *
+		 * 与其它更改属主的检查不同：这里检查的是当前用户的创建权限，而不是目标属主。
+		 * 这与 CREATE SCHEMA 一致。超级用户必然有此权限，因此不必特殊处理。
 		 */
 		aclresult = object_aclcheck(DatabaseRelationId, MyDatabaseId, GetUserId(),
 									ACL_CREATE);
@@ -414,6 +536,8 @@ AlterSchemaOwner_internal(HeapTuple tup, Relation rel, Oid newOwnerId)
 		/*
 		 * Determine the modified ACL for the new owner.  This is only
 		 * necessary when the ACL is non-null.
+		 *
+		 * 计算新属主对应的 ACL。仅当 ACL 非空时需要。
 		 */
 		aclDatum = SysCacheGetAttr(NAMESPACENAME, tup,
 								   Anum_pg_namespace_nspacl,
@@ -433,6 +557,10 @@ AlterSchemaOwner_internal(HeapTuple tup, Relation rel, Oid newOwnerId)
 		heap_freetuple(newtuple);
 
 		/* Update owner dependency reference */
+		/*
+		 *
+		 * 更新属主依赖引用。
+		 */
 		changeDependencyOnOwner(NamespaceRelationId, nspForm->oid,
 								newOwnerId);
 	}

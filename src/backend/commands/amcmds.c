@@ -3,6 +3,8 @@
  * amcmds.c
  *	  Routines for SQL commands that manipulate access methods.
  *
+ * 操纵访问方法的 SQL 命令例程。
+ *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
@@ -31,6 +33,11 @@
 #include "utils/syscache.h"
 
 
+/*
+ * 核心流程概览：
+ * CreateAccessMethod 要求超级用户，查重后解析 handler，插入 pg_am 并记录依赖。
+ * get_am_type_oid 及其包装按名称查找 AM OID，并可校验索引或表类型。
+ */
 static Oid	lookup_am_handler_func(List *handler_name, char amtype);
 static const char *get_am_type_string(char amtype);
 
@@ -38,6 +45,8 @@ static const char *get_am_type_string(char amtype);
 /*
  * CreateAccessMethod
  *		Registers a new access method.
+ *
+ * CreateAccessMethod：注册一个新的访问方法。
  */
 ObjectAddress
 CreateAccessMethod(CreateAmStmt *stmt)
@@ -54,6 +63,10 @@ CreateAccessMethod(CreateAmStmt *stmt)
 	rel = table_open(AccessMethodRelationId, RowExclusiveLock);
 
 	/* Must be superuser */
+	/*
+	 *
+	 * 必须是超级用户。
+	 */
 	if (!superuser())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -62,6 +75,10 @@ CreateAccessMethod(CreateAmStmt *stmt)
 				 errhint("Must be superuser to create an access method.")));
 
 	/* Check if name is used */
+	/*
+	 *
+	 * 检查名称是否已被使用。
+	 */
 	amoid = GetSysCacheOid1(AMNAME, Anum_pg_am_oid,
 							CStringGetDatum(stmt->amname));
 	if (OidIsValid(amoid))
@@ -74,11 +91,15 @@ CreateAccessMethod(CreateAmStmt *stmt)
 
 	/*
 	 * Get the handler function oid, verifying the AM type while at it.
+	 *
+	 * 取得处理函数 OID，同时校验 AM 类型。
 	 */
 	amhandler = lookup_am_handler_func(stmt->handler_name, stmt->amtype);
 
 	/*
 	 * Insert tuple into pg_am.
+	 *
+	 * 向 pg_am 插入元组。
 	 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
@@ -100,6 +121,10 @@ CreateAccessMethod(CreateAmStmt *stmt)
 	myself.objectSubId = 0;
 
 	/* Record dependency on handler function */
+	/*
+	 *
+	 * 记录对处理函数的依赖。
+	 */
 	referenced.classId = ProcedureRelationId;
 	referenced.objectId = amhandler;
 	referenced.objectSubId = 0;
@@ -119,11 +144,17 @@ CreateAccessMethod(CreateAmStmt *stmt)
  * get_am_type_oid
  *		Worker for various get_am_*_oid variants
  *
+ * get_am_type_oid：各 get_am_*_oid 变体的公共实现。
+ *
  * If missing_ok is false, throw an error if access method not found.  If
  * true, just return InvalidOid.
  *
+ * missing_ok 为 false 时，找不到访问方法就报错；为 true 时返回 InvalidOid。
+ *
  * If amtype is not '\0', an error is raised if the AM found is not of the
  * given type.
+ *
+ * amtype 不是 '\0' 时，若找到的 AM 类型不符则报错。
  */
 static Oid
 get_am_type_oid(const char *amname, char amtype, bool missing_ok)
@@ -158,6 +189,8 @@ get_am_type_oid(const char *amname, char amtype, bool missing_ok)
 /*
  * get_index_am_oid - given an access method name, look up its OID
  *		and verify it corresponds to an index AM.
+ *
+ * 按访问方法名查找 OID，并确认它是索引 AM。
  */
 Oid
 get_index_am_oid(const char *amname, bool missing_ok)
@@ -168,6 +201,8 @@ get_index_am_oid(const char *amname, bool missing_ok)
 /*
  * get_table_am_oid - given an access method name, look up its OID
  *		and verify it corresponds to a table AM.
+ *
+ * 按访问方法名查找 OID，并确认它是表 AM。
  */
 Oid
 get_table_am_oid(const char *amname, bool missing_ok)
@@ -178,6 +213,8 @@ get_table_am_oid(const char *amname, bool missing_ok)
 /*
  * get_am_oid - given an access method name, look up its OID.
  *		The type is not checked.
+ *
+ * 按访问方法名查找 OID，不检查类型。
  */
 Oid
 get_am_oid(const char *amname, bool missing_ok)
@@ -187,6 +224,8 @@ get_am_oid(const char *amname, bool missing_ok)
 
 /*
  * get_am_name - given an access method OID, look up its name.
+ *
+ * 按访问方法 OID 查找名称。
  */
 char *
 get_am_name(Oid amOid)
@@ -207,6 +246,8 @@ get_am_name(Oid amOid)
 
 /*
  * Convert single-character access method type into string for error reporting.
+ *
+ * 把单字符访问方法类型转成用于报错的字符串。
  */
 static const char *
 get_am_type_string(char amtype)
@@ -219,8 +260,16 @@ get_am_type_string(char amtype)
 			return "TABLE";
 		default:
 			/* shouldn't happen */
+			/*
+			 *
+			 * 不应发生。
+			 */
 			elog(ERROR, "invalid access method type '%c'", amtype);
 			return NULL;		/* keep compiler quiet */
+			/*
+			 *
+			 * 避免编译器因未使用的返回值告警。
+			 */
 	}
 }
 
@@ -228,7 +277,11 @@ get_am_type_string(char amtype)
  * Convert a handler function name to an Oid.  If the return type of the
  * function doesn't match the given AM type, an error is raised.
  *
+ * 把处理函数名解析为 Oid。返回类型与给定 AM 类型不符则报错。
+ *
  * This function either return valid function Oid or throw an error.
+ *
+ * 本函数要么返回有效的函数 Oid，要么抛出错误。
  */
 static Oid
 lookup_am_handler_func(List *handler_name, char amtype)
@@ -243,9 +296,17 @@ lookup_am_handler_func(List *handler_name, char amtype)
 				 errmsg("handler function is not specified")));
 
 	/* handlers have one argument of type internal */
+	/*
+	 *
+	 * 处理函数有一个 internal 类型参数。
+	 */
 	handlerOid = LookupFuncName(handler_name, 1, funcargtypes, false);
 
 	/* check that handler has the correct return type */
+	/*
+	 *
+	 * 检查处理函数的返回类型是否正确。
+	 */
 	switch (amtype)
 	{
 		case AMTYPE_INDEX:

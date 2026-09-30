@@ -3,6 +3,8 @@
  * foreigncmds.c
  *	  foreign-data wrapper/server creation/manipulation commands
  *
+ * 外部数据包装器与外部服务器的创建和维护命令。
+ *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  *
  *
@@ -40,6 +42,13 @@
 #include "utils/syscache.h"
 
 
+/*
+ * 核心流程概览：
+ * CreateForeignDataWrapper / CreateForeignServer / CreateUserMapping / CreateForeignTable
+ * 分别创建 FDW、外部服务器、用户映射和外部表，选项经 optionListToArray 写入目录。
+ * Alter 与 Owner 变体修改定义或属主；transformGenericOptions 合并 ADD/SET/DROP 选项。
+ * ImportForeignSchema 调用 FDW 生成命令并逐条执行 CreateForeignTable。
+ */
 typedef struct
 {
 	char	   *tablename;
@@ -47,6 +56,10 @@ typedef struct
 } import_error_callback_arg;
 
 /* Internal functions */
+/*
+ *
+ * 内部函数。
+ */
 static void import_error_callback(void *arg);
 
 
@@ -55,12 +68,19 @@ static void import_error_callback(void *arg);
  * pg_foreign_data_wrapper, pg_foreign_server, pg_user_mapping, and
  * pg_foreign_table.
  *
+ * 把 DefElem 列表转换成 pg_foreign_data_wrapper、pg_foreign_server、
+ * pg_user_mapping 和 pg_foreign_table 使用的 text 数组格式。
+ *
  * Returns the array in the form of a Datum, or PointerGetDatum(NULL)
  * if the list is empty.
+ *
+ * 以 Datum 形式返回数组；列表为空则返回 PointerGetDatum(NULL)。
  *
  * Note: The array is usually stored to database without further
  * processing, hence any validation should be done before this
  * conversion.
+ *
+ * 注意：该数组通常不再处理就写入数据库，因此校验应在这次转换之前完成。
  */
 static Datum
 optionListToArray(List *options)
@@ -80,6 +100,10 @@ optionListToArray(List *options)
 		value = defGetString(def);
 
 		/* Insist that name not contain "=", else "a=b=c" is ambiguous */
+		/*
+		 *
+		 * 要求名称不含 "="，否则 "a=b=c" 会有歧义。
+		 */
 		if (strchr(name, '=') != NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -88,6 +112,10 @@ optionListToArray(List *options)
 
 		len = VARHDRSZ + strlen(name) + 1 + strlen(value);
 		/* +1 leaves room for sprintf's trailing null */
+		/*
+		 *
+		 * +1 是为 sprintf 的结尾空字符留出空间。
+		 */
 		t = palloc(len + 1);
 		SET_VARSIZE(t, len);
 		sprintf(VARDATA(t), "%s=%s", name, value);
@@ -111,11 +139,19 @@ optionListToArray(List *options)
  * Datum form as oldOptions.  Also, if fdwvalidator isn't InvalidOid
  * it specifies a validator function to call on the result.
  *
+ * 把 DefElem 列表转换成 text 数组。大体与 optionListToArray() 相同，
+ * 但会识别 SET/ADD/DROP，用以修改以 Datum 形式传入的 oldOptions。
+ * 若 fdwvalidator 不是 InvalidOid，则对结果调用该校验函数。
+ *
  * Returns the array in the form of a Datum, or PointerGetDatum(NULL)
  * if the list is empty.
  *
+ * 以 Datum 形式返回数组；列表为空则返回 PointerGetDatum(NULL)。
+ *
  * This is used by CREATE/ALTER of FOREIGN DATA WRAPPER/SERVER/USER MAPPING/
  * FOREIGN TABLE.
+ *
+ * 供 FOREIGN DATA WRAPPER、SERVER、USER MAPPING、FOREIGN TABLE 的 CREATE/ALTER 使用。
  */
 Datum
 transformGenericOptions(Oid catalogId,
@@ -135,6 +171,8 @@ transformGenericOptions(Oid catalogId,
 		/*
 		 * Find the element in resultOptions.  We need this for validation in
 		 * all cases.
+		 *
+		 * 在 resultOptions 中找到该元素。无论哪种情况，校验都需要它。
 		 */
 		foreach(cell, resultOptions)
 		{
@@ -149,6 +187,9 @@ transformGenericOptions(Oid catalogId,
 		 * option.  The standard permits this, as long as the options to be
 		 * added are unique.  Note that an unspecified action is taken to be
 		 * ADD.
+		 *
+		 * 可以对同一选项多次 SET/DROP。标准允许这样做，只要要添加的选项不重复。
+		 * 未指定动作时视为 ADD。
 		 */
 		switch (od->defaction)
 		{
@@ -196,6 +237,8 @@ transformGenericOptions(Oid catalogId,
 		/*
 		 * Pass a null options list as an empty array, so that validators
 		 * don't have to be declared non-strict to handle the case.
+		 *
+		 * 把空的选项列表当成空数组传入，这样校验函数不必声明为 non-strict 也能处理这种情况。
 		 */
 		if (DatumGetPointer(valarg) == NULL)
 			valarg = PointerGetDatum(construct_empty_array(TEXTOID));
@@ -209,8 +252,12 @@ transformGenericOptions(Oid catalogId,
 /*
  * Internal workhorse for changing a data wrapper's owner.
  *
+ * 更改外部数据包装器属主的内部实现。
+ *
  * Allow this only for superusers; also the new owner must be a
  * superuser.
+ *
+ * 只允许超级用户做这件事；新属主也必须是超级用户。
  */
 static void
 AlterForeignDataWrapperOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
@@ -226,6 +273,10 @@ AlterForeignDataWrapperOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerI
 	form = (Form_pg_foreign_data_wrapper) GETSTRUCT(tup);
 
 	/* Must be a superuser to change a FDW owner */
+	/*
+	 *
+	 * 更改 FDW 属主必须是超级用户。
+	 */
 	if (!superuser())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -234,6 +285,10 @@ AlterForeignDataWrapperOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerI
 				 errhint("Must be superuser to change owner of a foreign-data wrapper.")));
 
 	/* New owner must also be a superuser */
+	/*
+	 *
+	 * 新属主也必须是超级用户。
+	 */
 	if (!superuser_arg(newOwnerId))
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -254,6 +309,10 @@ AlterForeignDataWrapperOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerI
 								RelationGetDescr(rel),
 								&isNull);
 		/* Null ACLs do not require changes */
+		/*
+		 *
+		 * ACL 为空时不必修改。
+		 */
 		if (!isNull)
 		{
 			newAcl = aclnewowner(DatumGetAclP(aclDatum),
@@ -268,6 +327,10 @@ AlterForeignDataWrapperOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerI
 		CatalogTupleUpdate(rel, &tup->t_self, tup);
 
 		/* Update owner dependency reference */
+		/*
+		 *
+		 * 更新对属主的依赖引用。
+		 */
 		changeDependencyOnOwner(ForeignDataWrapperRelationId,
 								form->oid,
 								newOwnerId);
@@ -280,7 +343,11 @@ AlterForeignDataWrapperOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerI
 /*
  * Change foreign-data wrapper owner -- by name
  *
+ * 按名称更改外部数据包装器的属主。
+ *
  * Note restrictions in the "_internal" function, above.
+ *
+ * 限制见上面的 _internal 函数。
  */
 ObjectAddress
 AlterForeignDataWrapperOwner(const char *name, Oid newOwnerId)
@@ -318,7 +385,11 @@ AlterForeignDataWrapperOwner(const char *name, Oid newOwnerId)
 /*
  * Change foreign-data wrapper owner -- by OID
  *
+ * 按 OID 更改外部数据包装器的属主。
+ *
  * Note restrictions in the "_internal" function, above.
+ *
+ * 限制见上面的 _internal 函数。
  */
 void
 AlterForeignDataWrapperOwner_oid(Oid fwdId, Oid newOwnerId)
@@ -344,6 +415,8 @@ AlterForeignDataWrapperOwner_oid(Oid fwdId, Oid newOwnerId)
 
 /*
  * Internal workhorse for changing a foreign server's owner
+ *
+ * 更改外部服务器属主的内部实现。
  */
 static void
 AlterForeignServerOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
@@ -361,6 +434,10 @@ AlterForeignServerOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 	if (form->srvowner != newOwnerId)
 	{
 		/* Superusers can always do it */
+		/*
+		 *
+		 * 超级用户始终可以做。
+		 */
 		if (!superuser())
 		{
 			Oid			srvId;
@@ -369,14 +446,26 @@ AlterForeignServerOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 			srvId = form->oid;
 
 			/* Must be owner */
+			/*
+			 *
+			 * 必须是属主。
+			 */
 			if (!object_ownercheck(ForeignServerRelationId, srvId, GetUserId()))
 				aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_FOREIGN_SERVER,
 							   NameStr(form->srvname));
 
 			/* Must be able to become new owner */
+			/*
+			 *
+			 * 必须能够成为新属主。
+			 */
 			check_can_set_role(GetUserId(), newOwnerId);
 
 			/* New owner must have USAGE privilege on foreign-data wrapper */
+			/*
+			 *
+			 * 新属主必须对外部数据包装器具有 USAGE 权限。
+			 */
 			aclresult = object_aclcheck(ForeignDataWrapperRelationId, form->srvfdw, newOwnerId, ACL_USAGE);
 			if (aclresult != ACLCHECK_OK)
 			{
@@ -397,6 +486,10 @@ AlterForeignServerOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 								RelationGetDescr(rel),
 								&isNull);
 		/* Null ACLs do not require changes */
+		/*
+		 *
+		 * ACL 为空时不必修改。
+		 */
 		if (!isNull)
 		{
 			newAcl = aclnewowner(DatumGetAclP(aclDatum),
@@ -411,6 +504,10 @@ AlterForeignServerOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 		CatalogTupleUpdate(rel, &tup->t_self, tup);
 
 		/* Update owner dependency reference */
+		/*
+		 *
+		 * 更新对属主的依赖引用。
+		 */
 		changeDependencyOnOwner(ForeignServerRelationId, form->oid,
 								newOwnerId);
 	}
@@ -421,6 +518,8 @@ AlterForeignServerOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 
 /*
  * Change foreign server owner -- by name
+ *
+ * 按名称更改外部服务器的属主。
  */
 ObjectAddress
 AlterForeignServerOwner(const char *name, Oid newOwnerId)
@@ -456,6 +555,8 @@ AlterForeignServerOwner(const char *name, Oid newOwnerId)
 
 /*
  * Change foreign server owner -- by OID
+ *
+ * 按 OID 更改外部服务器的属主。
  */
 void
 AlterForeignServerOwner_oid(Oid srvId, Oid newOwnerId)
@@ -481,6 +582,8 @@ AlterForeignServerOwner_oid(Oid srvId, Oid newOwnerId)
 
 /*
  * Convert a handler function name passed from the parser to an Oid.
+ *
+ * 把解析器传来的处理函数名转换成 Oid。
  */
 static Oid
 lookup_fdw_handler_func(DefElem *handler)
@@ -491,9 +594,17 @@ lookup_fdw_handler_func(DefElem *handler)
 		return InvalidOid;
 
 	/* handlers have no arguments */
+	/*
+	 *
+	 * 处理函数没有参数。
+	 */
 	handlerOid = LookupFuncName((List *) handler->arg, 0, NULL, false);
 
 	/* check that handler has correct return type */
+	/*
+	 *
+	 * 检查处理函数的返回类型是否正确。
+	 */
 	if (get_func_rettype(handlerOid) != FDW_HANDLEROID)
 		ereport(ERROR,
 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -505,6 +616,8 @@ lookup_fdw_handler_func(DefElem *handler)
 
 /*
  * Convert a validator function name passed from the parser to an Oid.
+ *
+ * 把解析器传来的校验函数名转换成 Oid。
  */
 static Oid
 lookup_fdw_validator_func(DefElem *validator)
@@ -515,15 +628,25 @@ lookup_fdw_validator_func(DefElem *validator)
 		return InvalidOid;
 
 	/* validators take text[], oid */
+	/*
+	 *
+	 * 校验函数的参数是 text[] 和 oid。
+	 */
 	funcargtypes[0] = TEXTARRAYOID;
 	funcargtypes[1] = OIDOID;
 
 	return LookupFuncName((List *) validator->arg, 2, funcargtypes, false);
 	/* validator's return value is ignored, so we don't check the type */
+	/*
+	 *
+	 * 校验函数的返回值被忽略，因此不检查类型。
+	 */
 }
 
 /*
  * Process function options of CREATE/ALTER FDW
+ *
+ * 处理 CREATE/ALTER FDW 的函数选项。
  */
 static void
 parse_func_options(ParseState *pstate, List *func_options,
@@ -535,6 +658,10 @@ parse_func_options(ParseState *pstate, List *func_options,
 	*handler_given = false;
 	*validator_given = false;
 	/* return InvalidOid if not given */
+	/*
+	 *
+	 * 未给出则返回 InvalidOid。
+	 */
 	*fdwhandler = InvalidOid;
 	*fdwvalidator = InvalidOid;
 
@@ -564,6 +691,8 @@ parse_func_options(ParseState *pstate, List *func_options,
 
 /*
  * Create a foreign-data wrapper
+ *
+ * 创建外部数据包装器。
  */
 ObjectAddress
 CreateForeignDataWrapper(ParseState *pstate, CreateFdwStmt *stmt)
@@ -585,6 +714,10 @@ CreateForeignDataWrapper(ParseState *pstate, CreateFdwStmt *stmt)
 	rel = table_open(ForeignDataWrapperRelationId, RowExclusiveLock);
 
 	/* Must be superuser */
+	/*
+	 *
+	 * 必须是超级用户。
+	 */
 	if (!superuser())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -593,10 +726,16 @@ CreateForeignDataWrapper(ParseState *pstate, CreateFdwStmt *stmt)
 				 errhint("Must be superuser to create a foreign-data wrapper.")));
 
 	/* For now the owner cannot be specified on create. Use effective user ID. */
+	/*
+	 *
+	 * 目前创建时不能指定属主。使用当前有效用户 ID。
+	 */
 	ownerId = GetUserId();
 
 	/*
 	 * Check that there is no other foreign-data wrapper by this name.
+	 *
+	 * 检查没有其他同名的外部数据包装器。
 	 */
 	if (GetForeignDataWrapperByName(stmt->fdwname, true) != NULL)
 		ereport(ERROR,
@@ -606,6 +745,8 @@ CreateForeignDataWrapper(ParseState *pstate, CreateFdwStmt *stmt)
 
 	/*
 	 * Insert tuple into pg_foreign_data_wrapper.
+	 *
+	 * 向 pg_foreign_data_wrapper 插入元组。
 	 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
@@ -618,6 +759,10 @@ CreateForeignDataWrapper(ParseState *pstate, CreateFdwStmt *stmt)
 	values[Anum_pg_foreign_data_wrapper_fdwowner - 1] = ObjectIdGetDatum(ownerId);
 
 	/* Lookup handler and validator functions, if given */
+	/*
+	 *
+	 * 若给出了处理函数和校验函数，则查找它们。
+	 */
 	parse_func_options(pstate, stmt->func_options,
 					   &handler_given, &fdwhandler,
 					   &validator_given, &fdwvalidator);
@@ -644,6 +789,10 @@ CreateForeignDataWrapper(ParseState *pstate, CreateFdwStmt *stmt)
 	heap_freetuple(tuple);
 
 	/* record dependencies */
+	/*
+	 *
+	 * 记录依赖。
+	 */
 	myself.classId = ForeignDataWrapperRelationId;
 	myself.objectId = fdwId;
 	myself.objectSubId = 0;
@@ -667,9 +816,17 @@ CreateForeignDataWrapper(ParseState *pstate, CreateFdwStmt *stmt)
 	recordDependencyOnOwner(ForeignDataWrapperRelationId, fdwId, ownerId);
 
 	/* dependency on extension */
+	/*
+	 *
+	 * 依赖于扩展。
+	 */
 	recordDependencyOnCurrentExtension(&myself, false);
 
 	/* Post creation hook for new foreign data wrapper */
+	/*
+	 *
+	 * 新建外部数据包装器的创建后钩子。
+	 */
 	InvokeObjectPostCreateHook(ForeignDataWrapperRelationId, fdwId, 0);
 
 	table_close(rel, RowExclusiveLock);
@@ -680,6 +837,8 @@ CreateForeignDataWrapper(ParseState *pstate, CreateFdwStmt *stmt)
 
 /*
  * Alter foreign-data wrapper
+ *
+ * 修改外部数据包装器。
  */
 ObjectAddress
 AlterForeignDataWrapper(ParseState *pstate, AlterFdwStmt *stmt)
@@ -702,6 +861,10 @@ AlterForeignDataWrapper(ParseState *pstate, AlterFdwStmt *stmt)
 	rel = table_open(ForeignDataWrapperRelationId, RowExclusiveLock);
 
 	/* Must be superuser */
+	/*
+	 *
+	 * 必须是超级用户。
+	 */
 	if (!superuser())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -736,6 +899,8 @@ AlterForeignDataWrapper(ParseState *pstate, AlterFdwStmt *stmt)
 		/*
 		 * It could be that the behavior of accessing foreign table changes
 		 * with the new handler.  Warn about this.
+		 *
+		 * 新的处理函数可能改变访问外部表的行为。对此发出警告。
 		 */
 		ereport(WARNING,
 				(errmsg("changing the foreign-data wrapper handler can change behavior of existing foreign tables")));
@@ -750,6 +915,8 @@ AlterForeignDataWrapper(ParseState *pstate, AlterFdwStmt *stmt)
 		 * It could be that existing options for the FDW or dependent SERVER,
 		 * USER MAPPING or FOREIGN TABLE objects are no longer valid according
 		 * to the new validator.  Warn about this.
+		 *
+		 * 按新的校验函数，FDW 或其依赖的 SERVER、USER MAPPING、FOREIGN TABLE 上的现有选项可能不再合法。对此发出警告。
 		 */
 		if (OidIsValid(fdwvalidator))
 			ereport(WARNING,
@@ -760,16 +927,24 @@ AlterForeignDataWrapper(ParseState *pstate, AlterFdwStmt *stmt)
 	{
 		/*
 		 * Validator is not changed, but we need it for validating options.
+		 *
+		 * 校验函数没有变，但校验选项时仍需要它。
 		 */
 		fdwvalidator = fdwForm->fdwvalidator;
 	}
 
 	/*
 	 * If options specified, validate and update.
+	 *
+	 * 若指定了选项，则校验并更新。
 	 */
 	if (stmt->options)
 	{
 		/* Extract the current options */
+		/*
+		 *
+		 * 取出当前选项。
+		 */
 		datum = SysCacheGetAttr(FOREIGNDATAWRAPPEROID,
 								tp,
 								Anum_pg_foreign_data_wrapper_fdwoptions,
@@ -778,6 +953,10 @@ AlterForeignDataWrapper(ParseState *pstate, AlterFdwStmt *stmt)
 			datum = PointerGetDatum(NULL);
 
 		/* Transform the options */
+		/*
+		 *
+		 * 转换选项。
+		 */
 		datum = transformGenericOptions(ForeignDataWrapperRelationId,
 										datum,
 										stmt->options,
@@ -792,6 +971,10 @@ AlterForeignDataWrapper(ParseState *pstate, AlterFdwStmt *stmt)
 	}
 
 	/* Everything looks good - update the tuple */
+	/*
+	 *
+	 * 一切正常，更新元组。
+	 */
 	tp = heap_modify_tuple(tp, RelationGetDescr(rel),
 						   repl_val, repl_null, repl_repl);
 
@@ -802,6 +985,10 @@ AlterForeignDataWrapper(ParseState *pstate, AlterFdwStmt *stmt)
 	ObjectAddressSet(myself, ForeignDataWrapperRelationId, fdwId);
 
 	/* Update function dependencies if we changed them */
+	/*
+	 *
+	 * 若改了函数，则更新对函数的依赖。
+	 */
 	if (handler_given || validator_given)
 	{
 		ObjectAddress referenced;
@@ -809,6 +996,8 @@ AlterForeignDataWrapper(ParseState *pstate, AlterFdwStmt *stmt)
 		/*
 		 * Flush all existing dependency records of this FDW on functions; we
 		 * assume there can be none other than the ones we are fixing.
+		 *
+		 * 清掉该 FDW 对函数的全部现有依赖；假定除了正在修正的这些之外没有别的。
 		 */
 		deleteDependencyRecordsForClass(ForeignDataWrapperRelationId,
 										fdwId,
@@ -816,6 +1005,10 @@ AlterForeignDataWrapper(ParseState *pstate, AlterFdwStmt *stmt)
 										DEPENDENCY_NORMAL);
 
 		/* And build new ones. */
+		/*
+		 *
+		 * 然后建立新的依赖。
+		 */
 
 		if (OidIsValid(fdwhandler))
 		{
@@ -844,6 +1037,8 @@ AlterForeignDataWrapper(ParseState *pstate, AlterFdwStmt *stmt)
 
 /*
  * Create a foreign server
+ *
+ * 创建外部服务器。
  */
 ObjectAddress
 CreateForeignServer(CreateForeignServerStmt *stmt)
@@ -863,11 +1058,17 @@ CreateForeignServer(CreateForeignServerStmt *stmt)
 	rel = table_open(ForeignServerRelationId, RowExclusiveLock);
 
 	/* For now the owner cannot be specified on create. Use effective user ID. */
+	/*
+	 *
+	 * 目前创建时不能指定属主。使用当前有效用户 ID。
+	 */
 	ownerId = GetUserId();
 
 	/*
 	 * Check that there is no other foreign server by this name.  If there is
 	 * one, do nothing if IF NOT EXISTS was specified.
+	 *
+	 * 检查没有其他同名外部服务器。若已存在且指定了 IF NOT EXISTS，则什么也不做。
 	 */
 	srvId = get_foreign_server_oid(stmt->servername, true);
 	if (OidIsValid(srvId))
@@ -877,11 +1078,17 @@ CreateForeignServer(CreateForeignServerStmt *stmt)
 			/*
 			 * If we are in an extension script, insist that the pre-existing
 			 * object be a member of the extension, to avoid security risks.
+			 *
+			 * 若处于扩展脚本中，则要求已存在的对象属于该扩展，以避免安全风险。
 			 */
 			ObjectAddressSet(myself, ForeignServerRelationId, srvId);
 			checkMembershipInCurrentExtension(&myself);
 
 			/* OK to skip */
+			/*
+			 *
+			 * 可以跳过。
+			 */
 			ereport(NOTICE,
 					(errcode(ERRCODE_DUPLICATE_OBJECT),
 					 errmsg("server \"%s\" already exists, skipping",
@@ -899,6 +1106,8 @@ CreateForeignServer(CreateForeignServerStmt *stmt)
 	/*
 	 * Check that the FDW exists and that we have USAGE on it. Also get the
 	 * actual FDW for option validation etc.
+	 *
+	 * 检查 FDW 存在且当前用户对其有 USAGE。同时取出实际的 FDW，供选项校验等使用。
 	 */
 	fdw = GetForeignDataWrapperByName(stmt->fdwname, false);
 
@@ -908,6 +1117,8 @@ CreateForeignServer(CreateForeignServerStmt *stmt)
 
 	/*
 	 * Insert tuple into pg_foreign_server.
+	 *
+	 * 向 pg_foreign_server 插入元组。
 	 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
@@ -921,6 +1132,10 @@ CreateForeignServer(CreateForeignServerStmt *stmt)
 	values[Anum_pg_foreign_server_srvfdw - 1] = ObjectIdGetDatum(fdw->fdwid);
 
 	/* Add server type if supplied */
+	/*
+	 *
+	 * 若提供了服务器类型则写入。
+	 */
 	if (stmt->servertype)
 		values[Anum_pg_foreign_server_srvtype - 1] =
 			CStringGetTextDatum(stmt->servertype);
@@ -928,6 +1143,10 @@ CreateForeignServer(CreateForeignServerStmt *stmt)
 		nulls[Anum_pg_foreign_server_srvtype - 1] = true;
 
 	/* Add server version if supplied */
+	/*
+	 *
+	 * 若提供了服务器版本则写入。
+	 */
 	if (stmt->version)
 		values[Anum_pg_foreign_server_srvversion - 1] =
 			CStringGetTextDatum(stmt->version);
@@ -935,9 +1154,17 @@ CreateForeignServer(CreateForeignServerStmt *stmt)
 		nulls[Anum_pg_foreign_server_srvversion - 1] = true;
 
 	/* Start with a blank acl */
+	/*
+	 *
+	 * ACL 从空白开始。
+	 */
 	nulls[Anum_pg_foreign_server_srvacl - 1] = true;
 
 	/* Add server options */
+	/*
+	 *
+	 * 加入服务器选项。
+	 */
 	srvoptions = transformGenericOptions(ForeignServerRelationId,
 										 PointerGetDatum(NULL),
 										 stmt->options,
@@ -955,6 +1182,10 @@ CreateForeignServer(CreateForeignServerStmt *stmt)
 	heap_freetuple(tuple);
 
 	/* record dependencies */
+	/*
+	 *
+	 * 记录依赖。
+	 */
 	myself.classId = ForeignServerRelationId;
 	myself.objectId = srvId;
 	myself.objectSubId = 0;
@@ -967,9 +1198,17 @@ CreateForeignServer(CreateForeignServerStmt *stmt)
 	recordDependencyOnOwner(ForeignServerRelationId, srvId, ownerId);
 
 	/* dependency on extension */
+	/*
+	 *
+	 * 依赖于扩展。
+	 */
 	recordDependencyOnCurrentExtension(&myself, false);
 
 	/* Post creation hook for new foreign server */
+	/*
+	 *
+	 * 新建外部服务器的创建后钩子。
+	 */
 	InvokeObjectPostCreateHook(ForeignServerRelationId, srvId, 0);
 
 	table_close(rel, RowExclusiveLock);
@@ -980,6 +1219,8 @@ CreateForeignServer(CreateForeignServerStmt *stmt)
 
 /*
  * Alter foreign server
+ *
+ * 修改外部服务器。
  */
 ObjectAddress
 AlterForeignServer(AlterForeignServerStmt *stmt)
@@ -1008,6 +1249,8 @@ AlterForeignServer(AlterForeignServerStmt *stmt)
 
 	/*
 	 * Only owner or a superuser can ALTER a SERVER.
+	 *
+	 * 只有属主或超级用户可以 ALTER SERVER。
 	 */
 	if (!object_ownercheck(ForeignServerRelationId, srvId, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_FOREIGN_SERVER,
@@ -1021,6 +1264,8 @@ AlterForeignServer(AlterForeignServerStmt *stmt)
 	{
 		/*
 		 * Change the server VERSION string.
+		 *
+		 * 更改服务器的 VERSION 字符串。
 		 */
 		if (stmt->version)
 			repl_val[Anum_pg_foreign_server_srvversion - 1] =
@@ -1038,6 +1283,10 @@ AlterForeignServer(AlterForeignServerStmt *stmt)
 		bool		isnull;
 
 		/* Extract the current srvoptions */
+		/*
+		 *
+		 * 取出当前的 srvoptions。
+		 */
 		datum = SysCacheGetAttr(FOREIGNSERVEROID,
 								tp,
 								Anum_pg_foreign_server_srvoptions,
@@ -1046,6 +1295,10 @@ AlterForeignServer(AlterForeignServerStmt *stmt)
 			datum = PointerGetDatum(NULL);
 
 		/* Prepare the options array */
+		/*
+		 *
+		 * 准备选项数组。
+		 */
 		datum = transformGenericOptions(ForeignServerRelationId,
 										datum,
 										stmt->options,
@@ -1060,6 +1313,10 @@ AlterForeignServer(AlterForeignServerStmt *stmt)
 	}
 
 	/* Everything looks good - update the tuple */
+	/*
+	 *
+	 * 一切正常，更新元组。
+	 */
 	tp = heap_modify_tuple(tp, RelationGetDescr(rel),
 						   repl_val, repl_null, repl_repl);
 
@@ -1081,6 +1338,8 @@ AlterForeignServer(AlterForeignServerStmt *stmt)
  * Common routine to check permission for user-mapping-related DDL
  * commands.  We allow server owners to operate on any mapping, and
  * users to operate on their own mapping.
+ *
+ * 检查用户映射相关 DDL 权限的公共例程。服务器属主可以操作任意映射，用户可以操作自己的映射。
  */
 static void
 user_mapping_ddl_aclcheck(Oid umuserid, Oid serverid, const char *servername)
@@ -1106,6 +1365,8 @@ user_mapping_ddl_aclcheck(Oid umuserid, Oid serverid, const char *servername)
 
 /*
  * Create user mapping
+ *
+ * 创建用户映射。
  */
 ObjectAddress
 CreateUserMapping(CreateUserMappingStmt *stmt)
@@ -1131,12 +1392,18 @@ CreateUserMapping(CreateUserMappingStmt *stmt)
 		useId = get_rolespec_oid(stmt->user, false);
 
 	/* Check that the server exists. */
+	/*
+	 *
+	 * 检查服务器是否存在。
+	 */
 	srv = GetForeignServerByName(stmt->servername, false);
 
 	user_mapping_ddl_aclcheck(useId, srv->serverid, stmt->servername);
 
 	/*
 	 * Check that the user mapping is unique within server.
+	 *
+	 * 检查该用户映射在服务器内是唯一的。
 	 */
 	umId = GetSysCacheOid2(USERMAPPINGUSERSERVER, Anum_pg_user_mapping_oid,
 						   ObjectIdGetDatum(useId),
@@ -1149,6 +1416,8 @@ CreateUserMapping(CreateUserMappingStmt *stmt)
 			/*
 			 * Since user mappings aren't members of extensions (see comments
 			 * below), no need for checkMembershipInCurrentExtension here.
+			 *
+			 * 用户映射不是扩展的成员（见下面的注释），因此这里不必调用 checkMembershipInCurrentExtension。
 			 */
 			ereport(NOTICE,
 					(errcode(ERRCODE_DUPLICATE_OBJECT),
@@ -1171,6 +1440,8 @@ CreateUserMapping(CreateUserMappingStmt *stmt)
 
 	/*
 	 * Insert tuple into pg_user_mapping.
+	 *
+	 * 向 pg_user_mapping 插入元组。
 	 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
@@ -1182,6 +1453,10 @@ CreateUserMapping(CreateUserMappingStmt *stmt)
 	values[Anum_pg_user_mapping_umserver - 1] = ObjectIdGetDatum(srv->serverid);
 
 	/* Add user options */
+	/*
+	 *
+	 * 加入用户选项。
+	 */
 	useoptions = transformGenericOptions(UserMappingRelationId,
 										 PointerGetDatum(NULL),
 										 stmt->options,
@@ -1199,6 +1474,10 @@ CreateUserMapping(CreateUserMappingStmt *stmt)
 	heap_freetuple(tuple);
 
 	/* Add dependency on the server */
+	/*
+	 *
+	 * 添加对服务器的依赖。
+	 */
 	myself.classId = UserMappingRelationId;
 	myself.objectId = umId;
 	myself.objectSubId = 0;
@@ -1211,6 +1490,10 @@ CreateUserMapping(CreateUserMappingStmt *stmt)
 	if (OidIsValid(useId))
 	{
 		/* Record the mapped user dependency */
+		/*
+		 *
+		 * 记录被映射用户的依赖。
+		 */
 		recordDependencyOnOwner(UserMappingRelationId, umId, useId);
 	}
 
@@ -1219,9 +1502,16 @@ CreateUserMapping(CreateUserMappingStmt *stmt)
 	 * call here; but since roles aren't members of extensions, it seems like
 	 * user mappings shouldn't be either.  Note that the grammar and pg_dump
 	 * would need to be extended too if we change this.
+	 *
+	 * 也许将来这里应该调用 recordDependencyOnCurrentExtension；但角色不是扩展成员，
+	 * 用户映射似乎也不该是。若要改变这一点，语法和 pg_dump 也得一起扩展。
 	 */
 
 	/* Post creation hook for new user mapping */
+	/*
+	 *
+	 * 新建用户映射的创建后钩子。
+	 */
 	InvokeObjectPostCreateHook(UserMappingRelationId, umId, 0);
 
 	table_close(rel, RowExclusiveLock);
@@ -1232,6 +1522,8 @@ CreateUserMapping(CreateUserMappingStmt *stmt)
 
 /*
  * Alter user mapping
+ *
+ * 修改用户映射。
  */
 ObjectAddress
 AlterUserMapping(AlterUserMappingStmt *stmt)
@@ -1284,6 +1576,8 @@ AlterUserMapping(AlterUserMappingStmt *stmt)
 
 		/*
 		 * Process the options.
+		 *
+		 * 处理选项。
 		 */
 
 		fdw = GetForeignDataWrapper(srv->fdwid);
@@ -1296,6 +1590,10 @@ AlterUserMapping(AlterUserMappingStmt *stmt)
 			datum = PointerGetDatum(NULL);
 
 		/* Prepare the options array */
+		/*
+		 *
+		 * 准备选项数组。
+		 */
 		datum = transformGenericOptions(UserMappingRelationId,
 										datum,
 										stmt->options,
@@ -1310,6 +1608,10 @@ AlterUserMapping(AlterUserMappingStmt *stmt)
 	}
 
 	/* Everything looks good - update the tuple */
+	/*
+	 *
+	 * 一切正常，更新元组。
+	 */
 	tp = heap_modify_tuple(tp, RelationGetDescr(rel),
 						   repl_val, repl_null, repl_repl);
 
@@ -1330,6 +1632,8 @@ AlterUserMapping(AlterUserMappingStmt *stmt)
 
 /*
  * Drop user mapping
+ *
+ * 删除用户映射。
  */
 Oid
 RemoveUserMapping(DropUserMappingStmt *stmt)
@@ -1350,6 +1654,8 @@ RemoveUserMapping(DropUserMappingStmt *stmt)
 			/*
 			 * IF EXISTS specified, role not found and not public. Notice this
 			 * and leave.
+			 *
+			 * 指定了 IF EXISTS，角色不存在且不是 public。发出提示后返回。
 			 */
 			elog(NOTICE, "role \"%s\" does not exist, skipping",
 				 role->rolename);
@@ -1367,6 +1673,10 @@ RemoveUserMapping(DropUserMappingStmt *stmt)
 					 errmsg("server \"%s\" does not exist",
 							stmt->servername)));
 		/* IF EXISTS, just note it */
+		/*
+		 *
+		 * 若为 IF EXISTS，只记一笔。
+		 */
 		ereport(NOTICE,
 				(errmsg("server \"%s\" does not exist, skipping",
 						stmt->servername)));
@@ -1386,6 +1696,10 @@ RemoveUserMapping(DropUserMappingStmt *stmt)
 							MappingUserName(useId), stmt->servername)));
 
 		/* IF EXISTS specified, just note it */
+		/*
+		 *
+		 * 指定了 IF EXISTS，只记一笔。
+		 */
 		ereport(NOTICE,
 				(errmsg("user mapping for \"%s\" does not exist for server \"%s\", skipping",
 						MappingUserName(useId), stmt->servername)));
@@ -1396,6 +1710,8 @@ RemoveUserMapping(DropUserMappingStmt *stmt)
 
 	/*
 	 * Do the deletion
+	 *
+	 * 执行删除。
 	 */
 	object.classId = UserMappingRelationId;
 	object.objectId = umId;
@@ -1410,6 +1726,8 @@ RemoveUserMapping(DropUserMappingStmt *stmt)
 /*
  * Create a foreign table
  * call after DefineRelation().
+ *
+ * 创建外部表。在 DefineRelation() 之后调用。
  */
 void
 CreateForeignTable(CreateForeignTableStmt *stmt, Oid relid)
@@ -1429,6 +1747,8 @@ CreateForeignTable(CreateForeignTableStmt *stmt, Oid relid)
 	/*
 	 * Advance command counter to ensure the pg_attribute tuple is visible;
 	 * the tuple might be updated to add constraints in previous step.
+	 *
+	 * 推进命令计数器，使 pg_attribute 元组可见；上一步可能为加约束更新过该元组。
 	 */
 	CommandCounterIncrement();
 
@@ -1436,12 +1756,16 @@ CreateForeignTable(CreateForeignTableStmt *stmt, Oid relid)
 
 	/*
 	 * For now the owner cannot be specified on create. Use effective user ID.
+	 *
+	 * 目前创建时不能指定属主。使用当前有效用户 ID。
 	 */
 	ownerId = GetUserId();
 
 	/*
 	 * Check that the foreign server exists and that we have USAGE on it. Also
 	 * get the actual FDW for option validation etc.
+	 *
+	 * 检查外部服务器存在且当前用户对其有 USAGE。同时取出实际的 FDW，供选项校验等使用。
 	 */
 	server = GetForeignServerByName(stmt->servername, false);
 	aclresult = object_aclcheck(ForeignServerRelationId, server->serverid, ownerId, ACL_USAGE);
@@ -1452,6 +1776,8 @@ CreateForeignTable(CreateForeignTableStmt *stmt, Oid relid)
 
 	/*
 	 * Insert tuple into pg_foreign_table.
+	 *
+	 * 向 pg_foreign_table 插入元组。
 	 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
@@ -1459,6 +1785,10 @@ CreateForeignTable(CreateForeignTableStmt *stmt, Oid relid)
 	values[Anum_pg_foreign_table_ftrelid - 1] = ObjectIdGetDatum(relid);
 	values[Anum_pg_foreign_table_ftserver - 1] = ObjectIdGetDatum(server->serverid);
 	/* Add table generic options */
+	/*
+	 *
+	 * 加入表的通用选项。
+	 */
 	ftoptions = transformGenericOptions(ForeignTableRelationId,
 										PointerGetDatum(NULL),
 										stmt->options,
@@ -1476,6 +1806,10 @@ CreateForeignTable(CreateForeignTableStmt *stmt, Oid relid)
 	heap_freetuple(tuple);
 
 	/* Add pg_class dependency on the server */
+	/*
+	 *
+	 * 为 pg_class 添加对服务器的依赖。
+	 */
 	myself.classId = RelationRelationId;
 	myself.objectId = relid;
 	myself.objectSubId = 0;
@@ -1490,6 +1824,8 @@ CreateForeignTable(CreateForeignTableStmt *stmt, Oid relid)
 
 /*
  * Import a foreign schema
+ *
+ * 导入外部模式。
  */
 void
 ImportForeignSchema(ImportForeignSchemaStmt *stmt)
@@ -1502,15 +1838,27 @@ ImportForeignSchema(ImportForeignSchemaStmt *stmt)
 	ListCell   *lc;
 
 	/* Check that the foreign server exists and that we have USAGE on it */
+	/*
+	 *
+	 * 检查外部服务器存在且当前用户对其有 USAGE。
+	 */
 	server = GetForeignServerByName(stmt->server_name, false);
 	aclresult = object_aclcheck(ForeignServerRelationId, server->serverid, GetUserId(), ACL_USAGE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_FOREIGN_SERVER, server->servername);
 
 	/* Check that the schema exists and we have CREATE permissions on it */
+	/*
+	 *
+	 * 检查模式存在且当前用户对其有 CREATE 权限。
+	 */
 	(void) LookupCreationNamespace(stmt->local_schema);
 
 	/* Get the FDW and check it supports IMPORT */
+	/*
+	 *
+	 * 取得 FDW 并检查它支持 IMPORT。
+	 */
 	fdw = GetForeignDataWrapper(server->fdwid);
 	if (!OidIsValid(fdw->fdwhandler))
 		ereport(ERROR,
@@ -1525,9 +1873,17 @@ ImportForeignSchema(ImportForeignSchemaStmt *stmt)
 						fdw->fdwname)));
 
 	/* Call FDW to get a list of commands */
+	/*
+	 *
+	 * 调用 FDW 取得命令列表。
+	 */
 	cmd_list = fdw_routine->ImportForeignSchema(stmt, server->serverid);
 
 	/* Parse and execute each command */
+	/*
+	 *
+	 * 解析并执行每条命令。
+	 */
 	foreach(lc, cmd_list)
 	{
 		char	   *cmd = (char *) lfirst(lc);
@@ -1539,8 +1895,14 @@ ImportForeignSchema(ImportForeignSchemaStmt *stmt)
 		/*
 		 * Setup error traceback support for ereport().  This is so that any
 		 * error in the generated SQL will be displayed nicely.
+		 *
+		 * 为 ereport() 设置错误回溯，以便生成的 SQL 出错时能清楚地显示。
 		 */
 		callback_arg.tablename = NULL;	/* not known yet */
+		/*
+		 *
+		 * 尚不知道。
+		 */
 		callback_arg.cmd = cmd;
 		sqlerrcontext.callback = import_error_callback;
 		sqlerrcontext.arg = &callback_arg;
@@ -1549,12 +1911,16 @@ ImportForeignSchema(ImportForeignSchemaStmt *stmt)
 
 		/*
 		 * Parse the SQL string into a list of raw parse trees.
+		 *
+		 * 把 SQL 字符串解析成原始分析树列表。
 		 */
 		raw_parsetree_list = pg_parse_query(cmd);
 
 		/*
 		 * Process each parse tree (we allow the FDW to put more than one
 		 * command per string, though this isn't really advised).
+		 *
+		 * 处理每棵分析树（允许 FDW 在一个字符串里放多条命令，但不建议这样做）。
 		 */
 		foreach(lc2, raw_parsetree_list)
 		{
@@ -1565,6 +1931,8 @@ ImportForeignSchema(ImportForeignSchemaStmt *stmt)
 			/*
 			 * Because we only allow CreateForeignTableStmt, we can skip parse
 			 * analysis, rewrite, and planning steps here.
+			 *
+			 * 因为只允许 CreateForeignTableStmt，这里可以跳过语义分析、重写和规划。
 			 */
 			if (!IsA(cstmt, CreateForeignTableStmt))
 				elog(ERROR,
@@ -1572,16 +1940,32 @@ ImportForeignSchema(ImportForeignSchemaStmt *stmt)
 					 fdw->fdwname, (int) nodeTag(cstmt));
 
 			/* Ignore commands for tables excluded by filter options */
+			/*
+			 *
+			 * 忽略被过滤选项排除的表所对应的命令。
+			 */
 			if (!IsImportableForeignTable(cstmt->base.relation->relname, stmt))
 				continue;
 
 			/* Enable reporting of current table's name on error */
+			/*
+			 *
+			 * 出错时报告当前表名。
+			 */
 			callback_arg.tablename = cstmt->base.relation->relname;
 
 			/* Ensure creation schema is the one given in IMPORT statement */
+			/*
+			 *
+			 * 确保创建所用的模式是 IMPORT 语句给出的那个。
+			 */
 			cstmt->base.relation->schemaname = pstrdup(stmt->local_schema);
 
 			/* No planning needed, just make a wrapper PlannedStmt */
+			/*
+			 *
+			 * 不需要规划，只包一层 PlannedStmt。
+			 */
 			pstmt = makeNode(PlannedStmt);
 			pstmt->commandType = CMD_UTILITY;
 			pstmt->canSetTag = false;
@@ -1590,11 +1974,19 @@ ImportForeignSchema(ImportForeignSchemaStmt *stmt)
 			pstmt->stmt_len = rs->stmt_len;
 
 			/* Execute statement */
+			/*
+			 *
+			 * 执行语句。
+			 */
 			ProcessUtility(pstmt, cmd, false,
 						   PROCESS_UTILITY_SUBCOMMAND, NULL, NULL,
 						   None_Receiver, NULL);
 
 			/* Be sure to advance the command counter between subcommands */
+			/*
+			 *
+			 * 务必在子命令之间推进命令计数器。
+			 */
 			CommandCounterIncrement();
 
 			callback_arg.tablename = NULL;
@@ -1606,6 +1998,8 @@ ImportForeignSchema(ImportForeignSchemaStmt *stmt)
 
 /*
  * error context callback to let us supply the failing SQL statement's text
+ *
+ * 错误上下文回调，用于提供失败的 SQL 语句文本。
  */
 static void
 import_error_callback(void *arg)
@@ -1614,6 +2008,10 @@ import_error_callback(void *arg)
 	int			syntaxerrposition;
 
 	/* If it's a syntax error, convert to internal syntax error report */
+	/*
+	 *
+	 * 若是语法错误，则转换成内部语法错误报告。
+	 */
 	syntaxerrposition = geterrposition();
 	if (syntaxerrposition > 0)
 	{

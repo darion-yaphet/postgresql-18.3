@@ -3,6 +3,8 @@
  * dropcmds.c
  *	  handle various "DROP" operations
  *
+ * 处理各类 DROP 操作。
+ *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
@@ -28,6 +30,12 @@
 #include "utils/lsyscache.h"
 
 
+/*
+ * 核心流程概览：
+ * RemoveObjects 先逐个解析对象地址并检查权限，再一次性 performMultipleDeletions。
+ * IF EXISTS 且对象不存在时，does_not_exist_skipping 及其子程序区分
+ * “对象本身缺失”和“模式、所属关系或数据类型缺失”，并发出 NOTICE。
+ */
 static void does_not_exist_skipping(ObjectType objtype,
 									Node *object);
 static bool owningrel_does_not_exist_skipping(List *object,
@@ -41,13 +49,21 @@ static bool type_in_list_does_not_exist_skipping(List *typenames,
 /*
  * Drop one or more objects.
  *
+ * 删除一个或多个对象。
+ *
  * We don't currently handle all object types here.  Relations, for example,
  * require special handling, because (for example) indexes have additional
  * locking requirements.
  *
+ * 这里并不处理全部对象类型。例如关系需要特殊处理，
+ * 索引还有额外的加锁要求。
+ *
  * We look up all the objects first, and then delete them in a single
  * performMultipleDeletions() call.  This avoids unnecessary DROP RESTRICT
  * errors if there are dependencies between them.
+ *
+ * 先查找全部对象，再一次 performMultipleDeletions() 删除。
+ * 这样它们之间有依赖时不会多余地报 DROP RESTRICT 错误。
  */
 void
 RemoveObjects(DropStmt *stmt)
@@ -65,6 +81,10 @@ RemoveObjects(DropStmt *stmt)
 		Oid			namespaceId;
 
 		/* Get an ObjectAddress for the object. */
+		/*
+		 *
+		 * 取得对象的 ObjectAddress。
+		 */
 		address = get_object_address(stmt->removeType,
 									 object,
 									 &relation,
@@ -75,6 +95,9 @@ RemoveObjects(DropStmt *stmt)
 		 * Issue NOTICE if supplied object was not found.  Note this is only
 		 * relevant in the missing_ok case, because otherwise
 		 * get_object_address would have thrown an error.
+		 *
+		 * 找不到对象时发 NOTICE。这只在 missing_ok 时有意义，
+		 * 否则 get_object_address 已经报错。
 		 */
 		if (!OidIsValid(address.objectId))
 		{
@@ -87,6 +110,9 @@ RemoveObjects(DropStmt *stmt)
 		 * Although COMMENT ON FUNCTION, SECURITY LABEL ON FUNCTION, etc. are
 		 * happy to operate on an aggregate as on any other function, we have
 		 * historically not allowed this for DROP FUNCTION.
+		 *
+		 * COMMENT ON FUNCTION、SECURITY LABEL ON FUNCTION 等可以把聚集当作普通函数，
+		 * 但 DROP FUNCTION 历史上不允许这样。
 		 */
 		if (stmt->removeType == OBJECT_FUNCTION)
 		{
@@ -99,6 +125,10 @@ RemoveObjects(DropStmt *stmt)
 		}
 
 		/* Check permissions. */
+		/*
+		 *
+		 * 检查权限。
+		 */
 		namespaceId = get_object_namespace(&address);
 		if (!OidIsValid(namespaceId) ||
 			!object_ownercheck(NamespaceRelationId, namespaceId, GetUserId()))
@@ -108,11 +138,17 @@ RemoveObjects(DropStmt *stmt)
 		/*
 		 * Make note if a temporary namespace has been accessed in this
 		 * transaction.
+		 *
+		 * 若本事务访问了临时命名空间，记下来。
 		 */
 		if (OidIsValid(namespaceId) && isTempNamespace(namespaceId))
 			MyXactFlags |= XACT_FLAGS_ACCESSEDTEMPNAMESPACE;
 
 		/* Release any relcache reference count, but keep lock until commit. */
+		/*
+		 *
+		 * 释放 relcache 引用计数，但把锁保留到提交。
+		 */
 		if (relation)
 			table_close(relation, NoLock);
 
@@ -120,6 +156,10 @@ RemoveObjects(DropStmt *stmt)
 	}
 
 	/* Here we really delete them. */
+	/*
+	 *
+	 * 这里真正删除它们。
+	 */
 	performMultipleDeletions(objects, stmt->behavior, 0);
 
 	free_object_addresses(objects);
@@ -129,11 +169,17 @@ RemoveObjects(DropStmt *stmt)
  * owningrel_does_not_exist_skipping
  *		Subroutine for RemoveObjects
  *
+ * owningrel_does_not_exist_skipping：RemoveObjects 的子程序。
+ *
  * After determining that a specification for a rule or trigger returns that
  * the specified object does not exist, test whether its owning relation, and
  * its schema, exist or not; if they do, return false --- the trigger or rule
  * itself is missing instead.  If the owning relation or its schema do not
  * exist, fill the error message format string and name, and return true.
+ *
+ * 规则或触发器不存在时，再查其所属关系和模式是否存在。
+ * 若存在，返回 false，表示缺的是规则或触发器本身。
+ * 若所属关系或模式不存在，填好错误格式串和名字并返回 true。
  */
 static bool
 owningrel_does_not_exist_skipping(List *object, const char **msg, char **name)
@@ -163,12 +209,18 @@ owningrel_does_not_exist_skipping(List *object, const char **msg, char **name)
  * schema_does_not_exist_skipping
  *		Subroutine for RemoveObjects
  *
+ * schema_does_not_exist_skipping：RemoveObjects 的子程序。
+ *
  * After determining that a specification for a schema-qualifiable object
  * refers to an object that does not exist, test whether the specified schema
  * exists or not.  If no schema was specified, or if the schema does exist,
  * return false -- the object itself is missing instead.  If the specified
  * schema does not exist, fill the error message format string and the
  * specified schema name, and return true.
+ *
+ * 可带模式名的对象不存在时，检查指定模式是否存在。
+ * 未指定模式或模式存在则返回 false，表示缺的是对象本身。
+ * 模式不存在则填好错误格式串和模式名并返回 true。
  */
 static bool
 schema_does_not_exist_skipping(List *object, const char **msg, char **name)
@@ -193,6 +245,8 @@ schema_does_not_exist_skipping(List *object, const char **msg, char **name)
  * type_in_list_does_not_exist_skipping
  *		Subroutine for RemoveObjects
  *
+ * type_in_list_does_not_exist_skipping：RemoveObjects 的子程序。
+ *
  * After determining that a specification for a function, cast, aggregate or
  * operator returns that the specified object does not exist, test whether the
  * involved datatypes, and their schemas, exist or not; if they do, return
@@ -200,7 +254,13 @@ schema_does_not_exist_skipping(List *object, const char **msg, char **name)
  * or schemas do not exist, fill the error message format string and the
  * missing name, and return true.
  *
+ * 函数、转换、聚集或操作符不存在时，检查相关数据类型及其模式。
+ * 若都存在，返回 false，表示缺的是原对象本身。
+ * 类型或模式不存在则填好错误格式串和缺失的名字并返回 true。
+ *
  * First parameter is a list of TypeNames.
+ *
+ * 第一个参数是 TypeName 的列表。
  */
 static bool
 type_in_list_does_not_exist_skipping(List *typenames, const char **msg,
@@ -217,6 +277,10 @@ type_in_list_does_not_exist_skipping(List *typenames, const char **msg,
 			if (!OidIsValid(LookupTypeNameOid(NULL, typeName, true)))
 			{
 				/* type doesn't exist, try to find why */
+				/*
+				 *
+				 * 类型不存在，试着找出原因。
+				 */
 				if (schema_does_not_exist_skipping(typeName->names, msg, name))
 					return true;
 
@@ -235,9 +299,14 @@ type_in_list_does_not_exist_skipping(List *typenames, const char **msg,
  * does_not_exist_skipping
  *		Subroutine for RemoveObjects
  *
+ * does_not_exist_skipping：RemoveObjects 的子程序。
+ *
  * Generate a NOTICE stating that the named object was not found, and is
  * being skipped.  This is only relevant when "IF EXISTS" is used; otherwise,
  * get_object_address() in RemoveObjects would have thrown an ERROR.
+ *
+ * 发出 NOTICE，说明未找到该对象并已跳过。这只在使用 "IF EXISTS" 时有意义，
+ * 否则 RemoveObjects 里的 get_object_address() 已经报 ERROR。
  */
 static void
 does_not_exist_skipping(ObjectType objtype, Node *object)
@@ -395,6 +464,10 @@ does_not_exist_skipping(ObjectType objtype, Node *object)
 					!type_in_list_does_not_exist_skipping(list_make1(lsecond(castNode(List, object))), &msg, &name))
 				{
 					/* XXX quote or no quote? */
+					/*
+					 *
+					 * XXX：名字要不要加引号？
+					 */
 					msg = gettext_noop("cast from type %s to type %s does not exist, skipping");
 					name = TypeNameToString(linitial_node(TypeName, castNode(List, object)));
 					args = TypeNameToString(lsecond_node(TypeName, castNode(List, object)));
@@ -492,6 +565,8 @@ does_not_exist_skipping(ObjectType objtype, Node *object)
 			/*
 			 * These are handled elsewhere, so if someone gets here the code
 			 * is probably wrong or should be revisited.
+			 *
+			 * 这些情况在别处处理；若执行到这里，代码可能有误或需要重看。
 			 */
 			elog(ERROR, "unsupported object type: %d", (int) objtype);
 			break;
@@ -509,10 +584,18 @@ does_not_exist_skipping(ObjectType objtype, Node *object)
 		case OBJECT_TABCONSTRAINT:
 		case OBJECT_USER_MAPPING:
 			/* These are currently not used or needed. */
+			/*
+			 *
+			 * 这些目前未使用，也不需要。
+			 */
 			elog(ERROR, "unsupported object type: %d", (int) objtype);
 			break;
 
 			/* no default, to let compiler warn about missing case */
+			/*
+			 *
+			 * 不写 default，以便编译器对遗漏的 case 告警。
+			 */
 	}
 	if (!msg)
 		elog(ERROR, "unrecognized object type: %d", (int) objtype);
