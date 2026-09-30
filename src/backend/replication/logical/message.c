@@ -71,8 +71,10 @@ LogLogicalMessage(const char *prefix, const char *message, size_t size,
 
 	xlrec.dbId = MyDatabaseId;
 	xlrec.transactional = transactional;
-	/* trailing zero is critical; see logicalmsg_desc */
-	/* prefix 含结尾 NUL，长度含该字节；见 logicalmsg_desc */
+	/* trailing zero is critical; see logicalmsg_desc
+	 *
+	 * prefix 含结尾 NUL，长度含该字节；见 logicalmsg_desc
+	 */
 	xlrec.prefix_size = strlen(prefix) + 1;
 	xlrec.message_size = size;
 
@@ -81,8 +83,10 @@ LogLogicalMessage(const char *prefix, const char *message, size_t size,
 	XLogRegisterData(prefix, xlrec.prefix_size);
 	XLogRegisterData(message, size);
 
-	/* allow origin filtering */
-	/* 记录含 origin，便于下游按复制源过滤 */
+	/* allow origin filtering
+	 *
+	 * 记录含 origin，便于下游按复制源过滤
+	 */
 	XLogSetRecordFlags(XLOG_INCLUDE_ORIGIN);
 
 	lsn = XLogInsert(RM_LOGICALMSG_ID, XLOG_LOGICAL_MESSAGE);
@@ -109,6 +113,8 @@ logicalmsg_redo(XLogReaderState *record)
 	if (info != XLOG_LOGICAL_MESSAGE)
 		elog(PANIC, "logicalmsg_redo: unknown op code %u", info);
 
-	/* This is only interesting for logical decoding, see decode.c. */
-	/* 实际消费侧为逻辑解码，见 decode.c */
+	/* This is only interesting for logical decoding, see decode.c.
+	 *
+	 * 实际消费侧为逻辑解码，见 decode.c
+	 */
 }

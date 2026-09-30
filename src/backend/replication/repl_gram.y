@@ -3,6 +3,8 @@
  *
  * repl_gram.y				- Parser for the replication commands
  *
+ * repl_gram.y：解析复制命令的语法。
+ *
  * Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
@@ -12,6 +14,11 @@
  *
  *-------------------------------------------------------------------------
  */
+
+/*
+ * 核心流程：把 walsender 复制协议命令解析成对应的 Node，例如 START_REPLICATION、BASE_BACKUP 和复制槽操作。
+ */
+
 
 #include "postgres.h"
 
@@ -29,6 +36,9 @@
  * Bison doesn't allocate anything that needs to live across parser calls,
  * so we can easily have it use palloc instead of malloc.  This prevents
  * memory leaks if we error out during parsing.
+ *
+ * Bison 不会分配需要跨多次解析调用存活的内存，因此这里用 palloc 代替 malloc。
+ * 解析中途报错时，可以避免内存泄漏。
  */
 #define YYMALLOC palloc
 #define YYFREE   pfree
@@ -53,12 +63,18 @@
 	DefElem	   *defelt;
 }
 
-/* Non-keyword tokens */
+/* Non-keyword tokens
+ *
+ * 非关键字记号。
+ */
 %token <str> SCONST IDENT
 %token <uintval> UCONST
 %token <recptr> RECPTR
 
-/* Keyword tokens. */
+/* Keyword tokens.
+ *
+ * 关键字记号。
+ */
 %token K_BASE_BACKUP
 %token K_IDENTIFY_SYSTEM
 %token K_READ_REPLICATION_SLOT
@@ -103,12 +119,18 @@ firstcmd: command opt_semicolon
 				{
 					*replication_parse_result_p = $1;
 
-					(void) yynerrs; /* suppress compiler warning */
+					(void) yynerrs; /* suppress compiler warning
+									 *
+									 * 抑制编译器警告。
+									 */
 				}
 			;
 
 opt_semicolon:	';'
-				| /* EMPTY */
+				| /* EMPTY
+				   *
+				   * 空产生式。
+				   */
 				;
 
 command:
@@ -127,6 +149,8 @@ command:
 
 /*
  * IDENTIFY_SYSTEM
+ *
+ * IDENTIFY_SYSTEM 命令。
  */
 identify_system:
 			K_IDENTIFY_SYSTEM
@@ -137,6 +161,8 @@ identify_system:
 
 /*
  * READ_REPLICATION_SLOT %s
+ *
+ * READ_REPLICATION_SLOT 命令，后跟槽名。
  */
 read_replication_slot:
 			K_READ_REPLICATION_SLOT var_name
@@ -149,6 +175,8 @@ read_replication_slot:
 
 /*
  * SHOW setting
+ *
+ * SHOW 命令，后跟设置名。
  */
 show:
 			K_SHOW var_name
@@ -165,6 +193,8 @@ var_name:	IDENT	{ $$ = $1; }
 
 /*
  * BASE_BACKUP [ ( option [ 'value' ] [, ...] ) ]
+ *
+ * BASE_BACKUP 命令，可选地带一组 option 与 value。
  */
 base_backup:
 			K_BASE_BACKUP '(' generic_option_list ')'
@@ -181,7 +211,10 @@ base_backup:
 			;
 
 create_replication_slot:
-			/* CREATE_REPLICATION_SLOT slot [TEMPORARY] PHYSICAL [options] */
+			/* CREATE_REPLICATION_SLOT slot [TEMPORARY] PHYSICAL [options]
+			 *
+			 * CREATE_REPLICATION_SLOT：槽名，可选 TEMPORARY，再跟 PHYSICAL 与选项。
+			 */
 			K_CREATE_REPLICATION_SLOT IDENT opt_temporary K_PHYSICAL create_slot_options
 				{
 					CreateReplicationSlotCmd *cmd;
@@ -192,7 +225,10 @@ create_replication_slot:
 					cmd->options = $5;
 					$$ = (Node *) cmd;
 				}
-			/* CREATE_REPLICATION_SLOT slot [TEMPORARY] LOGICAL plugin [options] */
+			/* CREATE_REPLICATION_SLOT slot [TEMPORARY] LOGICAL plugin [options]
+			 *
+			 * CREATE_REPLICATION_SLOT：槽名，可选 TEMPORARY，再跟 LOGICAL、插件名与选项。
+			 */
 			| K_CREATE_REPLICATION_SLOT IDENT opt_temporary K_LOGICAL IDENT create_slot_options
 				{
 					CreateReplicationSlotCmd *cmd;
@@ -214,7 +250,10 @@ create_slot_options:
 create_slot_legacy_opt_list:
 			create_slot_legacy_opt_list create_slot_legacy_opt
 				{ $$ = lappend($1, $2); }
-			| /* EMPTY */
+			| /* EMPTY
+			   *
+			   * 空产生式。
+			   */
 				{ $$ = NIL; }
 			;
 
@@ -246,7 +285,10 @@ create_slot_legacy_opt:
 				}
 			;
 
-/* DROP_REPLICATION_SLOT slot */
+/* DROP_REPLICATION_SLOT slot
+ *
+ * DROP_REPLICATION_SLOT 命令，后跟槽名。
+ */
 drop_replication_slot:
 			K_DROP_REPLICATION_SLOT IDENT
 				{
@@ -266,7 +308,10 @@ drop_replication_slot:
 				}
 			;
 
-/* ALTER_REPLICATION_SLOT slot (options) */
+/* ALTER_REPLICATION_SLOT slot (options)
+ *
+ * ALTER_REPLICATION_SLOT 命令，后跟槽名和选项列表。
+ */
 alter_replication_slot:
 			K_ALTER_REPLICATION_SLOT IDENT '(' generic_option_list ')'
 				{
@@ -280,6 +325,8 @@ alter_replication_slot:
 
 /*
  * START_REPLICATION [SLOT slot] [PHYSICAL] %X/%X [TIMELINE %u]
+ *
+ * 物理 START_REPLICATION：可选 SLOT 与 PHYSICAL，再跟起始 LSN，以及可选的时间线。
  */
 start_replication:
 			K_START_REPLICATION opt_slot opt_physical RECPTR opt_timeline
@@ -295,7 +342,10 @@ start_replication:
 				}
 			;
 
-/* START_REPLICATION SLOT slot LOGICAL %X/%X options */
+/* START_REPLICATION SLOT slot LOGICAL %X/%X options
+ *
+ * 逻辑 START_REPLICATION：SLOT、槽名、LOGICAL、起始 LSN 与选项。
+ */
 start_logical_replication:
 			K_START_REPLICATION K_SLOT IDENT K_LOGICAL RECPTR plugin_options
 				{
@@ -310,6 +360,8 @@ start_logical_replication:
 			;
 /*
  * TIMELINE_HISTORY %u
+ *
+ * TIMELINE_HISTORY 命令，后跟时间线编号。
  */
 timeline_history:
 			K_TIMELINE_HISTORY UCONST
@@ -328,7 +380,10 @@ timeline_history:
 				}
 			;
 
-/* UPLOAD_MANIFEST doesn't currently accept any arguments */
+/* UPLOAD_MANIFEST doesn't currently accept any arguments
+ *
+ * UPLOAD_MANIFEST 目前不接受任何参数。
+ */
 upload_manifest:
 			K_UPLOAD_MANIFEST
 				{
@@ -339,18 +394,27 @@ upload_manifest:
 
 opt_physical:
 			K_PHYSICAL
-			| /* EMPTY */
+			| /* EMPTY
+			   *
+			   * 空产生式。
+			   */
 			;
 
 opt_temporary:
 			K_TEMPORARY						{ $$ = true; }
-			| /* EMPTY */					{ $$ = false; }
+			| /* EMPTY
+			   *
+			   * 空产生式。
+			   */					{ $$ = false; }
 			;
 
 opt_slot:
 			K_SLOT IDENT
 				{ $$ = $2; }
-			| /* EMPTY */
+			| /* EMPTY
+			   *
+			   * 空产生式。
+			   */
 				{ $$ = NULL; }
 			;
 
@@ -363,13 +427,19 @@ opt_timeline:
 								 errmsg("invalid timeline %u", $2)));
 					$$ = $2;
 				}
-				| /* EMPTY */			{ $$ = 0; }
+				| /* EMPTY
+				   *
+				   * 空产生式。
+				   */			{ $$ = 0; }
 			;
 
 
 plugin_options:
 			'(' plugin_opt_list ')'			{ $$ = $2; }
-			| /* EMPTY */					{ $$ = NIL; }
+			| /* EMPTY
+			   *
+			   * 空产生式。
+			   */					{ $$ = NIL; }
 		;
 
 plugin_opt_list:
@@ -392,7 +462,10 @@ plugin_opt_elem:
 
 plugin_opt_arg:
 			SCONST							{ $$ = (Node *) makeString($1); }
-			| /* EMPTY */					{ $$ = NULL; }
+			| /* EMPTY
+			   *
+			   * 空产生式。
+			   */					{ $$ = NULL; }
 		;
 
 generic_option_list:

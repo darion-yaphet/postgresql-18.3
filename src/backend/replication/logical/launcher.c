@@ -2,6 +2,8 @@
  * launcher.c
  *	   PostgreSQL logical replication worker launcher process
  *
+ * PostgreSQL 逻辑复制 worker 的启动进程。
+ *
  * Copyright (c) 2016-2025, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
@@ -11,6 +13,9 @@
  *	  This module contains the logical replication worker launcher which
  *	  uses the background worker infrastructure to start the logical
  *	  replication workers for every enabled subscription.
+ *
+ * 说明。本模块包含逻辑复制 worker 启动器，它用后台 worker 机制为每个已
+ * 启用的订阅启动逻辑复制 worker。
  *
  *-------------------------------------------------------------------------
  */
@@ -43,10 +48,25 @@
 #include "utils/pg_lsn.h"
 #include "utils/snapmgr.h"
 
-/* max sleep time between cycles (3min) */
+/*
+ * 核心流程：
+ * postmaster 经 ApplyLauncherRegister 启动 launcher。ApplyLauncherMain 循环读取
+ * pg_subscription，对已启用且缺少 worker 的订阅调用 logicalrep_worker_launch。
+ * 同一订阅两次启动的间隔受 wal_retrieve_retry_interval 限制，时间记在 last-start 共享哈希表。
+ * 订阅目录变化在事务提交时由 ApplyLauncherWakeupAtCommit 唤醒 launcher。
+ * 停止 worker 时 logicalrep_worker_stop 发信号并等待其脱离槽位。
+ */
+
+/* max sleep time between cycles (3min)
+ *
+ * 两轮之间的最长睡眠时间（3 分钟）
+ */
 #define DEFAULT_NAPTIME_PER_CYCLE 180000L
 
-/* GUC variables */
+/* GUC variables
+ *
+ * GUC 变量
+ */
 int			max_logical_replication_workers = 4;
 int			max_sync_workers_per_subscription = 2;
 int			max_parallel_apply_workers_per_subscription = 2;
@@ -55,27 +75,48 @@ LogicalRepWorker *MyLogicalRepWorker = NULL;
 
 typedef struct LogicalRepCtxStruct
 {
-	/* Supervisor process. */
+	/* Supervisor process.
+	 *
+	 * 监督进程。
+	 */
 	pid_t		launcher_pid;
 
-	/* Hash table holding last start times of subscriptions' apply workers. */
+	/* Hash table holding last start times of subscriptions' apply workers.
+	 *
+	 * 保存各订阅 apply worker 最近一次启动时间的哈希表。
+	 */
 	dsa_handle	last_start_dsa;
 	dshash_table_handle last_start_dsh;
 
-	/* Background workers. */
+	/* Background workers.
+	 *
+	 * 后台 worker。
+	 */
 	LogicalRepWorker workers[FLEXIBLE_ARRAY_MEMBER];
 } LogicalRepCtxStruct;
 
 static LogicalRepCtxStruct *LogicalRepCtx;
 
-/* an entry in the last-start-times shared hash table */
+/* an entry in the last-start-times shared hash table
+ *
+ * 最近启动时间共享哈希表中的一项
+ */
 typedef struct LauncherLastStartTimesEntry
 {
-	Oid			subid;			/* OID of logrep subscription (hash key) */
-	TimestampTz last_start_time;	/* last time its apply worker was started */
+	Oid			subid;			/* OID of logrep subscription (hash key)
+								 *
+								 * 逻辑复制订阅的 OID（哈希键）
+								 */
+	TimestampTz last_start_time;	/* last time its apply worker was started
+									 *
+									 * 其 apply worker 上次启动的时间
+									 */
 } LauncherLastStartTimesEntry;
 
-/* parameters for the last-start-times shared hash table */
+/* parameters for the last-start-times shared hash table
+ *
+ * 最近启动时间共享哈希表的参数
+ */
 static const dshash_parameters dsh_params = {
 	sizeof(Oid),
 	sizeof(LauncherLastStartTimesEntry),
@@ -105,8 +146,12 @@ static TimestampTz ApplyLauncherGetWorkerStartTime(Oid subid);
 /*
  * Load the list of subscriptions.
  *
+ * 装入订阅列表。
+ *
  * Only the fields interesting for worker start/stop functions are filled for
  * each subscription.
+ *
+ * 每个订阅只填写 worker 启动和停止函数关心的字段。
  */
 static List *
 get_subscription_list(void)
@@ -117,11 +162,16 @@ get_subscription_list(void)
 	HeapTuple	tup;
 	MemoryContext resultcxt;
 
-	/* This is the context that we will allocate our output data in */
+	/* This is the context that we will allocate our output data in
+	 *
+	 * 将在这个上下文中分配输出数据
+	 */
 	resultcxt = CurrentMemoryContext;
 
 	/*
 	 * Start a transaction so we can access pg_subscription.
+	 *
+	 * 开始一个事务，以便访问 pg_subscription。
 	 */
 	StartTransactionCommand();
 
@@ -139,6 +189,10 @@ get_subscription_list(void)
 		 * transaction's. We do this inside the loop, and restore the original
 		 * context at the end, so that leaky things like heap_getnext() are
 		 * not called in a potentially long-lived context.
+		 *
+		 * 把结果分配在调用方的上下文里，而不是事务的上下文里。在循环内部这样做，
+		 * 并在结束时恢复原来的上下文，这样 heap_getnext() 之类会泄漏的调用就不
+		 * 会发生在可能长寿的上下文中。
 		 */
 		oldcxt = MemoryContextSwitchTo(resultcxt);
 
@@ -148,7 +202,10 @@ get_subscription_list(void)
 		sub->owner = subform->subowner;
 		sub->enabled = subform->subenabled;
 		sub->name = pstrdup(NameStr(subform->subname));
-		/* We don't fill fields we are not interested in. */
+		/* We don't fill fields we are not interested in.
+		 *
+		 * 不填写我们不关心的字段。
+		 */
 
 		res = lappend(res, sub);
 		MemoryContextSwitchTo(oldcxt);
@@ -165,10 +222,16 @@ get_subscription_list(void)
 /*
  * Wait for a background worker to start up and attach to the shmem context.
  *
+ * 等待后台 worker 启动并挂上共享内存上下文。
+ *
  * This is only needed for cleaning up the shared memory in case the worker
  * fails to attach.
  *
+ * 仅用于 worker 未能挂上时清理共享内存。
+ *
  * Returns whether the attach was successful.
+ *
+ * 返回挂接是否成功。
  */
 static bool
 WaitForReplicationWorkerAttach(LogicalRepWorker *worker,
@@ -188,7 +251,10 @@ WaitForReplicationWorkerAttach(LogicalRepWorker *worker,
 
 		LWLockAcquire(LogicalRepWorkerLock, LW_SHARED);
 
-		/* Worker either died or has started. Return false if died. */
+		/* Worker either died or has started. Return false if died.
+		 *
+		 * worker 要么已经退出，要么已经启动。若已退出则返回 false。
+		 */
 		if (!worker->in_use || worker->proc)
 		{
 			result = worker->in_use;
@@ -198,22 +264,34 @@ WaitForReplicationWorkerAttach(LogicalRepWorker *worker,
 
 		LWLockRelease(LogicalRepWorkerLock);
 
-		/* Check if worker has died before attaching, and clean up after it. */
+		/* Check if worker has died before attaching, and clean up after it.
+		 *
+		 * 在挂接之前检查 worker 是否已退出，并在它退出后做清理。
+		 */
 		status = GetBackgroundWorkerPid(handle, &pid);
 
 		if (status == BGWH_STOPPED)
 		{
 			LWLockAcquire(LogicalRepWorkerLock, LW_EXCLUSIVE);
-			/* Ensure that this was indeed the worker we waited for. */
+			/* Ensure that this was indeed the worker we waited for.
+			 *
+			 * 确认这确实是我们等待的那个 worker。
+			 */
 			if (generation == worker->generation)
 				logicalrep_worker_cleanup(worker);
 			LWLockRelease(LogicalRepWorkerLock);
-			break;				/* result is already false */
+			break;				/* result is already false
+								 *
+								 * 结果已经是 false
+								 */
 		}
 
 		/*
 		 * We need timeout because we generally don't get notified via latch
 		 * about the worker attach.  But we don't expect to have to wait long.
+		 *
+		 * 需要超时，因为 worker 挂上时通常不会通过 latch 通知我们。不过预计不
+		 * 会等很久。
 		 */
 		rc = WaitLatch(MyLatch,
 					   WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
@@ -230,6 +308,9 @@ WaitForReplicationWorkerAttach(LogicalRepWorker *worker,
 	/*
 	 * If we had to clear a latch event in order to wait, be sure to restore
 	 * it before exiting.  Otherwise caller may miss events.
+	 *
+	 * 若为了等待而清掉了 latch 事件，退出前务必把它恢复。否则调用方可能错
+	 * 过事件。
 	 */
 	if (dropped_latch)
 		SetLatch(MyLatch);
@@ -241,7 +322,11 @@ WaitForReplicationWorkerAttach(LogicalRepWorker *worker,
  * Walks the workers array and searches for one that matches given
  * subscription id and relid.
  *
+ * 遍历 worker 数组，查找与给定订阅 id 和 relid 匹配的那一个。
+ *
  * We are only interested in the leader apply worker or table sync worker.
+ *
+ * 我们只关心 leader apply worker 或表同步 worker。
  */
 LogicalRepWorker *
 logicalrep_worker_find(Oid subid, Oid relid, bool only_running)
@@ -251,12 +336,18 @@ logicalrep_worker_find(Oid subid, Oid relid, bool only_running)
 
 	Assert(LWLockHeldByMe(LogicalRepWorkerLock));
 
-	/* Search for attached worker for a given subscription id. */
+	/* Search for attached worker for a given subscription id.
+	 *
+	 * 按给定的订阅 id 查找已挂上的 worker。
+	 */
 	for (i = 0; i < max_logical_replication_workers; i++)
 	{
 		LogicalRepWorker *w = &LogicalRepCtx->workers[i];
 
-		/* Skip parallel apply workers. */
+		/* Skip parallel apply workers.
+		 *
+		 * 跳过并行 apply worker。
+		 */
 		if (isParallelApplyWorker(w))
 			continue;
 
@@ -274,6 +365,9 @@ logicalrep_worker_find(Oid subid, Oid relid, bool only_running)
 /*
  * Similar to logicalrep_worker_find(), but returns a list of all workers for
  * the subscription, instead of just one.
+ *
+ * 与 logicalrep_worker_find() 类似，但返回该订阅的全部 worker 列表，而
+ * 不是只返回一个。
  */
 List *
 logicalrep_workers_find(Oid subid, bool only_running, bool acquire_lock)
@@ -286,7 +380,10 @@ logicalrep_workers_find(Oid subid, bool only_running, bool acquire_lock)
 
 	Assert(LWLockHeldByMe(LogicalRepWorkerLock));
 
-	/* Search for attached worker for a given subscription id. */
+	/* Search for attached worker for a given subscription id.
+	 *
+	 * 按给定的订阅 id 查找已挂上的 worker。
+	 */
 	for (i = 0; i < max_logical_replication_workers; i++)
 	{
 		LogicalRepWorker *w = &LogicalRepCtx->workers[i];
@@ -304,7 +401,11 @@ logicalrep_workers_find(Oid subid, bool only_running, bool acquire_lock)
 /*
  * Start new logical replication background worker, if possible.
  *
+ * 如果可能，启动新的逻辑复制后台 worker。
+ *
  * Returns true on success, false on failure.
+ *
+ * 成功返回 true，失败返回 false。
  */
 bool
 logicalrep_worker_launch(LogicalRepWorkerType wtype,
@@ -328,6 +429,9 @@ logicalrep_worker_launch(LogicalRepWorkerType wtype,
 	 * - must be valid worker type
 	 * - tablesync workers are only ones to have relid
 	 * - parallel apply worker is the only kind of subworker
+	 *
+	 * 完整性检查：worker 类型必须有效；只有表同步 worker 才有 relid；并行
+	 * apply worker 是唯一的子 worker 种类。
 	 */
 	Assert(wtype != WORKERTYPE_UNKNOWN);
 	Assert(is_tablesync_worker == OidIsValid(relid));
@@ -337,7 +441,10 @@ logicalrep_worker_launch(LogicalRepWorkerType wtype,
 			(errmsg_internal("starting logical replication worker for subscription \"%s\"",
 							 subname)));
 
-	/* Report this after the initial starting message for consistency. */
+	/* Report this after the initial starting message for consistency.
+	 *
+	 * 为了前后一致，在最初的启动消息之后再报告这个。
+	 */
 	if (max_active_replication_origins == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_CONFIGURATION_LIMIT_EXCEEDED),
@@ -346,11 +453,16 @@ logicalrep_worker_launch(LogicalRepWorkerType wtype,
 	/*
 	 * We need to do the modification of the shared memory under lock so that
 	 * we have consistent view.
+	 *
+	 * 必须在持锁的情况下修改共享内存，才能看到一致的视图。
 	 */
 	LWLockAcquire(LogicalRepWorkerLock, LW_EXCLUSIVE);
 
 retry:
-	/* Find unused worker slot. */
+	/* Find unused worker slot.
+	 *
+	 * 找一个未使用的 worker 槽位。
+	 */
 	for (i = 0; i < max_logical_replication_workers; i++)
 	{
 		LogicalRepWorker *w = &LogicalRepCtx->workers[i];
@@ -371,6 +483,9 @@ retry:
 	 * If we didn't find a free slot, try to do garbage collection.  The
 	 * reason we do this is because if some worker failed to start up and its
 	 * parent has crashed while waiting, the in_use state was never cleared.
+	 *
+	 * 若没找到空闲槽位，就尝试做垃圾回收。这样做是因为：若某个 worker 启动
+	 * 失败，且它的父进程在等待时崩溃，in_use 状态就永远不会被清掉。
 	 */
 	if (worker == NULL || nsyncworkers >= max_sync_workers_per_subscription)
 	{
@@ -383,6 +498,8 @@ retry:
 			/*
 			 * If the worker was marked in use but didn't manage to attach in
 			 * time, clean it up.
+			 *
+			 * 若 worker 被标为正在使用，但没能及时挂上，就把它清理掉。
 			 */
 			if (w->in_use && !w->proc &&
 				TimestampDifferenceExceeds(w->launch_time, now,
@@ -405,6 +522,9 @@ retry:
 	 * We don't allow to invoke more sync workers once we have reached the
 	 * sync worker limit per subscription. So, just return silently as we
 	 * might get here because of an otherwise harmless race condition.
+	 *
+	 * 每个订阅的同步 worker 达到上限后，就不再启动更多同步 worker。这里直
+	 * 接静默返回，因为可能只是一次无害的竞态才走到这里。
 	 */
 	if (is_tablesync_worker && nsyncworkers >= max_sync_workers_per_subscription)
 	{
@@ -417,6 +537,8 @@ retry:
 	/*
 	 * Return false if the number of parallel apply workers reached the limit
 	 * per subscription.
+	 *
+	 * 若该订阅的并行 apply worker 数量已达上限，则返回 false。
 	 */
 	if (is_parallel_apply_worker &&
 		nparallelapplyworkers >= max_parallel_apply_workers_per_subscription)
@@ -428,6 +550,8 @@ retry:
 	/*
 	 * However if there are no more free worker slots, inform user about it
 	 * before exiting.
+	 *
+	 * 不过若已经没有空闲的 worker 槽位，退出前要告知用户。
 	 */
 	if (worker == NULL)
 	{
@@ -439,7 +563,10 @@ retry:
 		return false;
 	}
 
-	/* Prepare the worker slot. */
+	/* Prepare the worker slot.
+	 *
+	 * 准备该 worker 槽位。
+	 */
 	worker->type = wtype;
 	worker->launch_time = now;
 	worker->in_use = true;
@@ -460,12 +587,18 @@ retry:
 	worker->reply_lsn = InvalidXLogRecPtr;
 	TIMESTAMP_NOBEGIN(worker->reply_time);
 
-	/* Before releasing lock, remember generation for future identification. */
+	/* Before releasing lock, remember generation for future identification.
+	 *
+	 * 释放锁之前，记住 generation，以便以后识别。
+	 */
 	generation = worker->generation;
 
 	LWLockRelease(LogicalRepWorkerLock);
 
-	/* Register the new dynamic worker. */
+	/* Register the new dynamic worker.
+	 *
+	 * 注册新的动态 worker。
+	 */
 	memset(&bgw, 0, sizeof(bgw));
 	bgw.bgw_flags = BGWORKER_SHMEM_ACCESS |
 		BGWORKER_BACKEND_DATABASE_CONNECTION;
@@ -502,7 +635,10 @@ retry:
 			break;
 
 		case WORKERTYPE_UNKNOWN:
-			/* Should never happen. */
+			/* Should never happen.
+			 *
+			 * 不应该发生。
+			 */
 			elog(ERROR, "unknown worker type");
 	}
 
@@ -512,7 +648,10 @@ retry:
 
 	if (!RegisterDynamicBackgroundWorker(&bgw, &bgw_handle))
 	{
-		/* Failed to start worker, so clean up the worker slot. */
+		/* Failed to start worker, so clean up the worker slot.
+		 *
+		 * 启动 worker 失败，因此清理该 worker 槽位。
+		 */
 		LWLockAcquire(LogicalRepWorkerLock, LW_EXCLUSIVE);
 		Assert(generation == worker->generation);
 		logicalrep_worker_cleanup(worker);
@@ -525,13 +664,18 @@ retry:
 		return false;
 	}
 
-	/* Now wait until it attaches. */
+	/* Now wait until it attaches.
+	 *
+	 * 现在等到它挂上。
+	 */
 	return WaitForReplicationWorkerAttach(worker, generation, bgw_handle);
 }
 
 /*
  * Internal function to stop the worker and wait until it detaches from the
  * slot.
+ *
+ * 停止该 worker 并等待它脱离槽位的内部函数。
  */
 static void
 logicalrep_worker_stop_internal(LogicalRepWorker *worker, int signo)
@@ -543,12 +687,17 @@ logicalrep_worker_stop_internal(LogicalRepWorker *worker, int signo)
 	/*
 	 * Remember which generation was our worker so we can check if what we see
 	 * is still the same one.
+	 *
+	 * 记住我们这个 worker 的 generation，以便检查现在看到的是否仍是同一个。
 	 */
 	generation = worker->generation;
 
 	/*
 	 * If we found a worker but it does not have proc set then it is still
 	 * starting up; wait for it to finish starting and then kill it.
+	 *
+	 * 若找到了 worker 但还没有设置 proc，说明它仍在启动；等它启动完成后再
+	 * 杀掉它。
 	 */
 	while (worker->in_use && !worker->proc)
 	{
@@ -556,7 +705,10 @@ logicalrep_worker_stop_internal(LogicalRepWorker *worker, int signo)
 
 		LWLockRelease(LogicalRepWorkerLock);
 
-		/* Wait a bit --- we don't expect to have to wait long. */
+		/* Wait a bit --- we don't expect to have to wait long.
+		 *
+		 * 稍等一下。预计不会等很久。
+		 */
 		rc = WaitLatch(MyLatch,
 					   WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
 					   10L, WAIT_EVENT_BGWORKER_STARTUP);
@@ -567,37 +719,58 @@ logicalrep_worker_stop_internal(LogicalRepWorker *worker, int signo)
 			CHECK_FOR_INTERRUPTS();
 		}
 
-		/* Recheck worker status. */
+		/* Recheck worker status.
+		 *
+		 * 再次检查 worker 状态。
+		 */
 		LWLockAcquire(LogicalRepWorkerLock, LW_SHARED);
 
 		/*
 		 * Check whether the worker slot is no longer used, which would mean
 		 * that the worker has exited, or whether the worker generation is
 		 * different, meaning that a different worker has taken the slot.
+		 *
+		 * 检查 worker 槽位是否已不再使用（表示 worker 已退出），或者
+		 * generation 是否已经不同（表示另一个 worker 占用了该槽位）。
 		 */
 		if (!worker->in_use || worker->generation != generation)
 			return;
 
-		/* Worker has assigned proc, so it has started. */
+		/* Worker has assigned proc, so it has started.
+		 *
+		 * worker 已经分配了 proc，说明它已经启动。
+		 */
 		if (worker->proc)
 			break;
 	}
 
-	/* Now terminate the worker ... */
+	/* Now terminate the worker ...
+	 *
+	 * 现在终止该 worker……
+	 */
 	kill(worker->proc->pid, signo);
 
-	/* ... and wait for it to die. */
+	/* ... and wait for it to die.
+	 *
+	 * ……并等待它退出。
+	 */
 	for (;;)
 	{
 		int			rc;
 
-		/* is it gone? */
+		/* is it gone?
+		 *
+		 * 它已经不在了吗？
+		 */
 		if (!worker->proc || worker->generation != generation)
 			break;
 
 		LWLockRelease(LogicalRepWorkerLock);
 
-		/* Wait a bit --- we don't expect to have to wait long. */
+		/* Wait a bit --- we don't expect to have to wait long.
+		 *
+		 * 稍等一下。预计不会等很久。
+		 */
 		rc = WaitLatch(MyLatch,
 					   WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
 					   10L, WAIT_EVENT_BGWORKER_SHUTDOWN);
@@ -614,6 +787,8 @@ logicalrep_worker_stop_internal(LogicalRepWorker *worker, int signo)
 
 /*
  * Stop the logical replication worker for subid/relid, if any.
+ *
+ * 若有的话，停止 subid/relid 对应的逻辑复制 worker。
  */
 void
 logicalrep_worker_stop(Oid subid, Oid relid)
@@ -636,8 +811,13 @@ logicalrep_worker_stop(Oid subid, Oid relid)
 /*
  * Stop the given logical replication parallel apply worker.
  *
+ * 停止指定的逻辑复制并行 apply worker。
+ *
  * Node that the function sends SIGUSR2 instead of SIGTERM to the parallel apply
  * worker so that the worker exits cleanly.
+ *
+ * 注意：本函数向并行 apply worker 发送的是 SIGUSR2 而不是 SIGTERM，以
+ * 便它干净地退出。
  */
 void
 logicalrep_pa_worker_stop(ParallelApplyWorkerInfo *winfo)
@@ -658,6 +838,10 @@ logicalrep_pa_worker_stop(ParallelApplyWorkerInfo *winfo)
 	 * stopping it. This prevents the leader apply worker from trying to
 	 * receive the message from the error queue that might already be detached
 	 * by the parallel apply worker.
+	 *
+	 * 在停止并行 apply worker 之前，先脱离它的 error_mq_handle。这样
+	 * leader apply worker 就不会再试图从可能已被并行 apply worker 拆掉的错
+	 * 误队列里接收消息。
 	 */
 	if (winfo->error_mq_handle)
 	{
@@ -672,6 +856,8 @@ logicalrep_pa_worker_stop(ParallelApplyWorkerInfo *winfo)
 
 	/*
 	 * Only stop the worker if the generation matches and the worker is alive.
+	 *
+	 * 只有 generation 匹配并且 worker 仍然存活时才停止它。
 	 */
 	if (worker->generation == generation && worker->proc)
 		logicalrep_worker_stop_internal(worker, SIGUSR2);
@@ -681,6 +867,8 @@ logicalrep_pa_worker_stop(ParallelApplyWorkerInfo *winfo)
 
 /*
  * Wake up (using latch) any logical replication worker for specified sub/rel.
+ *
+ * 用 latch 唤醒指定 sub/rel 的任意逻辑复制 worker。
  */
 void
 logicalrep_worker_wakeup(Oid subid, Oid relid)
@@ -700,7 +888,11 @@ logicalrep_worker_wakeup(Oid subid, Oid relid)
 /*
  * Wake up (using latch) the specified logical replication worker.
  *
+ * 用 latch 唤醒指定的逻辑复制 worker。
+ *
  * Caller must hold lock, else worker->proc could change under us.
+ *
+ * 调用方必须持有锁，否则 worker 的 proc 可能在我们使用期间被改掉。
  */
 void
 logicalrep_worker_wakeup_ptr(LogicalRepWorker *worker)
@@ -712,11 +904,16 @@ logicalrep_worker_wakeup_ptr(LogicalRepWorker *worker)
 
 /*
  * Attach to a slot.
+ *
+ * 挂上一个槽位。
  */
 void
 logicalrep_worker_attach(int slot)
 {
-	/* Block concurrent access. */
+	/* Block concurrent access.
+	 *
+	 * 阻止并发访问。
+	 */
 	LWLockAcquire(LogicalRepWorkerLock, LW_EXCLUSIVE);
 
 	Assert(slot >= 0 && slot < max_logical_replication_workers);
@@ -749,11 +946,17 @@ logicalrep_worker_attach(int slot)
 /*
  * Stop the parallel apply workers if any, and detach the leader apply worker
  * (cleans up the worker info).
+ *
+ * 若有并行 apply worker 则停掉它们，并让 leader apply worker 脱离（清
+ * 理 worker 信息）。
  */
 static void
 logicalrep_worker_detach(void)
 {
-	/* Stop the parallel apply workers. */
+	/* Stop the parallel apply workers.
+	 *
+	 * 停止并行 apply worker。
+	 */
 	if (am_leader_apply_worker())
 	{
 		List	   *workers;
@@ -764,6 +967,10 @@ logicalrep_worker_detach(void)
 		 * before terminating them. This prevents the leader apply worker from
 		 * receiving the worker termination message and sending it to logs
 		 * when the same is already done by the parallel worker.
+		 *
+		 * 在终止所有并行 apply worker 之前，先脱离它们的 error_mq_handle。这样
+		 * leader apply worker 就不会收到 worker 终止消息并写到日志里，因为并行
+		 * worker 自己已经做过同样的事。
 		 */
 		pa_detach_all_error_mq();
 
@@ -781,7 +988,10 @@ logicalrep_worker_detach(void)
 		LWLockRelease(LogicalRepWorkerLock);
 	}
 
-	/* Block concurrent access. */
+	/* Block concurrent access.
+	 *
+	 * 阻止并发访问。
+	 */
 	LWLockAcquire(LogicalRepWorkerLock, LW_EXCLUSIVE);
 
 	logicalrep_worker_cleanup(MyLogicalRepWorker);
@@ -791,6 +1001,8 @@ logicalrep_worker_detach(void)
 
 /*
  * Clean up worker info.
+ *
+ * 清理 worker 信息。
  */
 static void
 logicalrep_worker_cleanup(LogicalRepWorker *worker)
@@ -811,7 +1023,11 @@ logicalrep_worker_cleanup(LogicalRepWorker *worker)
 /*
  * Cleanup function for logical replication launcher.
  *
+ * 逻辑复制 launcher 的清理函数。
+ *
  * Called on logical replication launcher exit.
+ *
+ * 在逻辑复制 launcher 退出时调用。
  */
 static void
 logicalrep_launcher_onexit(int code, Datum arg)
@@ -822,18 +1038,28 @@ logicalrep_launcher_onexit(int code, Datum arg)
 /*
  * Cleanup function.
  *
+ * 清理函数。
+ *
  * Called on logical replication worker exit.
+ *
+ * 在逻辑复制 worker 退出时调用。
  */
 static void
 logicalrep_worker_onexit(int code, Datum arg)
 {
-	/* Disconnect gracefully from the remote side. */
+	/* Disconnect gracefully from the remote side.
+	 *
+	 * 优雅地断开与远程端的连接。
+	 */
 	if (LogRepWorkerWalRcvConn)
 		walrcv_disconnect(LogRepWorkerWalRcvConn);
 
 	logicalrep_worker_detach();
 
-	/* Cleanup fileset used for streaming transactions. */
+	/* Cleanup fileset used for streaming transactions.
+	 *
+	 * 清理流式事务使用的文件集。
+	 */
 	if (MyLogicalRepWorker->stream_fileset != NULL)
 		FileSetDeleteAll(MyLogicalRepWorker->stream_fileset);
 
@@ -842,7 +1068,12 @@ logicalrep_worker_onexit(int code, Datum arg)
 	 * parallel apply mode and will not be released when the worker
 	 * terminates, so manually release all locks before the worker exits.
 	 *
+	 * 并行 apply 模式下，会话级锁可能在事务之外获取，worker 终止时不会自动
+	 * 释放，因此退出前要手动释放全部锁。
+	 *
 	 * The locks will be acquired once the worker is initialized.
+	 *
+	 * worker 初始化之后才会获取这些锁。
 	 */
 	if (!InitializingApplyWorker)
 		LockReleaseAll(DEFAULT_LOCKMETHOD, true);
@@ -853,6 +1084,8 @@ logicalrep_worker_onexit(int code, Datum arg)
 /*
  * Count the number of registered (not necessarily running) sync workers
  * for a subscription.
+ *
+ * 统计某个订阅已注册（未必正在运行）的同步 worker 数量。
  */
 int
 logicalrep_sync_worker_count(Oid subid)
@@ -862,7 +1095,10 @@ logicalrep_sync_worker_count(Oid subid)
 
 	Assert(LWLockHeldByMe(LogicalRepWorkerLock));
 
-	/* Search for attached worker for a given subscription id. */
+	/* Search for attached worker for a given subscription id.
+	 *
+	 * 按给定的订阅 id 查找已挂上的 worker。
+	 */
 	for (i = 0; i < max_logical_replication_workers; i++)
 	{
 		LogicalRepWorker *w = &LogicalRepCtx->workers[i];
@@ -877,6 +1113,8 @@ logicalrep_sync_worker_count(Oid subid)
 /*
  * Count the number of registered (but not necessarily running) parallel apply
  * workers for a subscription.
+ *
+ * 统计某个订阅已注册（未必正在运行）的并行 apply worker 数量。
  */
 static int
 logicalrep_pa_worker_count(Oid subid)
@@ -889,6 +1127,8 @@ logicalrep_pa_worker_count(Oid subid)
 	/*
 	 * Scan all attached parallel apply workers, only counting those which
 	 * have the given subscription id.
+	 *
+	 * 扫描所有已挂上的并行 apply worker，只统计具有给定订阅 id 的那些。
 	 */
 	for (i = 0; i < max_logical_replication_workers; i++)
 	{
@@ -904,6 +1144,8 @@ logicalrep_pa_worker_count(Oid subid)
 /*
  * ApplyLauncherShmemSize
  *		Compute space needed for replication launcher shared memory
+ *
+ * ApplyLauncherShmemSize：计算复制 launcher 所需的共享内存空间
  */
 Size
 ApplyLauncherShmemSize(void)
@@ -912,6 +1154,8 @@ ApplyLauncherShmemSize(void)
 
 	/*
 	 * Need the fixed struct and the array of LogicalRepWorker.
+	 *
+	 * 需要固定结构体以及 LogicalRepWorker 数组。
 	 */
 	size = sizeof(LogicalRepCtxStruct);
 	size = MAXALIGN(size);
@@ -923,6 +1167,8 @@ ApplyLauncherShmemSize(void)
 /*
  * ApplyLauncherRegister
  *		Register a background worker running the logical replication launcher.
+ *
+ * ApplyLauncherRegister：注册一个运行逻辑复制 launcher 的后台 worker。
  */
 void
 ApplyLauncherRegister(void)
@@ -935,6 +1181,10 @@ ApplyLauncherRegister(void)
 	 * That could cause replication origins to move forward after having been
 	 * copied to the target cluster, potentially creating conflicts with the
 	 * copied data files.
+	 *
+	 * 二进制升级期间会禁用逻辑复制 launcher，以免逻辑复制 worker 在源集群
+	 * 上运行。否则复制源可能在被复制到目标集群之后继续向前推进，从而与已复
+	 * 制的数据文件产生冲突。
 	 */
 	if (max_logical_replication_workers == 0 || IsBinaryUpgrade)
 		return;
@@ -959,6 +1209,8 @@ ApplyLauncherRegister(void)
 /*
  * ApplyLauncherShmemInit
  *		Allocate and initialize replication launcher shared memory
+ *
+ * ApplyLauncherShmemInit：分配并初始化复制 launcher 的共享内存
  */
 void
 ApplyLauncherShmemInit(void)
@@ -979,7 +1231,10 @@ ApplyLauncherShmemInit(void)
 		LogicalRepCtx->last_start_dsa = DSA_HANDLE_INVALID;
 		LogicalRepCtx->last_start_dsh = DSHASH_HANDLE_INVALID;
 
-		/* Initialize memory and spin locks for each worker slot. */
+		/* Initialize memory and spin locks for each worker slot.
+		 *
+		 * 为每个 worker 槽位初始化内存和自旋锁。
+		 */
 		for (slot = 0; slot < max_logical_replication_workers; slot++)
 		{
 			LogicalRepWorker *worker = &LogicalRepCtx->workers[slot];
@@ -994,38 +1249,59 @@ ApplyLauncherShmemInit(void)
  * Initialize or attach to the dynamic shared hash table that stores the
  * last-start times, if not already done.
  * This must be called before accessing the table.
+ *
+ * 若尚未完成，则初始化或挂上保存最近启动时间的动态共享哈希表。访问该表
+ * 之前必须先调用。
  */
 static void
 logicalrep_launcher_attach_dshmem(void)
 {
 	MemoryContext oldcontext;
 
-	/* Quick exit if we already did this. */
+	/* Quick exit if we already did this.
+	 *
+	 * 若已经做过，就直接返回。
+	 */
 	if (LogicalRepCtx->last_start_dsh != DSHASH_HANDLE_INVALID &&
 		last_start_times != NULL)
 		return;
 
-	/* Otherwise, use a lock to ensure only one process creates the table. */
+	/* Otherwise, use a lock to ensure only one process creates the table.
+	 *
+	 * 否则加锁，确保只有一个进程创建该表。
+	 */
 	LWLockAcquire(LogicalRepWorkerLock, LW_EXCLUSIVE);
 
-	/* Be sure any local memory allocated by DSA routines is persistent. */
+	/* Be sure any local memory allocated by DSA routines is persistent.
+	 *
+	 * 确保 DSA 例程分配的本地内存是持久的。
+	 */
 	oldcontext = MemoryContextSwitchTo(TopMemoryContext);
 
 	if (LogicalRepCtx->last_start_dsh == DSHASH_HANDLE_INVALID)
 	{
-		/* Initialize dynamic shared hash table for last-start times. */
+		/* Initialize dynamic shared hash table for last-start times.
+		 *
+		 * 初始化用于最近启动时间的动态共享哈希表。
+		 */
 		last_start_times_dsa = dsa_create(LWTRANCHE_LAUNCHER_DSA);
 		dsa_pin(last_start_times_dsa);
 		dsa_pin_mapping(last_start_times_dsa);
 		last_start_times = dshash_create(last_start_times_dsa, &dsh_params, NULL);
 
-		/* Store handles in shared memory for other backends to use. */
+		/* Store handles in shared memory for other backends to use.
+		 *
+		 * 把句柄存入共享内存，供其他后端使用。
+		 */
 		LogicalRepCtx->last_start_dsa = dsa_get_handle(last_start_times_dsa);
 		LogicalRepCtx->last_start_dsh = dshash_get_hash_table_handle(last_start_times);
 	}
 	else if (!last_start_times)
 	{
-		/* Attach to existing dynamic shared hash table. */
+		/* Attach to existing dynamic shared hash table.
+		 *
+		 * 挂上已有的动态共享哈希表。
+		 */
 		last_start_times_dsa = dsa_attach(LogicalRepCtx->last_start_dsa);
 		dsa_pin_mapping(last_start_times_dsa);
 		last_start_times = dshash_attach(last_start_times_dsa, &dsh_params,
@@ -1038,6 +1314,8 @@ logicalrep_launcher_attach_dshmem(void)
 
 /*
  * Set the last-start time for the subscription.
+ *
+ * 设置该订阅的最近启动时间。
  */
 static void
 ApplyLauncherSetWorkerStartTime(Oid subid, TimestampTz start_time)
@@ -1054,6 +1332,8 @@ ApplyLauncherSetWorkerStartTime(Oid subid, TimestampTz start_time)
 
 /*
  * Return the last-start time for the subscription, or 0 if there isn't one.
+ *
+ * 返回该订阅的最近启动时间；若没有则返回 0。
  */
 static TimestampTz
 ApplyLauncherGetWorkerStartTime(Oid subid)
@@ -1076,10 +1356,15 @@ ApplyLauncherGetWorkerStartTime(Oid subid)
 /*
  * Remove the last-start-time entry for the subscription, if one exists.
  *
+ * 若存在，则删除该订阅的最近启动时间项。
+ *
  * This has two use-cases: to remove the entry related to a subscription
  * that's been deleted or disabled (just to avoid leaking shared memory),
  * and to allow immediate restart of an apply worker that has exited
  * due to subscription parameter changes.
+ *
+ * 有两种用途：删除已删除或已禁用订阅的项（避免共享内存泄漏）；以及让因
+ * 订阅参数变化而退出的 apply worker 可以立即重启。
  */
 void
 ApplyLauncherForgetWorkerStartTime(Oid subid)
@@ -1091,6 +1376,8 @@ ApplyLauncherForgetWorkerStartTime(Oid subid)
 
 /*
  * Wakeup the launcher on commit if requested.
+ *
+ * 若已请求，则在提交时唤醒 launcher。
  */
 void
 AtEOXact_ApplyLauncher(bool isCommit)
@@ -1107,9 +1394,14 @@ AtEOXact_ApplyLauncher(bool isCommit)
 /*
  * Request wakeup of the launcher on commit of the transaction.
  *
+ * 请求在本事务提交时唤醒 launcher。
+ *
  * This is used to send launcher signal to stop sleeping and process the
  * subscriptions when current transaction commits. Should be used when new
  * tuple was added to the pg_subscription catalog.
+ *
+ * 当前事务提交时，用它通知 launcher 停止睡眠并处理订阅。应在
+ * pg_subscription 目录新增元组时使用。
 */
 void
 ApplyLauncherWakeupAtCommit(void)
@@ -1118,6 +1410,9 @@ ApplyLauncherWakeupAtCommit(void)
 		on_commit_launcher_wakeup = true;
 }
 
+/*
+ * 向 launcher 进程发送 SIGUSR1，把它从睡眠中唤醒。
+ */
 static void
 ApplyLauncherWakeup(void)
 {
@@ -1127,6 +1422,8 @@ ApplyLauncherWakeup(void)
 
 /*
  * Main loop for the apply launcher process.
+ *
+ * apply launcher 进程的主循环。
  */
 void
 ApplyLauncherMain(Datum main_arg)
@@ -1139,7 +1436,10 @@ ApplyLauncherMain(Datum main_arg)
 	Assert(LogicalRepCtx->launcher_pid == 0);
 	LogicalRepCtx->launcher_pid = MyProcPid;
 
-	/* Establish signal handlers. */
+	/* Establish signal handlers.
+	 *
+	 * 建立信号处理函数。
+	 */
 	pqsignal(SIGHUP, SignalHandlerForConfigReload);
 	pqsignal(SIGTERM, die);
 	BackgroundWorkerUnblockSignals();
@@ -1147,10 +1447,15 @@ ApplyLauncherMain(Datum main_arg)
 	/*
 	 * Establish connection to nailed catalogs (we only ever access
 	 * pg_subscription).
+	 *
+	 * 建立到钉住的系统目录的连接（我们只会访问 pg_subscription）。
 	 */
 	BackgroundWorkerInitializeConnection(NULL, NULL, 0);
 
-	/* Enter main loop */
+	/* Enter main loop
+	 *
+	 * 进入主循环
+	 */
 	for (;;)
 	{
 		int			rc;
@@ -1162,13 +1467,19 @@ ApplyLauncherMain(Datum main_arg)
 
 		CHECK_FOR_INTERRUPTS();
 
-		/* Use temporary context to avoid leaking memory across cycles. */
+		/* Use temporary context to avoid leaking memory across cycles.
+		 *
+		 * 使用临时上下文，避免跨循环泄漏内存。
+		 */
 		subctx = AllocSetContextCreate(TopMemoryContext,
 									   "Logical Replication Launcher sublist",
 									   ALLOCSET_DEFAULT_SIZES);
 		oldctx = MemoryContextSwitchTo(subctx);
 
-		/* Start any missing workers for enabled subscriptions. */
+		/* Start any missing workers for enabled subscriptions.
+		 *
+		 * 为已启用的订阅启动尚缺的 worker。
+		 */
 		sublist = get_subscription_list();
 		foreach(lc, sublist)
 		{
@@ -1186,12 +1497,18 @@ ApplyLauncherMain(Datum main_arg)
 			LWLockRelease(LogicalRepWorkerLock);
 
 			if (w != NULL)
-				continue;		/* worker is running already */
+				continue;		/* worker is running already
+								 *
+								 * worker 已经在运行
+								 */
 
 			/*
 			 * If the worker is eligible to start now, launch it.  Otherwise,
 			 * adjust wait_time so that we'll wake up as soon as it can be
 			 * started.
+			 *
+			 * 若该 worker 现在可以启动，就启动它。否则调整 wait_time，以便它一旦可
+			 * 以启动我们就醒来。
 			 *
 			 * Each subscription's apply worker can only be restarted once per
 			 * wal_retrieve_retry_interval, so that errors do not cause us to
@@ -1200,6 +1517,11 @@ ApplyLauncherMain(Datum main_arg)
 			 * changes), another process should remove the last-start entry
 			 * for the subscription so that the worker can be restarted
 			 * without waiting for wal_retrieve_retry_interval to elapse.
+			 *
+			 * 每个订阅的 apply worker 在每个 wal_retrieve_retry_interval 内只能重
+			 * 启一次，以免出错时我们以最快速度反复重启。若预期会重启（例如订阅参数
+			 * 变化），另一个进程应删掉该订阅的最近启动时间项，这样不必等
+			 * wal_retrieve_retry_interval 过去就能重启 worker。
 			 */
 			last_start = ApplyLauncherGetWorkerStartTime(sub->oid);
 			now = GetCurrentTimestamp();
@@ -1218,6 +1540,9 @@ ApplyLauncherMain(Datum main_arg)
 					 * launched one but it immediately quit.  Either way, it
 					 * seems appropriate to try again after
 					 * wal_retrieve_retry_interval.
+					 *
+					 * 走到这里，要么是启动 worker 失败（也许是资源耗尽），要么是启动后它立
+					 * 刻退出了。无论哪种，都适合在 wal_retrieve_retry_interval 之后再试。
 					 */
 					wait_time = Min(wait_time,
 									wal_retrieve_retry_interval);
@@ -1230,12 +1555,21 @@ ApplyLauncherMain(Datum main_arg)
 			}
 		}
 
-		/* Switch back to original memory context. */
+		/* Switch back to original memory context.
+		 *
+		 * 切换回原来的内存上下文。
+		 */
 		MemoryContextSwitchTo(oldctx);
-		/* Clean the temporary memory. */
+		/* Clean the temporary memory.
+		 *
+		 * 清理临时内存。
+		 */
 		MemoryContextDelete(subctx);
 
-		/* Wait for more work. */
+		/* Wait for more work.
+		 *
+		 * 等待更多工作。
+		 */
 		rc = WaitLatch(MyLatch,
 					   WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
 					   wait_time,
@@ -1254,11 +1588,16 @@ ApplyLauncherMain(Datum main_arg)
 		}
 	}
 
-	/* Not reachable */
+	/* Not reachable
+	 *
+	 * 不可到达
+	 */
 }
 
 /*
  * Is current process the logical replication launcher?
+ *
+ * 当前进程是不是逻辑复制 launcher？
  */
 bool
 IsLogicalLauncher(void)
@@ -1269,6 +1608,9 @@ IsLogicalLauncher(void)
 /*
  * Return the pid of the leader apply worker if the given pid is the pid of a
  * parallel apply worker, otherwise, return InvalidPid.
+ *
+ * 若给定 pid 是某个并行 apply worker 的 pid，则返回其 leader apply
+ * worker 的 pid，否则返回 InvalidPid。
  */
 pid_t
 GetLeaderApplyWorkerPid(pid_t pid)
@@ -1296,6 +1638,8 @@ GetLeaderApplyWorkerPid(pid_t pid)
 
 /*
  * Returns state of the subscriptions.
+ *
+ * 返回各订阅的状态。
  */
 Datum
 pg_stat_get_subscription(PG_FUNCTION_ARGS)
@@ -1307,12 +1651,18 @@ pg_stat_get_subscription(PG_FUNCTION_ARGS)
 
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* Make sure we get consistent view of the workers. */
+	/* Make sure we get consistent view of the workers.
+	 *
+	 * 确保看到一致的 worker 视图。
+	 */
 	LWLockAcquire(LogicalRepWorkerLock, LW_SHARED);
 
 	for (i = 0; i < max_logical_replication_workers; i++)
 	{
-		/* for each row */
+		/* for each row
+		 *
+		 * 对每一行
+		 */
 		Datum		values[PG_STAT_GET_SUBSCRIPTION_COLS] = {0};
 		bool		nulls[PG_STAT_GET_SUBSCRIPTION_COLS] = {0};
 		int			worker_pid;
@@ -1373,7 +1723,10 @@ pg_stat_get_subscription(PG_FUNCTION_ARGS)
 				values[9] = CStringGetTextDatum("table synchronization");
 				break;
 			case WORKERTYPE_UNKNOWN:
-				/* Should never happen. */
+				/* Should never happen.
+				 *
+				 * 不应该发生。
+				 */
 				elog(ERROR, "unknown worker type");
 		}
 
@@ -1383,6 +1736,8 @@ pg_stat_get_subscription(PG_FUNCTION_ARGS)
 		/*
 		 * If only a single subscription was requested, and we found it,
 		 * break.
+		 *
+		 * 若只请求了一个订阅并且已经找到，就跳出循环。
 		 */
 		if (OidIsValid(subid))
 			break;

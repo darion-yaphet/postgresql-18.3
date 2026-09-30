@@ -6,6 +6,9 @@
  * with the walreceiver process. Functions implementing walreceiver itself
  * are in walreceiver.c.
  *
+ * 本文件是 startup 进程用来与 walreceiver 进程通信的函数。
+ * walreceiver 自身的实现在 walreceiver.c。
+ *
  * Portions Copyright (c) 2010-2025, PostgreSQL Global Development Group
  *
  *
@@ -36,10 +39,19 @@ WalRcvData *WalRcv = NULL;
 /*
  * How long to wait for walreceiver to start up after requesting
  * postmaster to launch it. In seconds.
+ *
+ * 请求 postmaster 启动 walreceiver 之后，等待它起来的最长时间，单位为秒。
  */
 #define WALRCV_STARTUP_TIMEOUT 10
 
-/* Report shared memory space needed by WalRcvShmemInit */
+/*
+ * 核心流程：startup 通过共享内存请求 postmaster 启动 walreceiver，并读取其写入与刷盘位置。
+ */
+
+/* Report shared memory space needed by WalRcvShmemInit
+ *
+ * 报告 WalRcvShmemInit 所需的共享内存大小。
+ */
 Size
 WalRcvShmemSize(void)
 {
@@ -50,7 +62,10 @@ WalRcvShmemSize(void)
 	return size;
 }
 
-/* Allocate and initialize walreceiver-related shared memory */
+/* Allocate and initialize walreceiver-related shared memory
+ *
+ * 分配并初始化 walreceiver 相关的共享内存。
+ */
 void
 WalRcvShmemInit(void)
 {
@@ -61,7 +76,10 @@ WalRcvShmemInit(void)
 
 	if (!found)
 	{
-		/* First time through, so initialize */
+		/* First time through, so initialize
+		 *
+		 * 第一次创建，因此做初始化。
+		 */
 		MemSet(WalRcv, 0, WalRcvShmemSize());
 		WalRcv->walRcvState = WALRCV_STOPPED;
 		ConditionVariableInit(&WalRcv->walRcvStoppedCV);
@@ -71,7 +89,10 @@ WalRcvShmemInit(void)
 	}
 }
 
-/* Is walreceiver running (or starting up)? */
+/* Is walreceiver running (or starting up)?
+ *
+ * walreceiver 是否正在运行，或正在启动？
+ */
 bool
 WalRcvRunning(void)
 {
@@ -91,6 +112,9 @@ WalRcvRunning(void)
 	 * the state to STOPPED ensures that if walreceiver later does start up
 	 * after all, it will see that it's not supposed to be running and die
 	 * without doing anything.
+	 *
+	 * 若 walreceiver 启动耗时过长就放弃。把状态设为 STOPPED 后，
+	 * 即便它后来真的起来，也会发现自己不该运行，于是什么都不做并退出。
 	 */
 	if (state == WALRCV_STARTING)
 	{
@@ -122,6 +146,8 @@ WalRcvRunning(void)
 /*
  * Is walreceiver running and streaming (or at least attempting to connect,
  * or starting up)?
+ *
+ * walreceiver 是否正在运行并流式接收，或至少正在尝试连接、正在启动？
  */
 bool
 WalRcvStreaming(void)
@@ -142,6 +168,9 @@ WalRcvStreaming(void)
 	 * the state to STOPPED ensures that if walreceiver later does start up
 	 * after all, it will see that it's not supposed to be running and die
 	 * without doing anything.
+	 *
+	 * 若 walreceiver 启动耗时过长就放弃。把状态设为 STOPPED 后，
+	 * 即便它后来真的起来，也会发现自己不该运行，于是什么都不做并退出。
 	 */
 	if (state == WALRCV_STARTING)
 	{
@@ -174,6 +203,8 @@ WalRcvStreaming(void)
 /*
  * Stop walreceiver (if running) and wait for it to die.
  * Executed by the Startup process.
+ *
+ * 若 walreceiver 在运行则让它停止，并等待它退出。由 startup 进程执行。
  */
 void
 ShutdownWalRcv(void)
@@ -186,6 +217,8 @@ ShutdownWalRcv(void)
 	 * Request walreceiver to stop. Walreceiver will switch to WALRCV_STOPPED
 	 * mode once it's finished, and will also request postmaster to not
 	 * restart itself.
+	 *
+	 * 请求 walreceiver 停止。结束后它会切到 WALRCV_STOPPED，并请 postmaster 不要再重启它。
 	 */
 	SpinLockAcquire(&walrcv->mutex);
 	switch (walrcv->walRcvState)
@@ -201,19 +234,27 @@ ShutdownWalRcv(void)
 		case WALRCV_WAITING:
 		case WALRCV_RESTARTING:
 			walrcv->walRcvState = WALRCV_STOPPING;
-			/* fall through */
+			/* fall through
+			 *
+			 * 贯穿到下一分支。
+			 */
 		case WALRCV_STOPPING:
 			walrcvpid = walrcv->pid;
 			break;
 	}
 	SpinLockRelease(&walrcv->mutex);
 
-	/* Unnecessary but consistent. */
+	/* Unnecessary but consistent.
+	 *
+	 * 并非必需，但与其他分支保持一致。
+	 */
 	if (stopped)
 		ConditionVariableBroadcast(&walrcv->walRcvStoppedCV);
 
 	/*
 	 * Signal walreceiver process if it was still running.
+	 *
+	 * 若 walreceiver 进程仍在运行，则向它发信号。
 	 */
 	if (walrcvpid != 0)
 		kill(walrcvpid, SIGTERM);
@@ -221,6 +262,8 @@ ShutdownWalRcv(void)
 	/*
 	 * Wait for walreceiver to acknowledge its death by setting state to
 	 * WALRCV_STOPPED.
+	 *
+	 * 等待 walreceiver 把状态设为 WALRCV_STOPPED，以此确认自己已退出。
 	 */
 	ConditionVariablePrepareToSleep(&walrcv->walRcvStoppedCV);
 	while (WalRcvRunning())
@@ -232,15 +275,23 @@ ShutdownWalRcv(void)
 /*
  * Request postmaster to start walreceiver.
  *
+ * 请求 postmaster 启动 walreceiver。
+ *
  * "recptr" indicates the position where streaming should begin.  "conninfo"
  * is a libpq connection string to use.  "slotname" is, optionally, the name
  * of a replication slot to acquire.  "create_temp_slot" indicates to create
  * a temporary slot when no "slotname" is given.
  *
+ * recptr 是开始流式接收的位置。conninfo 是要使用的 libpq 连接串。
+ * slotname 可选，是要获取的复制槽名。未给出 slotname 时，create_temp_slot 表示是否创建临时槽。
+ *
  * WAL receivers do not directly load GUC parameters used for the connection
  * to the primary, and rely on the values passed down by the caller of this
  * routine instead.  Hence, the addition of any new parameters should happen
  * through this code path.
+ *
+ * walreceiver 不直接加载连接主库所用的 GUC，而是使用本函数调用者传下来的值。
+ * 因此新增参数都应走这条路径。
  */
 void
 RequestXLogStreaming(TimeLineID tli, XLogRecPtr recptr, const char *conninfo,
@@ -256,13 +307,19 @@ RequestXLogStreaming(TimeLineID tli, XLogRecPtr recptr, const char *conninfo,
 	 * segment (i.e., with no records in the first half of a segment) from
 	 * being created by XLOG streaming, which might cause trouble later on if
 	 * the segment is e.g archived.
+	 *
+	 * 总是从段的开头开始。这样可避免 XLOG 流式复制造出前半段没有记录的坏段，
+	 * 日后归档这类段时会出问题。
 	 */
 	if (XLogSegmentOffset(recptr, wal_segment_size) != 0)
 		recptr -= XLogSegmentOffset(recptr, wal_segment_size);
 
 	SpinLockAcquire(&walrcv->mutex);
 
-	/* It better be stopped if we try to restart it */
+	/* It better be stopped if we try to restart it
+	 *
+	 * 准备重启时，它应当已经处于停止状态。
+	 */
 	Assert(walrcv->walRcvState == WALRCV_STOPPED ||
 		   walrcv->walRcvState == WALRCV_WAITING);
 
@@ -276,6 +333,9 @@ RequestXLogStreaming(TimeLineID tli, XLogRecPtr recptr, const char *conninfo,
 	 * create_temp_slot as the slot name should be persistent.  Otherwise, use
 	 * create_temp_slot to determine whether this WAL receiver should create a
 	 * temporary slot by itself and use it, or not.
+	 *
+	 * 若已配置复制槽就使用它，并忽略 create_temp_slot，因为槽名应当是持久的。
+	 * 否则用 create_temp_slot 决定这个 walreceiver 是否自己创建并使用临时槽。
 	 */
 	if (slotname != NULL && slotname[0] != '\0')
 	{
@@ -300,6 +360,8 @@ RequestXLogStreaming(TimeLineID tli, XLogRecPtr recptr, const char *conninfo,
 	/*
 	 * If this is the first startup of walreceiver (on this timeline),
 	 * initialize flushedUpto and latestChunkStart to the starting point.
+	 *
+	 * 若这是本时间线上 walreceiver 的第一次启动，把 flushedUpto 和 latestChunkStart 初始化为起点。
 	 */
 	if (walrcv->receiveStart == 0 || walrcv->receivedTLI != tli)
 	{
@@ -323,10 +385,15 @@ RequestXLogStreaming(TimeLineID tli, XLogRecPtr recptr, const char *conninfo,
 /*
  * Returns the last+1 byte position that walreceiver has flushed.
  *
+ * 返回 walreceiver 已刷盘位置的下一字节。
+ *
  * Optionally, returns the previous chunk start, that is the first byte
  * written in the most recent walreceiver flush cycle.  Callers not
  * interested in that value may pass NULL for latestChunkStart. Same for
  * receiveTLI.
+ *
+ * 可选地返回上一块的起点，即最近一轮 walreceiver 刷盘时写入的第一个字节。
+ * 不需要该值时，latestChunkStart 可传 NULL。receiveTLI 同样如此。
  */
 XLogRecPtr
 GetWalRcvFlushRecPtr(XLogRecPtr *latestChunkStart, TimeLineID *receiveTLI)
@@ -348,6 +415,8 @@ GetWalRcvFlushRecPtr(XLogRecPtr *latestChunkStart, TimeLineID *receiveTLI)
 /*
  * Returns the last+1 byte position that walreceiver has written.
  * This returns a recently written value without taking a lock.
+ *
+ * 返回 walreceiver 已写入位置的下一字节。这里不加锁，返回的是最近写入的值。
  */
 XLogRecPtr
 GetWalRcvWriteRecPtr(void)
@@ -360,6 +429,8 @@ GetWalRcvWriteRecPtr(void)
 /*
  * Returns the replication apply delay in ms or -1
  * if the apply delay info is not available
+ *
+ * 返回复制应用延迟，单位为毫秒；若没有该信息则返回 -1。
  */
 int
 GetReplicationApplyDelay(void)
@@ -390,6 +461,8 @@ GetReplicationApplyDelay(void)
 /*
  * Returns the network latency in ms, note that this includes any
  * difference in clock settings between the servers, as well as timezone.
+ *
+ * 返回网络延迟，单位为毫秒。其中包含两台服务器的时钟设定差和时区差。
  */
 int
 GetReplicationTransferLatency(void)
